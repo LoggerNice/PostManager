@@ -1,14 +1,15 @@
-1. Склонировать репозиторий
-2. Установить postgresql на компьютер
-3. Создать базу данных "postwork"
-4. В среде разработки открыть 2 терминала
+1. Установить node.js
+2. Склонировать репозиторий
+3. Установить postgresql на компьютер
+4. Создать базу данных "postwork"
+5. В среде разработки открыть 2 терминала
 
-5. В первом терминале перейти в директорию backend
-6. npm install
-7. npx prisma generate
-8. npx prisma migrate dev
+6. В первом терминале перейти в директорию backend
+7. npm install
+8. npx prisma generate
+9. npx prisma migrate dev
 
-9. Во втором терминале перейти в директорию frontend
-10. npm install
-11. npm run dev
-12. В браузере перейти по ссылке localhost:3000
+10. Во втором терминале перейти в директорию frontend
+11. npm install
+12. npm run dev
+13. В браузере перейти по ссылке localhost:3000
