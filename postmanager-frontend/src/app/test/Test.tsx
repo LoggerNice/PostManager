@@ -47,7 +47,7 @@ export default function Test() {
     }));
 
     return (
-        <div className="w-full max-w-2xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+        <div className="mt-8 w-full max-w-2xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
             <h1 className="text-2xl font-bold mb-6 text-center">Создание проекта</h1>
             
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

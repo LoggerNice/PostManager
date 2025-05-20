@@ -17,7 +17,6 @@ import { useAppDispatch } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
 
 const tabs = [
-    { name: 'Задачи', href: '/', icon: ClipboardDocumentListIcon },
     { name: 'Тест', href: '/test', icon: BeakerIcon },
 ];
 
@@ -40,7 +39,7 @@ export default function Sidebar() {
     return (
         <div className="fixed left-0 top-0 w-64 bg-gray-900 text-white h-screen flex flex-col border-r border-gray-800">
             <div className="p-4 flex items-center justify-between">
-                <h1 className="ml-4 text-xl font-bold">Postwork</h1>
+                <h1 className="ml-4 text-xl font-bold">PostManager</h1>
             </div>
             
             <nav className="mt-2 flex-1">
