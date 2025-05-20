@@ -1,0 +1,57 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import * as userController from './controllers/userController.js';
+import * as departmentController from './controllers/departmentController.js';
+import * as taskController from './controllers/taskController.js';
+import * as projectController from './controllers/projectController.js';
+import * as commentController from './controllers/commentController.js';
+dotenv.config();
+const app = express();
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.post('/login', userController.login);
+app.post('/register', userController.register);
+app.get('/users', userController.getUsers);
+app.get('/users/:userId', userController.getUserById);
+app.put('/users/:userId', userController.updateUser);
+app.get('/departments', departmentController.getDepartments);
+app.get('/departments/:departmentId', departmentController.getDepartmentById);
+app.post('/departments', departmentController.createDepartment);
+app.put('/departments/:departmentId', departmentController.updateDepartment);
+app.delete('/departments/:departmentId', departmentController.deleteDepartment);
+app.get('/departments/:departmentId/users', departmentController.getDepartmentUsers);
+app.get('/departments/:departmentId/projects', departmentController.getDepartmentProjects);
+app.get('/departments/:departmentId/tasks', departmentController.getDepartmentTasks);
+app.get('/tasks', taskController.getTasks);
+app.get('/tasks/:taskId', taskController.getTaskById);
+app.post('/tasks', taskController.createTask);
+app.put('/tasks/:taskId', taskController.updateTask);
+app.delete('/tasks/:taskId', taskController.deleteTask);
+app.get('/tasks/:taskId/comments', taskController.getTaskComments);
+app.get('/projects', projectController.getProjects);
+app.get('/projects/:projectId', projectController.getProjectById);
+app.post('/projects', projectController.createProject);
+app.put('/projects/:projectId', projectController.updateProject);
+app.delete('/projects/:projectId', projectController.deleteProject);
+app.get('/projects/:projectId/tasks', projectController.getProjectTasks);
+app.get('/projects/user/:userId', projectController.getProjectsByUserId);
+app.get('/comments', commentController.getComments);
+app.get('/comments/:commentId', commentController.getCommentById);
+app.post('/comments', commentController.createComment);
+app.put('/comments/:commentId', commentController.updateComment);
+app.delete('/comments/:commentId', commentController.deleteComment);
+app.get('/', (req, res) => {
+    res.json({ message: 'API работает' });
+});
+// Обработчик ошибок должен быть последним middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ message: 'Что-то пошло не так!' });
+});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Сервер запущен на порту ${PORT}`);
+});
+export default app;
