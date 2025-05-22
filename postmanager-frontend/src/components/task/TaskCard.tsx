@@ -54,6 +54,11 @@ export default function TaskCard({ item, columnId, startEditing, handleDeleteTas
           </button>
         </div>
       </div>
+      {item.deadline && (
+        <div className="text-xs text-gray-400">
+          Срок: {new Date(item.deadline).toLocaleDateString('ru-RU')}
+        </div>
+      )}
     </div>
   );
 } 

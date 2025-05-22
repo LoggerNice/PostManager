@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useGetProjectByIdQuery } from '@/store/api/project.api';
-import { Task, Column as ColumnType } from '@/types';
+import { useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from '@/store/api/task.api';
+import { Task } from '@/types/task.types';
+import { Column as ColumnType } from '@/types';
+import { TaskStatus, TaskPriority, TaskForm } from '@/types/task.types';
 import TaskModal from '@/components/task/TaskModal';
 import EditTaskModal from '@/components/task/EditTaskModal';
 import ProjectHeader from '../../../components/projectComponents/ProjectHeader';
@@ -13,15 +16,15 @@ import TimelineTab from '../../../components/projectComponents/TimelineTab';
 import CalendarTab from '../../../components/projectComponents/CalendarTab';
 
 const initialColumns: Record<string, ColumnType> = {
-  inprogress: {
+  IN_PROGRESS: {
     name: "В процессе",
     items: [],
   },
-  problematic: {
+  PROBLEM: {
     name: "Проблема",
     items: [],
   },
-  done: {
+  COMPLETED: {
     name: "Выполнено",
     items: [],
   },
@@ -31,13 +34,21 @@ export default function ProjectPage() {
   const params = useParams();
   const projectId = Number(params.id);
   const { data: project, isLoading, error } = useGetProjectByIdQuery(projectId);
+  const [createTask] = useCreateTaskMutation();
+  const [updateTask] = useUpdateTaskMutation();
+  const [deleteTask] = useDeleteTaskMutation();
   const [activeTab, setActiveTab] = useState('timeline');
   const [columns, setColumns] = useState(initialColumns);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [newTask, setNewTask] = useState({ title: "", description: "", priority: "Низкий" as "Низкий" | "Средний" | "Высокий" });
+  const [newTask, setNewTask] = useState({ 
+    title: "", 
+    description: "", 
+    priority: "Низкий" as "Низкий" | "Средний" | "Высокий",
+    deadline: undefined as string | undefined
+  });
   const [editingTask, setEditingTask] = useState<{ task: Task; columnId: string } | null>(null);
-  const [selectedColumn, setSelectedColumn] = useState<keyof typeof columns>("inprogress");
+  const [selectedColumn, setSelectedColumn] = useState<keyof typeof columns>("IN_PROGRESS");
 
   if (isLoading) return <div className="text-white">Загрузка...</div>;
   if (error) return <div className="text-white">Ошибка при загрузке проекта</div>;
@@ -81,57 +92,95 @@ export default function ProjectPage() {
     }
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!newTask.title.trim()) return;
-    setColumns({
-      ...columns,
-      [selectedColumn]: {
-        ...columns[selectedColumn],
-        items: [
-          ...columns[selectedColumn].items,
-          { id: Date.now().toString(), ...newTask },
-        ],
-      },
-    });
-    setShowModal(false);
-    setNewTask({ title: "", description: "", priority: "Низкий" });
+    
+    try {
+      const priorityMap: Record<string, TaskPriority> = {
+        'Низкий': 'LOW',
+        'Средний': 'MEDIUM',
+        'Высокий': 'HIGH'
+      };
+
+      const taskData: TaskForm = {
+        title: newTask.title,
+        description: newTask.description,
+        priority: priorityMap[newTask.priority],
+        status: selectedColumn as TaskStatus,
+        projectId: projectId,
+        deadline: newTask.deadline || undefined
+      };
+      
+      const result = await createTask(taskData).unwrap();
+      
+      setColumns(prevColumns => ({
+        ...prevColumns,
+        [selectedColumn]: {
+          ...prevColumns[selectedColumn],
+          items: [...prevColumns[selectedColumn].items, result]
+        }
+      }));
+      
+      setShowModal(false);
+      setNewTask({ title: "", description: "", priority: "Низкий", deadline: undefined });
+    } catch (error) {
+      console.error('Failed to create task:', error);
+    }
   };
 
-  const handleEditTask = () => {
+  const handleEditTask = async () => {
     if (!editingTask || !editingTask.task.title.trim()) return;
     
-    setColumns(prevColumns => {
-      const column = prevColumns[editingTask.columnId];
-      const updatedItems = column.items.map(item => 
-        item.id === editingTask.task.id ? editingTask.task : item
-      );
-      
-      return {
-        ...prevColumns,
-        [editingTask.columnId]: {
-          ...column,
-          items: updatedItems
+    try {
+      const result = await updateTask({
+        taskId: editingTask.task.id,
+        task: {
+          ...editingTask.task,
+          deadline: editingTask.task.deadline || undefined
         }
-      };
-    });
-    
-    setShowEditModal(false);
-    setEditingTask(null);
+      }).unwrap();
+      
+      setColumns(prevColumns => {
+        const column = prevColumns[editingTask.columnId];
+        const updatedItems = column.items.map(item => 
+          item.id === editingTask.task.id ? result : item
+        );
+        
+        return {
+          ...prevColumns,
+          [editingTask.columnId]: {
+            ...column,
+            items: updatedItems
+          }
+        };
+      });
+      
+      setShowEditModal(false);
+      setEditingTask(null);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
   };
 
-  const handleDeleteTask = (columnId: string, taskId: string) => {
-    setColumns(prevColumns => {
-      const column = prevColumns[columnId];
-      const updatedItems = column.items.filter(item => item.id !== taskId);
+  const handleDeleteTask = async (columnId: string, taskId: string) => {
+    try {
+      await deleteTask(taskId).unwrap();
       
-      return {
-        ...prevColumns,
-        [columnId]: {
-          ...column,
-          items: updatedItems
-        }
-      };
-    });
+      setColumns(prevColumns => {
+        const column = prevColumns[columnId];
+        const updatedItems = column.items.filter(item => item.id !== taskId);
+        
+        return {
+          ...prevColumns,
+          [columnId]: {
+            ...column,
+            items: updatedItems
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
   };
 
   const startEditing = (task: Task, columnId: string) => {

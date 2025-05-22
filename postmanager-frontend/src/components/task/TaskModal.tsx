@@ -1,9 +1,11 @@
+import { DateInput } from '../ui/date-input/DateInput';
+
 interface TaskModalProps {
   visible: boolean;
   onClose: () => void;
   onCreate: () => void;
-  newTask: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий' };
-  setNewTask: (task: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий' }) => void;
+  newTask: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий'; deadline: string | undefined };
+  setNewTask: (task: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий'; deadline: string | undefined }) => void;
   columns: any;
   selectedColumn: string;
   setSelectedColumn: (col: string) => void;
@@ -15,22 +17,34 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
       <div className="bg-zinc-900 rounded-lg p-6 w-full max-w-md border border-zinc-800">
         <h2 className="text-xl font-bold mb-4">Создать задачу</h2>
-        <input
-          className="w-full mb-3 p-2 rounded bg-zinc-800 text-white border border-zinc-700"
-          placeholder="Название задачи"
-          value={newTask.title}
-          onChange={e => setNewTask({ ...newTask, title: e.target.value })}
-        />
-        <textarea
-          className="w-full mb-3 p-2 rounded bg-zinc-800 text-white border border-zinc-700"
-          placeholder="Описание задачи"
-          value={newTask.description}
-          onChange={e => setNewTask({ ...newTask, description: e.target.value })}
-        />
         <div className="mb-3">
-          <label className="block mb-1 text-sm">Приоритет</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Название задачи
+          </label>
+          <input
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            placeholder="Введите название"
+            value={newTask.title}
+            onChange={e => setNewTask({ ...newTask, title: e.target.value })}
+          />
+        </div>
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Описание задачи
+          </label>
+          <textarea
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+            placeholder="Введите описание"
+            value={newTask.description}
+            onChange={e => setNewTask({ ...newTask, description: e.target.value })}
+          />
+        </div>
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Приоритет
+          </label>
           <select
-            className="w-full p-2 rounded bg-zinc-800 text-white border border-zinc-700"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             value={newTask.priority}
             onChange={e => setNewTask({ ...newTask, priority: e.target.value as 'Низкий' | 'Средний' | 'Высокий' })}
           >
@@ -39,10 +53,17 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             <option value="Высокий">Высокий</option>
           </select>
         </div>
+        <DateInput
+          label="Срок выполнения"
+          value={newTask.deadline || ''}
+          onChange={e => setNewTask({ ...newTask, deadline: e.target.value })}
+        />
         <div className="mb-3">
-          <label className="block mb-1 text-sm">Колонка</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Колонка
+          </label>
           <select
-            className="w-full p-2 rounded bg-zinc-800 text-white border border-zinc-700"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
             value={selectedColumn}
             onChange={e => setSelectedColumn(e.target.value)}
           >

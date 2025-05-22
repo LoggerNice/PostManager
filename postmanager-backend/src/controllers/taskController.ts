@@ -3,13 +3,23 @@ import prisma from '../utils/prisma.js';
 
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { title, description, status, userId } = req.body;
+        const { title, description, status, priority, projectId, deadline } = req.body;
+        
+        if (!projectId) {
+            res.status(400).json({ message: 'ID проекта обязателен' });
+            return;
+        }
+
         const task = await prisma.task.create({
             data: {
                 title,
                 description,
                 status,
-                assigneeId: parseInt(userId),
+                priority,
+                deadline: deadline ? new Date(deadline) : null,
+                project: {
+                    connect: { id: parseInt(projectId) }
+                }
             },
         });
         res.status(201).json(task);
@@ -47,10 +57,16 @@ export const getTaskById = async (req: Request, res: Response): Promise<void> =>
 export const updateTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { taskId } = req.params;
-        const { title, description, status } = req.body;
+        const { title, description, status, priority, deadline } = req.body;
         const updatedTask = await prisma.task.update({
             where: { id: parseInt(taskId) },
-            data: { title, description, status },
+            data: { 
+                title, 
+                description, 
+                status,
+                priority,
+                deadline: deadline ? new Date(deadline) : null
+            },
         });
         res.json(updatedTask);
     } catch (error) {

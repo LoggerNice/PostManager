@@ -2,7 +2,7 @@ import { ClipboardDocumentListIcon, ChartBarIcon, CalendarDaysIcon } from '@hero
 
 const TABS = [
   { key: 'tasks', label: 'Задачи', icon: ClipboardDocumentListIcon },
-  { key: 'timeline', label: 'Сроки', icon: ChartBarIcon },
+  { key: 'timeline', label: 'Этапы', icon: ChartBarIcon },
   { key: 'calendar', label: 'Календарь', icon: CalendarDaysIcon }
 ];
 
