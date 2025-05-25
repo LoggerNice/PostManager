@@ -4,8 +4,8 @@ interface TaskModalProps {
   visible: boolean;
   onClose: () => void;
   onCreate: () => void;
-  newTask: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий'; deadline: string | undefined };
-  setNewTask: (task: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий'; deadline: string | undefined }) => void;
+  newTask: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий' };
+  setNewTask: (task: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий' }) => void;
   columns: any;
   selectedColumn: string;
   setSelectedColumn: (col: string) => void;
@@ -51,25 +51,6 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             <option value="Низкий">Низкий</option>
             <option value="Средний">Средний</option>
             <option value="Высокий">Высокий</option>
-          </select>
-        </div>
-        <DateInput
-          label="Срок выполнения"
-          value={newTask.deadline || ''}
-          onChange={e => setNewTask({ ...newTask, deadline: e.target.value })}
-        />
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Колонка
-          </label>
-          <select
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            value={selectedColumn}
-            onChange={e => setSelectedColumn(e.target.value)}
-          >
-            {Object.entries(columns).map(([colId, col]) => (
-              <option key={colId} value={colId}>{col.name}</option>
-            ))}
           </select>
         </div>
         <div className="flex justify-end gap-2">

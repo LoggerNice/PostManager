@@ -7,12 +7,13 @@ interface ColumnProps {
   column: ColumnType;
   startEditing: (task: Task, columnId: string) => void;
   handleDeleteTask: (columnId: string, taskId: string) => void;
+  onTaskUpdate: (taskId: string, updatedTask: Task) => void;
   onAddTask: () => void;
 }
 
-export default function Column({ columnId, column, startEditing, handleDeleteTask, onAddTask }: ColumnProps) {
+export default function Column({ columnId, column, startEditing, handleDeleteTask, onTaskUpdate, onAddTask }: ColumnProps) {
   return (
-    <div className="bg-gray-800 rounded-xl p-4 min-w-[300px] w-80 flex-shrink-0 shadow-lg border border-zinc-800">
+    <div className="bg-gray-800 rounded-xl p-4 min-w-[300px] w-80 flex-shrink-0 shadow-lg border border-zinc-800 h-[calc(100vh-200px)] flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold">{column.name} <span className="text-blue-500 pl-2">{column.items.length}</span></h2>
         <button
@@ -27,7 +28,7 @@ export default function Column({ columnId, column, startEditing, handleDeleteTas
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`space-y-4 min-h-[60px] transition-colors ${snapshot.isDraggingOver ? 'bg-zinc-800' : ''}`}
+            className={`space-y-4 flex-1 overflow-y-auto ${snapshot.isDraggingOver ? 'bg-zinc-800' : ''}`}
           >
             {column.items.map((item, idx) => (
               <Draggable key={item.id} draggableId={item.id} index={idx}>
@@ -37,6 +38,7 @@ export default function Column({ columnId, column, startEditing, handleDeleteTas
                     columnId={columnId}
                     startEditing={startEditing}
                     handleDeleteTask={handleDeleteTask}
+                    onTaskUpdate={onTaskUpdate}
                     snapshot={snapshot}
                     provided={provided}
                   />

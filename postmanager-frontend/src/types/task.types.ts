@@ -1,11 +1,12 @@
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'PROBLEM' | 'COMPLETED' | 'CANCELLED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+export type TaskPriorityDisplay = 'Низкий' | 'Средний' | 'Высокий';
 
 export interface Task {
     id: string;
     title: string;
     description?: string;
-    priority: TaskPriority;
+    priority: TaskPriority | TaskPriorityDisplay;
     status: TaskStatus;
     projectId: number;
     deadline?: string;

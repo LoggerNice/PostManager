@@ -1,5 +1,4 @@
 import { Task } from '../../types';
-import { DateInput } from '../ui/date-input/DateInput';
 
 interface EditTaskModalProps {
   visible: boolean;
@@ -60,14 +59,6 @@ export default function EditTaskModal({ visible, onClose, onSave, editingTask, s
             <option value="Высокий">Высокий</option>
           </select>
         </div>
-        <DateInput
-          label="Срок выполнения"
-          value={editingTask.task.deadline || ''}
-          onChange={e => setEditingTask({
-            ...editingTask,
-            task: { ...editingTask.task, deadline: e.target.value }
-          })}
-        />
         <div className="flex justify-end gap-2">
           <button
             className="px-4 py-2 rounded bg-zinc-700 text-white"

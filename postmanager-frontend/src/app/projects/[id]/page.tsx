@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useGetProjectByIdQuery } from '@/store/api/project.api';
-import { useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from '@/store/api/task.api';
+import { useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation, useGetProjectTasksQuery } from '@/store/api/task.api';
 import { Task } from '@/types/task.types';
 import { Column as ColumnType } from '@/types';
-import { TaskStatus, TaskPriority, TaskForm } from '@/types/task.types';
+import { TaskStatus, TaskPriority, TaskPriorityDisplay, TaskForm } from '@/types/task.types';
 import TaskModal from '@/components/task/TaskModal';
 import EditTaskModal from '@/components/task/EditTaskModal';
 import ProjectHeader from '../../../components/projectComponents/ProjectHeader';
@@ -34,21 +34,64 @@ export default function ProjectPage() {
   const params = useParams();
   const projectId = Number(params.id);
   const { data: project, isLoading, error } = useGetProjectByIdQuery(projectId);
+  const { data: projectTasks } = useGetProjectTasksQuery(projectId);
   const [createTask] = useCreateTaskMutation();
   const [updateTask] = useUpdateTaskMutation();
   const [deleteTask] = useDeleteTaskMutation();
-  const [activeTab, setActiveTab] = useState('timeline');
+  const [activeTab, setActiveTab] = useState('tasks');
   const [columns, setColumns] = useState(initialColumns);
   const [showModal, setShowModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [newTask, setNewTask] = useState({ 
     title: "", 
     description: "", 
-    priority: "Низкий" as "Низкий" | "Средний" | "Высокий",
-    deadline: undefined as string | undefined
+    priority: "Низкий" as "Низкий" | "Средний" | "Высокий"
   });
   const [editingTask, setEditingTask] = useState<{ task: Task; columnId: string } | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<keyof typeof columns>("IN_PROGRESS");
+
+  // Reset columns when project changes
+  useEffect(() => {
+    setColumns(initialColumns);
+  }, [projectId]);
+
+  const priorityMapToEnglish: Record<string, TaskPriority> = {
+    'Низкий': 'LOW',
+    'Средний': 'MEDIUM',
+    'Высокий': 'HIGH'
+  };
+
+  const priorityMapToRussian: Record<TaskPriority, string> = {
+    'LOW': 'Низкий',
+    'MEDIUM': 'Средний',
+    'HIGH': 'Высокий'
+  };
+
+  useEffect(() => {
+    if (projectTasks) {
+      // Создаем новые колонки с пустыми массивами
+      const newColumns = {
+        IN_PROGRESS: { ...initialColumns.IN_PROGRESS, items: [] as Task[] },
+        PROBLEM: { ...initialColumns.PROBLEM, items: [] as Task[] },
+        COMPLETED: { ...initialColumns.COMPLETED, items: [] as Task[] }
+      };
+      
+      // Распределяем задачи по колонкам
+      projectTasks.forEach((task: Task) => {
+        const status = task.status as keyof typeof newColumns;
+        if (status in newColumns) {
+          // Convert priority from English to Russian for display
+          const taskWithRussianPriority = {
+            ...task,
+            priority: priorityMapToRussian[task.priority as TaskPriority] as TaskPriorityDisplay
+          } as Task;
+          newColumns[status].items.push(taskWithRussianPriority);
+        }
+      });
+      
+      setColumns(newColumns);
+    }
+  }, [projectTasks]);
 
   if (isLoading) return <div className="text-white">Загрузка...</div>;
   if (error) return <div className="text-white">Ошибка при загрузке проекта</div>;
@@ -96,33 +139,32 @@ export default function ProjectPage() {
     if (!newTask.title.trim()) return;
     
     try {
-      const priorityMap: Record<string, TaskPriority> = {
-        'Низкий': 'LOW',
-        'Средний': 'MEDIUM',
-        'Высокий': 'HIGH'
-      };
-
       const taskData: TaskForm = {
         title: newTask.title,
         description: newTask.description,
-        priority: priorityMap[newTask.priority],
+        priority: priorityMapToEnglish[newTask.priority],
         status: selectedColumn as TaskStatus,
-        projectId: projectId,
-        deadline: newTask.deadline || undefined
+        projectId: projectId
       };
       
       const result = await createTask(taskData).unwrap();
+      
+      // Convert priority to Russian for display
+      const resultWithRussianPriority = {
+        ...result,
+        priority: priorityMapToRussian[result.priority as TaskPriority]
+      };
       
       setColumns(prevColumns => ({
         ...prevColumns,
         [selectedColumn]: {
           ...prevColumns[selectedColumn],
-          items: [...prevColumns[selectedColumn].items, result]
+          items: [...prevColumns[selectedColumn].items, resultWithRussianPriority]
         }
       }));
       
       setShowModal(false);
-      setNewTask({ title: "", description: "", priority: "Низкий", deadline: undefined });
+      setNewTask({ title: "", description: "", priority: "Низкий" });
     } catch (error) {
       console.error('Failed to create task:', error);
     }
@@ -132,18 +174,31 @@ export default function ProjectPage() {
     if (!editingTask || !editingTask.task.title.trim()) return;
     
     try {
+      // Если изменилась только дата, автоматически сохраняем
+      const isOnlyDeadlineChanged = 
+        editingTask.task.title === columns[editingTask.columnId].items.find(item => item.id === editingTask.task.id)?.title &&
+        editingTask.task.description === columns[editingTask.columnId].items.find(item => item.id === editingTask.task.id)?.description &&
+        editingTask.task.priority === columns[editingTask.columnId].items.find(item => item.id === editingTask.task.id)?.priority;
+
       const result = await updateTask({
         taskId: editingTask.task.id,
         task: {
           ...editingTask.task,
+          priority: priorityMapToEnglish[editingTask.task.priority as keyof typeof priorityMapToEnglish],
           deadline: editingTask.task.deadline || undefined
         }
       }).unwrap();
       
+      // Convert priority to Russian for display
+      const resultWithRussianPriority = {
+        ...result,
+        priority: priorityMapToRussian[result.priority as TaskPriority]
+      };
+      
       setColumns(prevColumns => {
         const column = prevColumns[editingTask.columnId];
         const updatedItems = column.items.map(item => 
-          item.id === editingTask.task.id ? result : item
+          item.id === editingTask.task.id ? resultWithRussianPriority : item
         );
         
         return {
@@ -166,18 +221,13 @@ export default function ProjectPage() {
     try {
       await deleteTask(taskId).unwrap();
       
-      setColumns(prevColumns => {
-        const column = prevColumns[columnId];
-        const updatedItems = column.items.filter(item => item.id !== taskId);
-        
-        return {
-          ...prevColumns,
-          [columnId]: {
-            ...column,
-            items: updatedItems
-          }
-        };
-      });
+      setColumns(prevColumns => ({
+        ...prevColumns,
+        [columnId]: {
+          ...prevColumns[columnId],
+          items: prevColumns[columnId].items.filter(item => item.id !== taskId)
+        }
+      }));
     } catch (error) {
       console.error('Failed to delete task:', error);
     }
@@ -186,6 +236,21 @@ export default function ProjectPage() {
   const startEditing = (task: Task, columnId: string) => {
     setEditingTask({ task, columnId });
     setShowEditModal(true);
+  };
+
+  const handleTaskUpdate = (taskId: string, updatedTask: Task) => {
+    setColumns(prevColumns => {
+      const newColumns = { ...prevColumns };
+      Object.keys(newColumns).forEach(columnId => {
+        newColumns[columnId] = {
+          ...newColumns[columnId],
+          items: newColumns[columnId].items.map(task => 
+            task.id === taskId ? updatedTask : task
+          )
+        };
+      });
+      return newColumns;
+    });
   };
 
   const renderTabContent = () => {
@@ -197,6 +262,7 @@ export default function ProjectPage() {
             onDragEnd={onDragEnd}
             startEditing={startEditing}
             handleDeleteTask={handleDeleteTask}
+            onTaskUpdate={handleTaskUpdate}
             onAddTask={(columnId: keyof typeof columns) => {
               setShowModal(true);
               setSelectedColumn(columnId);
@@ -216,7 +282,6 @@ export default function ProjectPage() {
     <div className="min-h-screen bg-gray-900 text-white">
       <ProjectHeader
         title={project.title}
-        description={project.description ?? ''}
         users={users}
       />
       <ProjectTabs

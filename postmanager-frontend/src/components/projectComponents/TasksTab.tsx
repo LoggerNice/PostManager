@@ -1,5 +1,5 @@
 import { DragDropContext } from '@hello-pangea/dnd';
-import Column from '@/components/task/Column';
+import Column from '../task/Column';
 import { Task, Column as ColumnType } from '@/types';
 
 interface TasksTabProps {
@@ -7,6 +7,7 @@ interface TasksTabProps {
   onDragEnd: (result: any) => void;
   startEditing: (task: Task, columnId: string) => void;
   handleDeleteTask: (columnId: string, taskId: string) => void;
+  onTaskUpdate: (taskId: string, updatedTask: Task) => void;
   onAddTask: (columnId: string) => void;
 }
 
@@ -14,7 +15,8 @@ export default function TasksTab({
   columns, 
   onDragEnd, 
   startEditing, 
-  handleDeleteTask, 
+  handleDeleteTask,
+  onTaskUpdate,
   onAddTask 
 }: TasksTabProps) {
   return (
@@ -28,6 +30,7 @@ export default function TasksTab({
               column={column}
               startEditing={startEditing}
               handleDeleteTask={handleDeleteTask}
+              onTaskUpdate={onTaskUpdate}
               onAddTask={() => onAddTask(columnId)}
             />
           ))}

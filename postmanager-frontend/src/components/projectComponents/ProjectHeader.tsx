@@ -2,18 +2,16 @@ import { IUser } from '@/types/user.types';
 
 interface ProjectHeaderProps {
   title: string;
-  description: string;
   users: IUser[];
 }
 
-export default function ProjectHeader({ title, description, users }: ProjectHeaderProps) {
+export default function ProjectHeader({ title, users }: ProjectHeaderProps) {
   return (
     <div className="flex justify-between items-center px-8 pt-8 pb-4">
       <div className="flex items-center gap-3">
         <span className="text-blue-400 text-2xl">🚀</span>
         <div>
           <div className="text-xl font-bold">{title}</div>
-          <div className="text-gray-400 text-sm">{description}</div>
         </div>
       </div>
       <div className="flex items-center gap-2">
