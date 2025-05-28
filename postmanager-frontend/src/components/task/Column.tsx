@@ -28,10 +28,10 @@ export default function Column({ columnId, column, startEditing, handleDeleteTas
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`space-y-4 flex-1 overflow-y-auto ${snapshot.isDraggingOver ? 'bg-zinc-800' : ''}`}
+            className={`space-y-2 flex-1 overflow-y-auto ${snapshot.isDraggingOver ? 'bg-zinc-800' : ''}`}
           >
             {column.items.map((item, idx) => (
-              <Draggable key={item.id} draggableId={item.id} index={idx}>
+              <Draggable key={item.id} draggableId={String(item.id)} index={idx}>
                 {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
                   <TaskCard
                     item={item}

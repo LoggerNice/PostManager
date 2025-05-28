@@ -99,9 +99,11 @@ export default function ProjectPage() {
 
   const users = project.users || [];
 
-  const onDragEnd = (result: any) => {
+  const onDragEnd = async (result: any) => {
     if (!result.destination) return;
     const { source, destination } = result;
+    
+    // If dropped in the same column, just reorder
     if (source.droppableId === destination.droppableId) {
       const column = columns[source.droppableId];
       const copiedItems = [...column.items];
@@ -115,12 +117,14 @@ export default function ProjectPage() {
         },
       });
     } else {
+      // If dropped in a different column, update both UI and server
       const sourceColumn = columns[source.droppableId];
       const destColumn = columns[destination.droppableId];
       const sourceItems = [...sourceColumn.items];
       const destItems = [...destColumn.items];
       const [removed] = sourceItems.splice(source.index, 1);
-      destItems.splice(destination.index, 0, removed);
+      
+      // Update UI immediately
       setColumns({
         ...columns,
         [source.droppableId]: {
@@ -129,9 +133,31 @@ export default function ProjectPage() {
         },
         [destination.droppableId]: {
           ...destColumn,
-          items: destItems,
+          items: [...destItems, removed],
         },
       });
+
+      try {
+        // Update task status on server
+        const priorityMap: Record<string, TaskPriority> = {
+          'Низкий': 'LOW',
+          'Средний': 'MEDIUM',
+          'Высокий': 'HIGH'
+        };
+
+        await updateTask({
+          taskId: removed.id,
+          task: {
+            ...removed,
+            status: destination.droppableId as TaskStatus,
+            priority: priorityMap[removed.priority as keyof typeof priorityMap]
+          }
+        }).unwrap();
+      } catch (error) {
+        console.error('Failed to update task status:', error);
+        // Revert UI changes if server update fails
+        setColumns(columns);
+      }
     }
   };
 

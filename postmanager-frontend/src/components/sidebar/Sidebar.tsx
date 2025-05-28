@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -24,8 +24,14 @@ export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const dispatch = useAppDispatch();
-    const [projectsOpen, setProjectsOpen] = useState(false);
-    const userId = getCookie('userId');
+    const [projectsOpen, setProjectsOpen] = useState(true);
+    const [userId, setUserId] = useState<string | null>(null);
+    const [userName, setUserName] = useState<string | null>(null);
+
+    useEffect(() => {
+        setUserId(getCookie('userId'));
+        setUserName(getCookie('userName'));
+    }, []);
 
     const { data: projects = [] } = useGetUserProjectsQuery(parseInt(userId || '0'), {
         skip: !userId
@@ -108,7 +114,7 @@ export default function Sidebar() {
                             />
                         </div>
                         <span className="text-sm font-medium">
-                            {getCookie('userName')}
+                            {userName || 'Загрузка...'}
                         </span>
                     </Link>
                     <button

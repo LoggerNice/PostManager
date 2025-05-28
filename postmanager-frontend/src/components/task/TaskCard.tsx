@@ -101,7 +101,7 @@ export default function TaskCard({ item, columnId, startEditing, handleDeleteTas
                 onClick={() => {
                   startEditing(item, columnId);
                   setShowMenu(false);
-                }}
+            }}
                 className="w-full px-4 py-2 pt-3 text-left text-[12px] text-gray-300 hover:bg-gray-700 rounded-t-lg flex items-center gap-2"
               >
                 <PencilSquareIcon className="w-4 h-4" />
@@ -113,20 +113,20 @@ export default function TaskCard({ item, columnId, startEditing, handleDeleteTas
                   setShowMenu(false);
                 }}
                 className="w-full px-4 py-2 text-left text-[12px] text-gray-300 hover:bg-gray-700 flex items-center gap-2"
-              >
+          >
                 <CalendarIcon className="w-4 h-4" />
                 Добавить дату
-              </button>
-              <button
+          </button>
+          <button
                 onClick={() => {
-                  handleDeleteTask(columnId, item.id);
+              handleDeleteTask(columnId, item.id);
                   setShowMenu(false);
-                }}
+            }}
                 className="w-full px-4 py-2 pb-3 text-left text-[12px] text-red-400 hover:bg-gray-700 rounded-b-lg flex items-center gap-2"
-              >
+          >
                 <TrashIcon className="w-4 h-4" />
                 Удалить
-              </button>
+          </button>
             </div>
           )}
         </div>
