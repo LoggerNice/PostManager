@@ -1,11 +1,12 @@
 export interface IAuthResponse {
     token: string;
-    user: {
-        id: number;
-        name: string;
-        login: string;
-        role: string;
-    };
+    id: number;
+    name: string;
+    login: string;
+    role: string;
+    departmentId: number;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface ILoginData {

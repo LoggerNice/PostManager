@@ -3,7 +3,7 @@ import { IAuthResponse } from '@/types/auth.types';
 import { setCookie, removeCookie } from '@/utils/cookie';
 
 interface AuthState {
-    user: IAuthResponse['user'] | null;
+    user: Omit<IAuthResponse, 'token'> | null;
     token: string | null;
 }
 
@@ -17,12 +17,13 @@ const authSlice = createSlice({
     initialState,
     reducers: {
         setCredentials: (state, action: PayloadAction<IAuthResponse>) => {
-            const { user, token } = action.payload;
-            state.user = user;
+            console.log('setCredentials payload:', action.payload);
+            const { token, ...userData } = action.payload;
+            state.user = userData;
             state.token = token;
             setCookie('accessToken', token);
-            setCookie('userId', user.id.toString());
-            setCookie('userName', user.name);
+            setCookie('userId', userData.id.toString());
+            setCookie('userName', userData.name);
         },
         logout: (state) => {
             state.user = null;

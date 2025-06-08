@@ -30,10 +30,40 @@ export default function Auth() {
         watch,
         reset
     } = useForm<IAuthForm>({
-        mode: 'onChange'
+        mode: 'onChange',
+        defaultValues: {
+            name: '',
+            login: '',
+            password: '',
+            confirmPassword: '',
+            departmentId: undefined
+        }
     });
 
     const password = watch('password');
+
+    const validationRules = {
+        name: { required: 'Имя обязательно' },
+        login: {
+            required: 'Логин обязателен',
+            minLength: {
+                value: 3,
+                message: 'Логин должен содержать минимум 3 символа'
+            }
+        },
+        password: {
+            required: 'Пароль обязателен',
+            minLength: {
+                value: 6,
+                message: 'Пароль должен содержать минимум 6 символов'
+            }
+        },
+        confirmPassword: {
+            required: 'Пароль обязателен',
+            validate: (value: string | undefined) => value === password || 'Пароли не совпадают'
+        },
+        departmentId: { required: 'Выберите отдел' }
+    } as const;
 
     const onSubmit = async (data: IAuthForm) => {
         try {
@@ -46,17 +76,20 @@ export default function Auth() {
                       departmentId: data.departmentId!
                   }).unwrap();
 
+            console.log('Auth response:', response);
+
             dispatch(setCredentials(response));
             
             setCookie('accessToken', response.token);
-            setCookie('userId', response.user.id.toString());
-            setCookie('userName', response.user.name);
+            setCookie('userId', response.id.toString());
+            setCookie('userName', response.name);
 
             toast.success(isLoginForm ? 'Авторизация прошла успешно' : 'Регистрация прошла успешно');
             setIsLoginForm(true);
             reset();
             router.push('/');
         } catch (error: any) {
+            console.log(error);
             toast.error(error.data?.message || 'Произошла ошибка');
         }
     };
@@ -77,7 +110,7 @@ export default function Auth() {
                             label="Имя"
                             type="text"
                             placeholder="Введите имя"
-                            {...registerForm('name', {required: 'Имя обязательно'})}
+                            {...registerForm('name', validationRules.name)}
                             error={errors.name}
                         />
                     )}
@@ -86,26 +119,15 @@ export default function Auth() {
                         label="Логин"
                         type="text"
                         placeholder="Введите логин"
-                        {...registerForm('login', {
-                            required: 'Логин обязателен',
-                            minLength: {
-                                value: 3,
-                                message: 'Логин должен содержать минимум 3 символа'
-                            }
-                        })}
+                        {...registerForm('login', validationRules.login)}
                         error={errors.login}
                     />
+
                     <Input
                         label="Пароль"
                         type="password"
                         placeholder="Введите пароль"
-                        {...registerForm('password', {
-                            required: 'Пароль обязателен',
-                            minLength: {
-                                value: 6,
-                                message: 'Пароль должен содержать минимум 6 символов'
-                            }
-                        })}
+                        {...registerForm('password', validationRules.password)}
                         error={errors.password}
                     />
                     
@@ -114,10 +136,7 @@ export default function Auth() {
                             label="Повторите пароль"
                             type="password"
                             placeholder="Введите пароль"
-                            {...registerForm('confirmPassword', {
-                                required: 'Пароль обязателен',
-                                validate: value => value === password || 'Пароли не совпадают'
-                            })}
+                            {...registerForm('confirmPassword', validationRules.confirmPassword)}
                             error={errors.confirmPassword}
                         />
                     )}

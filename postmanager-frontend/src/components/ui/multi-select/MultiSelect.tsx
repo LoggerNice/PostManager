@@ -100,6 +100,8 @@ export function MultiSelect({
     error,
     placeholder = 'Выберите...'
 }: MultiSelectProps) {
+    const instanceId = `multi-select-${name}`;
+    
     return (
         <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -114,6 +116,7 @@ export function MultiSelect({
                 placeholder={placeholder}
                 value={options.filter(option => value?.includes(option.value))}
                 onChange={(newValue) => onChange(newValue.map(option => option.value))}
+                instanceId={instanceId}
             />
             {error && (
                 <p className="mt-1 text-sm text-red-500">{error.message}</p>

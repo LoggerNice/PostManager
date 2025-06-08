@@ -7,8 +7,15 @@ import SidebarAuthWrapper from "@/components/sidebar/SidebarAuthWrapper";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Postwork",
-  description: "Postwork - система управления проектами",
+  title: "Postman",
+  description: "Postman - система управления проектами",
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' }
+    ],
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export default function RootLayout({
