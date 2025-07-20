@@ -68,7 +68,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 export const register = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { login, name, password, departmentId } = req.body;
+        const { login, name, password, role, departmentId } = req.body;
 
         if (!login || !name || !password || !departmentId) {
             res.status(400).json({ message: 'Логин, имя, отдел и пароль обязательны' });
@@ -84,7 +84,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         }
 
         const user = await prisma.user.create({ 
-            data: { login, name, password: hashedPassword, departmentId: parseInt(departmentId) },
+            data: { login, name, role, password: hashedPassword, departmentId: parseInt(departmentId) },
             select: {
                 id: true,
                 login: true,

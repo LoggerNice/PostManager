@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { 
+import {
     FolderIcon,
     ArrowRightOnRectangleIcon,
     BeakerIcon,
@@ -14,10 +14,7 @@ import { useGetUserProjectsQuery } from '@/store/api/project.api';
 import { getCookie } from '@/utils/cookie';
 import { useAppDispatch } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
-
-const tabs = [
-    { name: 'Админ панель', href: '/test', icon: BeakerIcon },
-];
+import { PAGE_URL } from '@/constants';
 
 export default function Sidebar() {
     const pathname = usePathname();
@@ -32,45 +29,46 @@ export default function Sidebar() {
         setUserName(getCookie('userName'));
     }, []);
 
-    const { data: projects = [] } = useGetUserProjectsQuery(parseInt(userId || '0'), {
-        skip: !userId
+    const { data: projects = [], isLoading: projectsLoading } = useGetUserProjectsQuery(parseInt(userId || '0'), {
+        skip: !userId,
+        pollingInterval: 10000, // Обновляем каждые 10 секунд
+        refetchOnFocus: true,   // Обновляем при фокусе на окне
+        refetchOnReconnect: true // Обновляем при восстановлении соединения
     });
 
     const handleLogout = () => {
         dispatch(logout());
-        router.push('/auth');
+        router.push(PAGE_URL.AUTH);
     };
+
+    const isActive = pathname === PAGE_URL.ADMIN;
 
     return (
         <div className="fixed left-0 top-0 w-64 bg-gray-900 text-white h-screen flex flex-col border-r border-gray-800">
             <div className="p-4 flex items-center justify-between">
                 <h1 className="ml-4 text-xl font-bold">Postman</h1>
             </div>
-            
+
             <nav className="mt-2 flex-1">
-                {tabs.map((tab) => {
-                    const isActive = pathname === tab.href;
-                    return (
-                        <Link
-                            key={tab.name}
-                            href={tab.href}
-                            className={`flex items-center mx-4 py-3 my-2 rounded-lg *:transition-colors 
-                                ${isActive 
-                                    ? 'text-white bg-gray-800' 
-                                    : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                        >
-                            <div className="flex items-center px-3">
-                                <tab.icon className="h-6 w-6" />
-                                <span className="ml-3">{tab.name}</span>
-                            </div>
-                        </Link>
-                    );
-                })}
+                <Link
+                    key={'Админ панель'}
+                    href={PAGE_URL.ADMIN}
+                    className={`flex items-center mx-4 py-3 mt-2 rounded-lg *:transition-colors 
+                        ${isActive
+                            ? 'text-white bg-gray-800'
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                        }`}
+                >
+                    <div className="flex items-center px-3">
+                        <BeakerIcon className="h-6 w-6" />
+                        <span className="ml-3">{'Админ панель'}</span>
+                    </div>
+                </Link>
 
                 {/* Проекты с выпадающим списком */}
                 <div className="mx-4 my-2">
                     <button
-                        className={`flex items-center w-full px-3 py-3 rounded-lg transition-colors ${pathname.startsWith('/projects') ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                        className={`flex items-center w-full px-3 py-3 rounded-lg transition-colors ${pathname.startsWith(PAGE_URL.PROFILE) ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
                         onClick={() => setProjectsOpen((v) => !v)}
                     >
                         <FolderIcon className="h-6 w-6" />
@@ -79,8 +77,8 @@ export default function Sidebar() {
                     </button>
                     {projectsOpen && (
                         <div className="ml-8 mt-2 space-y-1">
-                            {projects.length === 0 && (
-                                <div className="text-gray-500 text-sm">Нет проектов</div>
+                            {projects.length === 0 && !projectsLoading && (
+                                <div className="text-gray-500 text-sm px-2">Нет проектов</div>
                             )}
                             {projects.map((project) => (
                                 <Link
@@ -98,10 +96,10 @@ export default function Sidebar() {
 
             <div className="p-4">
                 <div className={`flex items-center justify-between rounded-lg p-2
-                    ${pathname === '/profile'
-                        ? 'text-white bg-gray-800' 
+                    ${pathname === PAGE_URL.PROFILE
+                        ? 'text-white bg-gray-800'
                         : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}>
-                    <Link href="/profile" className="flex items-center space-x-3">
+                    <Link href={PAGE_URL.PROFILE} className="flex items-center space-x-3">
                         <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center">
                             <div className="absolute w-3 h-3 bg-green-500 rounded-full bottom-0 right-0 border-2 border-gray-900"></div>
                             <Image

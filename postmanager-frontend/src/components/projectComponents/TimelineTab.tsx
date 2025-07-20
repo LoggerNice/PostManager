@@ -4,22 +4,9 @@ import { ChartBarIcon, TableCellsIcon } from '@heroicons/react/24/outline';
 import { useTimelineData } from '../timeline/useTimelineData';
 import TimelineGraph from '../timeline/TimelineGraph';
 import TimelineTable from '../timeline/TimelineTable';
+import { ProjectStage, TimelineTabProps } from '@/types/project.types';
 
 type ViewMode = 'graph' | 'table';
-
-interface TimelineTabProps {
-  users: IUser[];
-}
-
-interface ProjectStage {
-  id: number;
-  name: string;
-  startDate: Date;
-  endDate: Date;
-  color: string;
-  icon: string;
-  progress: number;
-}
 
 export default function TimelineTab({ users }: TimelineTabProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('graph');
@@ -86,7 +73,7 @@ export default function TimelineTab({ users }: TimelineTabProps) {
   const isTableView = viewMode === 'table';
 
   return (
-    <div className="px-8 pt-8">
+    <div className="px-8 py-8">
       <div className="flex justify-between items-center mb-4 bg-gray-800 rounded-lg py-2 px-4">
         <h2 className="text-lg font-medium text-gray-200">Этапы проекта</h2>
         <div className="inline-flex rounded-lg bg-gray-700 p-1">

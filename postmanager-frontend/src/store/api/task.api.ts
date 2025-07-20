@@ -21,7 +21,7 @@ export const taskApi = api.injectEndpoints({
                 method: 'POST',
                 body: task
             }),
-            invalidatesTags: ['Task']
+            invalidatesTags: ['Task', 'Project'] // Инвалидируем и задачи, и проекты
         }),
         updateTask: build.mutation<Task, { taskId: string; task: Partial<TaskForm> }>({
             query: ({ taskId, task }) => ({
@@ -29,18 +29,26 @@ export const taskApi = api.injectEndpoints({
                 method: 'PUT',
                 body: task
             }),
-            invalidatesTags: (result, error, { taskId }) => [{ type: 'Task', id: taskId }]
+            invalidatesTags: ['Task', 'Project'] // Инвалидируем все задачи и проекты для real-time обновлений
         }),
         deleteTask: build.mutation<void, string>({
             query: (taskId) => ({
                 url: `tasks/${taskId}`,
                 method: 'DELETE'
             }),
-            invalidatesTags: ['Task']
+            invalidatesTags: ['Task', 'Project'] // Инвалидируем все задачи и проекты для real-time обновлений
         }),
         getTaskComments: build.query<any[], string>({
             query: (taskId) => `tasks/${taskId}/comments`,
             providesTags: (result, error, taskId) => [{ type: 'Task', id: taskId }]
+        }),
+        updateTasksOrder: build.mutation<void, { columnId: string; orderedIds: string[] }>({
+            query: ({ columnId, orderedIds }) => ({
+                url: `tasks/order`,
+                method: 'PUT',
+                body: { columnId, orderedIds }
+            }),
+            invalidatesTags: ['Task', 'Project']
         })
     })
 });
@@ -52,5 +60,6 @@ export const {
     useUpdateTaskMutation,
     useDeleteTaskMutation,
     useGetTaskCommentsQuery,
-    useGetProjectTasksQuery
+    useGetProjectTasksQuery,
+    useUpdateTasksOrderMutation // добавлено
 } = taskApi; 

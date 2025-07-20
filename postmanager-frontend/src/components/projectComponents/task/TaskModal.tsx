@@ -1,21 +1,11 @@
-import { DateInput } from '../ui/date-input/DateInput';
+import { TaskModalProps } from '@/types/task.types';
 
-interface TaskModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onCreate: () => void;
-  newTask: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий' };
-  setNewTask: (task: { title: string; description: string; priority: 'Низкий' | 'Средний' | 'Высокий' }) => void;
-  columns: any;
-  selectedColumn: string;
-  setSelectedColumn: (col: string) => void;
-}
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function TaskModal({ visible, onClose, onCreate, newTask, setNewTask, columns, selectedColumn, setSelectedColumn }: TaskModalProps) {
   if (!visible) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-zinc-900 rounded-lg p-6 w-full max-w-md border border-zinc-800">
+    <div className="fixed inset-0 bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-lg p-6 w-full max-w-md border border-white">
         <h2 className="text-xl font-bold mb-4">Создать задачу</h2>
         <div className="mb-3">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

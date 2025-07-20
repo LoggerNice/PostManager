@@ -1,9 +1,8 @@
 import { InputHTMLAttributes, forwardRef } from 'react';
-import { FieldError } from 'react-hook-form';
 
 interface IInputProps extends InputHTMLAttributes<HTMLInputElement> {
     label?: string;
-    error?: FieldError;
+    error?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, IInputProps>(
@@ -24,7 +23,7 @@ export const Input = forwardRef<HTMLInputElement, IInputProps>(
                 />
                 {error && (
                     <span className="text-sm text-red-500 dark:text-red-400">
-                        {error.message}
+                        {error}
                     </span>
                 )}
             </div>

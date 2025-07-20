@@ -4,4 +4,5 @@ export interface IAuthForm {
     password: string;
     confirmPassword?: string;
     departmentId?: number;
+    role?: string;
 } 

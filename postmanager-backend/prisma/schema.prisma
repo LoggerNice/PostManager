@@ -63,6 +63,7 @@ model Task {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   comments Comment[]
+  order Int? // Позиция задачи в столбце
 }
 
 model Comment {

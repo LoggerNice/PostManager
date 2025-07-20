@@ -12,10 +12,7 @@ import { useGetUsersQuery } from "@/store/api/user.api";
 import { useCreateProjectMutation } from "@/store/api/project.api";
 import { IUser } from "@/types/user.types";
 import { IDepartment } from "@/types/department.types";
-interface Option {
-    value: number;
-    label: string;
-}
+import { Option } from "@/types/admin.types";
 
 export default function Test() {
     const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IProjectForm>({
@@ -31,8 +28,12 @@ export default function Test() {
             await createProject(data).unwrap();
             toast.success('Проект успешно создан');
             reset();
-        } catch (error: any) {
-            toast.error(error.data?.message || 'Ошибка при создании проекта');
+        } catch (error: unknown) {
+            const errorMessage = error && typeof error === 'object' && 'data' in error && 
+                                 error.data && typeof error.data === 'object' && 'message' in error.data
+                                 ? String(error.data.message)
+                                 : 'Ошибка при создании проекта';
+            toast.error(errorMessage);
         }
     };
 
@@ -49,20 +50,20 @@ export default function Test() {
     return (
         <div className="mt-8 w-full max-w-2xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
             <h1 className="text-2xl font-bold mb-6 text-center">Создание проекта</h1>
-            
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <Input
                     label="Название проекта"
                     {...register('title', {
                         required: 'Название проекта обязательно'
                     })}
-                    error={errors.title}
+                    error={errors.title?.message}
                 />
 
                 <Input
                     label="Описание"
                     {...register('description')}
-                    error={errors.description}
+                    error={errors.description?.message}
                 />
 
                 <Input
@@ -70,22 +71,24 @@ export default function Test() {
                     {...register('client', {
                         required: 'Клиент обязателен'
                     })}
-                    error={errors.client}
+                    error={errors.client?.message}
                 />
 
                 <div className="grid grid-cols-2 gap-4">
                     <DateInput
                         label="Дата начала"
-                        name="startDate"
-                        register={register}
-                        error={errors.startDate}
+                        {...register('startDate', {
+                            required: 'Дата начала обязательна'
+                        })}
+                        error={errors.startDate?.message}
                     />
 
                     <DateInput
                         label="Дата окончания"
-                        name="endDate"
-                        register={register}
-                        error={errors.endDate}
+                        {...register('endDate', {
+                            required: 'Дата окончания обязательна'
+                        })}
+                        error={errors.endDate?.message}
                     />
                 </div>
 
@@ -100,7 +103,7 @@ export default function Test() {
                             options={departmentOptions}
                             value={field.value || []}
                             onChange={field.onChange}
-                            error={errors.departmentIds}
+                            error={errors.departmentIds?.message}
                             placeholder="Выберите отделы"
                         />
                     )}
@@ -117,7 +120,7 @@ export default function Test() {
                             options={userOptions}
                             value={field.value || []}
                             onChange={field.onChange}
-                            error={errors.userIds}
+                            error={errors.userIds?.message}
                             placeholder="Выберите участников"
                         />
                     )}

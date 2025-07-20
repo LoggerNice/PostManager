@@ -150,7 +150,6 @@ export const getProjectTasks = async (req: Request, res: Response): Promise<void
     } catch (error) {
         console.error('Ошибка при получении задач проекта:', error);
         res.status(500).json({ message: 'Ошибка при получении задач проекта' });
-
     }
 }
 

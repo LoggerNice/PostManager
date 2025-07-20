@@ -1,14 +1,14 @@
 import { SelectHTMLAttributes, forwardRef } from 'react';
-import { FieldError } from 'react-hook-form';
 
 interface ISelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
     label?: string;
-    error?: FieldError;
+    error?: string;
     options: { value: string | number; label: string }[];
+    placeholder?: string;
 }
 
 export const Select = forwardRef<HTMLSelectElement, ISelectProps>(
-    ({ label, error, options, ...rest }, ref) => {
+    ({ label, error, options, placeholder = "Выберите", ...rest }, ref) => {
         return (
             <div className="flex flex-col gap-1 w-full">
                 {label && (
@@ -24,7 +24,7 @@ export const Select = forwardRef<HTMLSelectElement, ISelectProps>(
                         }`}
                         {...rest}
                     >
-                        <option value="">Выберите отдел</option>
+                        <option value="">{placeholder}</option>
                         {options.map((option) => (
                             <option key={option.value} value={option.value}>
                                 {option.label}
@@ -39,7 +39,7 @@ export const Select = forwardRef<HTMLSelectElement, ISelectProps>(
                 </div>
                 {error && (
                     <span className="text-sm text-red-500 dark:text-red-400">
-                        {error.message}
+                        {error}
                     </span>
                 )}
             </div>

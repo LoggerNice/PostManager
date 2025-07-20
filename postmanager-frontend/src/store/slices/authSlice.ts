@@ -16,14 +16,15 @@ const authSlice = createSlice({
     name: 'auth',
     initialState,
     reducers: {
-        setCredentials: (state, action: PayloadAction<IAuthResponse>) => {
+        setCredentials: (state, action) => {
             console.log('setCredentials payload:', action.payload);
-            const { token, ...userData } = action.payload;
-            state.user = userData;
+            const { token, user } = action.payload;
+            state.user = user;
             state.token = token;
+
             setCookie('accessToken', token);
-            setCookie('userId', userData.id.toString());
-            setCookie('userName', userData.name);
+            setCookie('userId', user.id.toString());
+            setCookie('userName', user.name);
         },
         logout: (state) => {
             state.user = null;

@@ -14,7 +14,7 @@ interface MultiSelectProps {
     options: Option[];
     value: number[];
     onChange: (value: number[]) => void;
-    error?: { message?: string };
+    error?: string;
     placeholder?: string;
 }
 
@@ -40,8 +40,8 @@ const customStyles: StylesConfig<Option, true> = {
         backgroundColor: state.isSelected
             ? 'var(--select-option-selected-bg, #6366f1)'
             : state.isFocused
-            ? 'var(--select-option-focused-bg, #eef2ff)'
-            : 'transparent',
+                ? 'var(--select-option-focused-bg, #eef2ff)'
+                : 'transparent',
         color: state.isSelected
             ? 'var(--select-option-selected-color, white)'
             : 'var(--select-option-color, #111827)',
@@ -60,7 +60,7 @@ const customStyles: StylesConfig<Option, true> = {
         fontSize: '0.875rem',
         padding: '0.25rem 0.5rem'
     }),
-    multiValueRemove: (base, state) => ({
+    multiValueRemove: (base) => ({
         ...base,
         color: 'var(--select-multi-value-remove-color, #4f46e5)',
         borderRadius: '0 0.375rem 0.375rem 0',
@@ -91,17 +91,17 @@ const customStyles: StylesConfig<Option, true> = {
     })
 };
 
-export function MultiSelect({ 
-    label, 
-    name, 
-    options, 
-    value, 
-    onChange, 
+export function MultiSelect({
+    label,
+    name,
+    options,
+    value,
+    onChange,
     error,
     placeholder = 'Выберите...'
 }: MultiSelectProps) {
     const instanceId = `multi-select-${name}`;
-    
+
     return (
         <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -119,7 +119,7 @@ export function MultiSelect({
                 instanceId={instanceId}
             />
             {error && (
-                <p className="mt-1 text-sm text-red-500">{error.message}</p>
+                <p className="mt-1 text-sm text-red-500">{error}</p>
             )}
         </div>
     );

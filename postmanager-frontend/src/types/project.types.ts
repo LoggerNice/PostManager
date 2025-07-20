@@ -1,17 +1,17 @@
 import { IUser } from './user.types';
 
 export interface IProject {
-    id: number;
+    id?: number;
     title: string;
     description?: string;
     client?: string;
     startDate?: string;
     endDate?: string;
-    departmentIds: number[];
+    departmentIds?: number[];
     userIds?: number[];
     users?: IUser[];
-    createdAt: string;
-    updatedAt: string;
+    createdAt?: string;
+    updatedAt?: string;
 }
 
 export interface IProjectForm {
@@ -23,3 +23,22 @@ export interface IProjectForm {
     departmentIds: number[];
     userIds?: number[];
 } 
+
+export interface TimelineTabProps {
+    users: IUser[];
+  }
+
+export interface ProjectStage {
+    id: number;
+    name: string;
+    startDate: Date;
+    endDate: Date;
+    color: string;
+    icon: string;
+    progress: number;
+  }
+  
+export interface ProjectTabsProps {
+    activeTab: string;
+    onTabChange: (tab: string) => void;
+  }

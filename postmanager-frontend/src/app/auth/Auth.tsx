@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button/Button';
 import { toast } from 'react-hot-toast';
 import { useGetDepartmentsQuery } from '@/store/api/department.api';
 import { IAuthForm } from '@/types/forms/auth.types';
-import { setCookie } from '@/utils/cookie';
+import { USER_ROLE_LABELS } from '@/constants';
 
 export default function Auth() {
     const [isLoginForm, setIsLoginForm] = useState(true);
@@ -36,7 +36,8 @@ export default function Auth() {
             login: '',
             password: '',
             confirmPassword: '',
-            departmentId: undefined
+            departmentId: undefined,
+            role: "USER"
         }
     });
 
@@ -62,7 +63,8 @@ export default function Auth() {
             required: 'Пароль обязателен',
             validate: (value: string | undefined) => value === password || 'Пароли не совпадают'
         },
-        departmentId: { required: 'Выберите отдел' }
+        departmentId: { required: 'Выберите отдел' },
+        role: { required: 'Выберите роль' }
     } as const;
 
     const onSubmit = async (data: IAuthForm) => {
@@ -70,27 +72,28 @@ export default function Auth() {
             const response = isLoginForm
                 ? await login({ login: data.login, password: data.password }).unwrap()
                 : await register({
-                      name: data.name!,
-                      login: data.login,
-                      password: data.password,
-                      departmentId: data.departmentId!
-                  }).unwrap();
+                    name: data.name!,
+                    login: data.login,
+                    role: data.role!,
+                    password: data.password,
+                    departmentId: data.departmentId!
+                }).unwrap();
 
             console.log('Auth response:', response);
 
             dispatch(setCredentials(response));
-            
-            setCookie('accessToken', response.token);
-            setCookie('userId', response.id.toString());
-            setCookie('userName', response.name);
 
             toast.success(isLoginForm ? 'Авторизация прошла успешно' : 'Регистрация прошла успешно');
             setIsLoginForm(true);
             reset();
             router.push('/');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.log(error);
-            toast.error(error.data?.message || 'Произошла ошибка');
+            const errorMessage = error && typeof error === 'object' && 'data' in error && 
+                                 error.data && typeof error.data === 'object' && 'message' in error.data
+                                 ? String(error.data.message)
+                                 : 'Произошла ошибка';
+            toast.error(errorMessage);
         }
     };
 
@@ -103,7 +106,7 @@ export default function Auth() {
         <div className="flex min-h-screen items-center justify-center">
             <form onSubmit={handleSubmit(onSubmit)} className="w-full max-w-md p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
                 <h1 className="text-2xl font-bold mb-6 text-center">{isLoginForm ? 'Авторизация' : 'Регистрация'}</h1>
-                
+
                 <div className="space-y-4">
                     {!isLoginForm && (
                         <Input
@@ -111,7 +114,7 @@ export default function Auth() {
                             type="text"
                             placeholder="Введите имя"
                             {...registerForm('name', validationRules.name)}
-                            error={errors.name}
+                            error={errors.name?.message}
                         />
                     )}
 
@@ -120,7 +123,7 @@ export default function Auth() {
                         type="text"
                         placeholder="Введите логин"
                         {...registerForm('login', validationRules.login)}
-                        error={errors.login}
+                        error={errors.login?.message}
                     />
 
                     <Input
@@ -128,16 +131,29 @@ export default function Auth() {
                         type="password"
                         placeholder="Введите пароль"
                         {...registerForm('password', validationRules.password)}
-                        error={errors.password}
+                        error={errors.password?.message}
                     />
-                    
+
                     {!isLoginForm && (
                         <Input
                             label="Повторите пароль"
                             type="password"
                             placeholder="Введите пароль"
                             {...registerForm('confirmPassword', validationRules.confirmPassword)}
-                            error={errors.confirmPassword}
+                            error={errors.confirmPassword?.message}
+                        />
+                    )}
+
+                    {!isLoginForm && (
+                        <Select
+                            label="Роль"
+                            placeholder="Выберите роль"
+                            options={Object.entries(USER_ROLE_LABELS).map(([value, label]) => ({
+                                value,
+                                label
+                            }))}
+                            {...registerForm('role', validationRules.role)}
+                            error={errors.role?.message}
                         />
                     )}
 
@@ -145,22 +161,22 @@ export default function Auth() {
                         <Select
                             label="Отдел"
                             options={departmentOptions}
-                            {...registerForm('departmentId', {required: 'Выберите отдел'})}
-                            error={errors.departmentId}
+                            {...registerForm('departmentId', { required: 'Выберите отдел' })}
+                            error={errors.departmentId?.message}
                         />
                     )}
                 </div>
-                
+
                 <div className="mt-10">
-                    <Button 
+                    <Button
                         type="submit"
                         disabled={isLoginLoading || isRegisterLoading}
                     >
                         {isLoginLoading || isRegisterLoading
                             ? 'Загрузка...'
                             : isLoginForm
-                            ? 'Войти'
-                            : 'Зарегистрироваться'}
+                                ? 'Войти'
+                                : 'Зарегистрироваться'}
                     </Button>
 
                     <Button

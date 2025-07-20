@@ -1,19 +1,12 @@
-import { ClipboardDocumentListIcon, ChartBarIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
+'use client';
 
-const TABS = [
-  { key: 'tasks', label: 'Задачи', icon: ClipboardDocumentListIcon },
-  { key: 'timeline', label: 'Этапы', icon: ChartBarIcon },
-  { key: 'calendar', label: 'Календарь', icon: CalendarDaysIcon }
-];
+import { TABS } from "@/constants";
+import { ProjectTabsProps } from "@/types/project.types";
 
-interface ProjectTabsProps {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}
 
 export default function ProjectTabs({ activeTab, onTabChange }: ProjectTabsProps) {
   return (
-    <div className="flex items-center gap-8 px-8 border-b border-gray-800">
+    <div className="flex items-center gap-8 mx-8 border-b border-gray-800">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         return (
