@@ -20,7 +20,7 @@ const initialColumns: Record<string, Column> = {
     items: [],
   },
   PROBLEM: {
-    name: "Проблема",
+    name: "Согласование",
     items: [],
   },
   COMPLETED: {
@@ -96,7 +96,7 @@ export default function ProjectPage() {
     
     const serverColumns = {
       IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
-      PROBLEM: { name: 'Проблема', items: grouped.PROBLEM },
+      PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
       COMPLETED: { name: 'Выполнено', items: grouped.COMPLETED }
     };
 
@@ -185,7 +185,7 @@ export default function ProjectPage() {
     
     setLocalColumns({
       IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
-      PROBLEM: { name: 'Проблема', items: grouped.PROBLEM },
+      PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
       COMPLETED: { name: 'Выполнено', items: grouped.COMPLETED }
     });
     
@@ -368,6 +368,10 @@ export default function ProjectPage() {
     // Если перемещаем в другую колонку, обновляем статус задачи
     if (sourceColumnId !== destinationColumnId) {
       movedTask.status = destinationColumnId as TaskStatus;
+      // Если задача перемещается в 'Выполнено', сбрасываем приоритет и deadline
+      if (destinationColumnId === 'COMPLETED') {
+        movedTask.priority = 'Низкий';
+      }
     }
     
     // Добавляем задачу в целевую колонку

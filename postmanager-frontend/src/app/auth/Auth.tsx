@@ -81,7 +81,11 @@ export default function Auth() {
 
             console.log('Auth response:', response);
 
-            dispatch(setCredentials(response));
+            let credentialsResponse = response;
+            if (!('token' in response)) {
+                credentialsResponse = { user: response, token: null };
+            }
+            dispatch(setCredentials(credentialsResponse));
 
             toast.success(isLoginForm ? 'Авторизация прошла успешно' : 'Регистрация прошла успешно');
             setIsLoginForm(true);

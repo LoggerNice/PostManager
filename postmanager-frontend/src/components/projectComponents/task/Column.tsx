@@ -94,12 +94,14 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
             {column.name} <span className="text-blue-500 pl-2">{column.items.length}</span>
           </h2>
         )}
-        <button
-          className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-2xl"
-          onClick={handleAddTaskClick}
-          title="Добавить задачу в этот столбец"
-        >+
-        </button>
+        {columnId !== 'COMPLETED' && (
+          <button
+            className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-2xl"
+            onClick={handleAddTaskClick}
+            title="Добавить задачу в этот столбец"
+          >+
+          </button>
+        )}
       </div>
       <Droppable droppableId={columnId}>
         {(provided: DroppableProvided, snapshot: DroppableStateSnapshot) => (

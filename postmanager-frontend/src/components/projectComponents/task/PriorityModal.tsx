@@ -57,7 +57,7 @@ export default function PriorityModal({ isOpen, onClose, task, onTaskUpdate }: P
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-transparent backdrop-blur-sm flex items-center justify-center z-50" onClick={onClose}>
       <div className="bg-gray-900 p-6 rounded-lg shadow-lg border border-gray-700 min-w-[300px]" onClick={e => e.stopPropagation()}>
         <h3 className="text-lg font-semibold text-white mb-4">Изменить приоритет</h3>
         <div className="space-y-2">

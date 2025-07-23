@@ -130,8 +130,10 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       ref={provided.innerRef}
       {...provided.draggableProps}
       {...provided.dragHandleProps}
-      className={`bg-gray-900 rounded-lg p-4 shadow flex flex-col gap-2 border-2 ${getPriorityColor(item.priority)} ${snapshot.isDragging ? 'opacity-50 rotate-2 scale-105' : ''
-        }`}
+      className={`bg-gray-900 rounded-lg p-4 shadow flex flex-col gap-2 border-2 ${getPriorityColor(item.priority)}
+        ${snapshot.isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
+        ${columnId === 'COMPLETED' ? 'opacity-60 text-gray-400 pointer-events-auto' : ''}
+      `}
       style={{
         ...provided.draggableProps.style,
       }}
