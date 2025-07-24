@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import {
   EllipsisVerticalIcon,
   ExclamationTriangleIcon,
@@ -12,6 +12,7 @@ interface TaskMenuProps {
   onEditPriority: () => void;
   onAddDate: () => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   menuHeight: number;
   ellipsisRef: React.RefObject<HTMLButtonElement>;
   showMenu: boolean;
@@ -25,6 +26,7 @@ export default function TaskMenu({
   onEditPriority,
   onAddDate,
   onDelete,
+  onDuplicate,
   menuHeight,
   ellipsisRef,
   showMenu,
@@ -33,6 +35,27 @@ export default function TaskMenu({
   setMenuDirection,
   menuPosition
 }: TaskMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showMenu) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        ellipsisRef.current &&
+        !ellipsisRef.current.contains(event.target as Node) &&
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
+        setShowMenu(false);
+        setMenuPosition(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMenu, ellipsisRef, setShowMenu, setMenuPosition]);
+
   return (
     <div className="relative">
       <button
@@ -63,6 +86,7 @@ export default function TaskMenu({
       </button>
       {showMenu && menuPosition && (
         <div
+          ref={menuRef}
           className="fixed bg-gray-900 rounded-xl shadow-lg border border-gray-800 z-50"
           style={{ top: menuPosition.top, left: menuPosition.left, minWidth: 160 }}
           onClick={e => e.stopPropagation()}
@@ -88,6 +112,17 @@ export default function TaskMenu({
           >
             <CalendarIcon className="w-4 h-4" />
             Добавить дату
+          </button>
+          <button
+            onClick={() => {
+              onDuplicate();
+              setShowMenu(false);
+              setMenuPosition(null);
+            }}
+            className="w-full px-4 py-2 text-left text-[12px] text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+          >
+            <span className="w-4 h-4 inline-block">⧉</span>
+            Дублировать
           </button>
           <button
             onClick={() => {

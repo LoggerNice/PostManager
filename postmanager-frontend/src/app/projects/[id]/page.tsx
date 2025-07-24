@@ -444,7 +444,7 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex flex-col">
       <ProjectHeader 
         title={project.title} 
         users={users} 

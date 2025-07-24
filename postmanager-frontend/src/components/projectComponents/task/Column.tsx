@@ -136,8 +136,9 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
                   onBlur={handleTaskCreate}
                   onKeyDown={handleTaskKeyPress}
                   placeholder="Введите название задачи..."
-                  className="w-full bg-gray-700 text-white px-2 py-1 rounded text-[14px] font-semibold border border-gray-600 focus:border-blue-400 focus:outline-none"
+                  className="w-full max-w-[220px] truncate overflow-ellipsis bg-gray-700 text-white px-2 py-1 rounded text-[14px] font-semibold border border-gray-600 focus:border-blue-400 focus:outline-none"
                   autoFocus
+                  maxLength={100}
                 />
               </div>
             )}

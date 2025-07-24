@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
-import { useUpdateTaskMutation } from '@/store/api/task.api';
+import { useUpdateTaskMutation, useCreateTaskMutation } from '@/store/api/task.api';
 import PriorityModal from './PriorityModal';
 import TaskMenu from './TaskMenu';
 
@@ -29,6 +29,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
   const [showDatepicker, setShowDatepicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(item.deadline ? new Date(item.deadline) : new Date());
   const [updateTask] = useUpdateTaskMutation();
+  const [createTask] = useCreateTaskMutation();
   const menuHeight = 132;
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState(item.title);
@@ -63,6 +64,28 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       setShowMenu(false);
     } catch (error) {
       console.error('Failed to update task deadline:', error);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    try {
+      const priorityMap: Record<string, TaskPriority> = {
+        'Низкий': 'LOW',
+        'Средний': 'MEDIUM',
+        'Высокий': 'HIGH'
+      };
+      await createTask({
+        title: item.title + ' (копия)',
+        description: item.description || '',
+        priority: priorityMap[item.priority as keyof typeof priorityMap] || 'LOW',
+        status: item.status,
+        projectId: Number(item.projectId),
+        deadline: item.deadline ? format(new Date(item.deadline), 'yyyy-MM-dd') : undefined
+      }).unwrap();
+      // Обновить задачи после дублирования
+      onTaskUpdate(item.id, item); // Триггерим обновление списка задач
+    } catch (error) {
+      console.error('Failed to duplicate task:', error);
     }
   };
 
@@ -148,10 +171,11 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
             onKeyDown={handleTitleKeyPress}
             className="text-white text-[14px] font-semibold focus:outline-none"
             autoFocus
+            maxLength={100}
           />
         ) : (
           <div
-            className="font-semibold text-[14px] cursor-pointer rounded flex-1"
+            className="font-semibold text-[14px] cursor-pointer rounded flex-1 max-w-[300px] truncate overflow-ellipsis"
             onDoubleClick={handleTitleDoubleClick}
             title="Редактировать"
           >
@@ -162,6 +186,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           onEditPriority={() => setShowPriorityModal(true)}
           onAddDate={() => setShowDatepicker(true)}
           onDelete={() => handleDeleteTask(columnId, item.id)}
+          onDuplicate={handleDuplicate}
           menuHeight={menuHeight}
           ellipsisRef={ellipsisRef as React.RefObject<HTMLButtonElement>}
           showMenu={showMenu}
@@ -180,6 +205,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
               inline
               locale={ru}
               dateFormat="dd.MM.yyyy"
+              minDate={new Date()}
               className="bg-gray-800 text-white rounded p-2"
             />
           </div>

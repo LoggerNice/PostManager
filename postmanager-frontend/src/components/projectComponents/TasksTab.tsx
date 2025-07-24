@@ -3,6 +3,8 @@
 import { TasksTabProps } from '@/types/task.types';
 import Column from './task/Column';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'react-hot-toast';
 
 export default function TasksTab({ 
   columns, 
@@ -12,6 +14,8 @@ export default function TasksTab({
   onUpdateColumnName,
   onTaskMove
 }: TasksTabProps) {
+  const { user } = useAuth();
+
   const handleDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
 
@@ -23,6 +27,25 @@ export default function TasksTab({
       destination.droppableId === source.droppableId &&
       destination.index === source.index
     ) {
+      return;
+    }
+
+    // Проверка: только MANAGER может перемещать в COMPLETED
+    if (
+      destination.droppableId === 'COMPLETED' &&
+      user?.role !== 'MANAGER'
+    ) {
+      toast.error('Только начальник отдела может перемещать задачи в "Выполнено"');
+      return;
+    }
+
+    // Проверка: только MANAGER может перемещать из COMPLETED
+    if (
+      source.droppableId === 'COMPLETED' &&
+      destination.droppableId !== 'COMPLETED' &&
+      user?.role !== 'MANAGER'
+    ) {
+      toast.error('Только начальник отдела может возвращать задачи из "Выполнено"');
       return;
     }
 
