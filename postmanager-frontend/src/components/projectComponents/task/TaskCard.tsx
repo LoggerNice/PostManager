@@ -175,7 +175,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           />
         ) : (
           <div
-            className="font-semibold text-[14px] cursor-pointer rounded flex-1 max-w-[300px] truncate overflow-ellipsis"
+            className="font-semibold text-[14px] cursor-pointer rounded flex-1 max-w-[300px]"
             onDoubleClick={handleTitleDoubleClick}
             title="Редактировать"
           >
