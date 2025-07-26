@@ -3,15 +3,17 @@
 import { Droppable, Draggable, DroppableProvided, DroppableStateSnapshot, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
 import { Column as ColumnType } from '../../../types';
-import { Task } from '@/types/task.types';
+import { Task, TaskPriority } from '@/types/task.types';
 import { useState } from 'react';
+import { format } from 'date-fns';
+import TaskModal from './TaskModal';
 
 interface ColumnProps {
   columnId: string;
   column: ColumnType;
   handleDeleteTask: (columnId: string, taskId: string) => void;
   onTaskUpdate: (taskId: string, updatedTask: Task) => void;
-  onAddTask: (columnId: string, title: string) => void;
+  onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, deadline?: string, assigneeIds?: number[]) => void;
   onUpdateColumnName: (columnId: string, newName: string) => void;
 }
 
@@ -20,6 +22,14 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
   const [editingTitle, setEditingTitle] = useState(column.name);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTaskData, setNewTaskData] = useState({
+    title: '',
+    description: '',
+    priority: 'Низкий' as 'Низкий' | 'Средний' | 'Высокий',
+    deadline: null as Date | null,
+    assigneeIds: [] as number[]
+  });
 
   const handleTitleDoubleClick = () => {
     setIsEditingTitle(true);
@@ -47,29 +57,46 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
   };
 
   const handleAddTaskClick = () => {
-    setIsCreatingTask(true);
-    setNewTaskTitle('');
+    setShowCreateModal(true);
+    setNewTaskData({
+      title: '',
+      description: '',
+      priority: 'Низкий',
+      deadline: null,
+      assigneeIds: []
+    });
   };
 
   const handleTaskCreate = () => {
-    if (newTaskTitle.trim()) {
-      onAddTask(columnId, newTaskTitle.trim());
-      setNewTaskTitle('');
+    if (newTaskData.title.trim()) {
+      const priorityMap: Record<string, TaskPriority> = {
+        'Низкий': 'LOW',
+        'Средний': 'MEDIUM',
+        'Высокий': 'HIGH'
+      };
+      
+      const deadlineString = newTaskData.deadline ? format(newTaskData.deadline, 'yyyy-MM-dd') : undefined;
+      console.log('Creating task with deadline:', deadlineString);
+      console.log('newTaskData.deadline:', newTaskData.deadline);
+      console.log('Creating task with assigneeIds:', newTaskData.assigneeIds);
+      
+      onAddTask(
+        columnId, 
+        newTaskData.title.trim(),
+        newTaskData.description.trim(),
+        priorityMap[newTaskData.priority],
+        deadlineString,
+        newTaskData.assigneeIds
+      );
+      setNewTaskData({
+        title: '',
+        description: '',
+        priority: 'Низкий',
+        deadline: null,
+        assigneeIds: []
+      });
     }
-    setIsCreatingTask(false);
-  };
-
-  const handleTaskCancel = () => {
-    setNewTaskTitle('');
-    setIsCreatingTask(false);
-  };
-
-  const handleTaskKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleTaskCreate();
-    } else if (e.key === 'Escape') {
-      handleTaskCancel();
-    }
+    setShowCreateModal(false);
   };
 
   return (
@@ -127,24 +154,27 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
               </Draggable>
             ))}
             {provided.placeholder}
-            {isCreatingTask && (
-              <div className="bg-gray-900 rounded-lg p-4 shadow border-2 border-gray-700">
-                <input
-                  type="text"
-                  value={newTaskTitle}
-                  onChange={(e) => setNewTaskTitle(e.target.value)}
-                  onBlur={handleTaskCreate}
-                  onKeyDown={handleTaskKeyPress}
-                  placeholder="Введите название задачи..."
-                  className="w-full truncate overflow-ellipsis bg-gray-700 text-white px-2 py-1 rounded text-[14px] font-semibold border border-gray-600 focus:border-blue-400 focus:outline-none"
-                  autoFocus
-                  maxLength={100}
-                />
-              </div>
-            )}
           </div>
         )}
       </Droppable>
+      <TaskModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleTaskCreate}
+        newTask={newTaskData}
+        setNewTask={(task) => {
+          setNewTaskData({
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            deadline: task.deadline || null,
+            assigneeIds: task.assigneeIds || []
+          });
+        }}
+        columns={{}}
+        selectedColumn=""
+        setSelectedColumn={() => {}}
+      />
     </div>
   );
 } 

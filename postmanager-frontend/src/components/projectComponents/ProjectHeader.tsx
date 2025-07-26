@@ -2,20 +2,34 @@
 
 import { IProject } from '@/types/project.types';
 import Link from 'next/link';
+import { PencilIcon } from '@heroicons/react/24/outline';
 
 interface ProjectHeaderProps extends IProject {
+  onEditClick?: () => void;
 }
 
 export default function ProjectHeader({ 
   title, 
-  users
+  users,
+  onEditClick
 }: ProjectHeaderProps) {
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 mx-8 sm:py-6 lg:py-8 gap-4">
       <div className="flex items-center gap-3">
         <span className="text-blue-400 text-xl sm:text-2xl">🚀</span>
-        <div>
-          <div className="text-lg sm:text-xl lg:text-2xl font-bold break-words">{title}</div>
+        <div className="flex items-center gap-3">
+          <div>
+            <div className="text-lg sm:text-xl lg:text-2xl font-bold break-words">{title}</div>
+          </div>
+          {onEditClick && (
+            <button
+              onClick={onEditClick}
+              className="p-2 text-gray-400 hover:text-blue-400 hover:bg-gray-800 rounded-lg transition-colors"
+              title="Редактировать проект"
+            >
+              <PencilIcon className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1 flex-wrap">

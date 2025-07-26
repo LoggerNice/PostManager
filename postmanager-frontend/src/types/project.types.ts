@@ -7,8 +7,10 @@ export interface IProject {
     client?: string;
     startDate?: string;
     endDate?: string;
-    departmentIds?: number[];
-    userIds?: number[];
+    department?: {
+        id: number;
+        name: string;
+    }[];
     users?: IUser[];
     createdAt?: string;
     updatedAt?: string;

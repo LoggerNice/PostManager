@@ -13,6 +13,7 @@ interface TaskMenuProps {
   onAddDate: () => void;
   onDelete: () => void;
   onDuplicate: () => void;
+  onEdit: () => void;
   menuHeight: number;
   ellipsisRef: React.RefObject<HTMLButtonElement>;
   showMenu: boolean;
@@ -27,6 +28,7 @@ export default function TaskMenu({
   onAddDate,
   onDelete,
   onDuplicate,
+  onEdit,
   menuHeight,
   ellipsisRef,
   showMenu,
@@ -93,11 +95,22 @@ export default function TaskMenu({
         >
           <button
             onClick={() => {
-              onEditPriority();
+              onEdit();
               setShowMenu(false);
               setMenuPosition(null);
             }}
             className="w-full px-4 py-2 pt-3 text-left text-[12px] text-gray-300 hover:bg-gray-700 rounded-t-lg flex items-center gap-2"
+          >
+            <span className="w-4 h-4 inline-block">✏️</span>
+            Редактировать
+          </button>
+          <button
+            onClick={() => {
+              onEditPriority();
+              setShowMenu(false);
+              setMenuPosition(null);
+            }}
+            className="w-full px-4 py-2 text-left text-[12px] text-gray-300 hover:bg-gray-700 flex items-center gap-2"
           >
             <ExclamationTriangleIcon className="w-4 h-4" />
             Изменить приоритет

@@ -38,6 +38,12 @@ app.put('/tasks/:taskId', taskController.updateTask);
 app.delete('/tasks/:taskId', taskController.deleteTask);
 app.get('/tasks/:taskId/comments', taskController.getTaskComments);
 
+// Маршруты для работы с исполнителями задач
+app.get('/tasks/:taskId/assignees', taskController.getTaskAssignees);
+app.post('/tasks/:taskId/assignees', taskController.addTaskAssignees);
+app.put('/tasks/:taskId/assignees', taskController.updateTaskAssignees);
+app.delete('/tasks/:taskId/assignees', taskController.removeTaskAssignees);
+
 app.get('/projects', projectController.getProjects);
 app.get('/projects/:projectId', projectController.getProjectById);
 app.post('/projects', projectController.createProject);

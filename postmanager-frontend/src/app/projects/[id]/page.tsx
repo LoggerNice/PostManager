@@ -13,6 +13,7 @@ import ProjectTabs from '../../../components/projectComponents/ProjectTabs';
 import TasksTab from '../../../components/projectComponents/TasksTab';
 import TimelineTab from '../../../components/projectComponents/TimelineTab';
 import CalendarTab from '../../../components/projectComponents/CalendarTab';
+import ProjectEditModal from '../../../components/projectComponents/ProjectEditModal';
 
 const initialColumns: Record<string, Column> = {
   IN_PROGRESS: {
@@ -49,6 +50,7 @@ export default function ProjectPage() {
   const [updateTasksOrder] = useUpdateTasksOrderMutation();
   const [activeTab, setActiveTab] = useState('tasks');
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showProjectEditModal, setShowProjectEditModal] = useState(false);
   const [pendingTaskMove, setPendingTaskMove] = useState(false);
   const [localColumns, setLocalColumns] = useState<Record<string, Column>>({});
   const [lastServerSync, setLastServerSync] = useState<number>(0);
@@ -263,7 +265,14 @@ export default function ProjectPage() {
 
   // Удаляю onDragEnd и все связанные с drag-and-drop пропсы и логику
 
-  const handleCreateTask = async (columnId: string, title: string) => {
+  const handleCreateTask = async (
+    columnId: string, 
+    title: string, 
+    description: string = '', 
+    priority: TaskPriority = 'LOW',
+    deadline?: string,
+    assigneeIds?: number[]
+  ) => {
     if (!title.trim()) return;
     try {
       // Определяем порядок для новой задачи (в конце списка)
@@ -272,12 +281,19 @@ export default function ProjectPage() {
       
       const taskData: TaskForm = {
         title: title.trim(),
-        description: '',
-        priority: 'LOW',
+        description: description.trim(),
+        priority: priority,
         status: columnId as TaskStatus,
         projectId: projectId,
-        order: nextOrder
+        deadline: deadline,
+        order: nextOrder,
+        assigneeIds: assigneeIds || []
       };
+      
+      console.log('handleCreateTask called with deadline:', deadline);
+      console.log('handleCreateTask called with assigneeIds:', assigneeIds);
+      console.log('taskData:', taskData);
+      
       const newTask = await createTask(taskData).unwrap();
       
       // Обновляем локальное состояние
@@ -285,7 +301,7 @@ export default function ProjectPage() {
       if (newColumns[columnId]) {
         newColumns[columnId].items.push({
           ...newTask,
-          priority: 'Низкий' as TaskPriorityDisplay
+          priority: priorityMapToRussian[priority] as TaskPriorityDisplay
         });
         setLocalColumns(newColumns);
       }
@@ -344,6 +360,10 @@ export default function ProjectPage() {
 
   const handleUpdateColumnName = (columnId: string, newName: string) => {
     // Не реализовано, если потребуется — добавить
+  };
+
+  const handleEditProject = () => {
+    setShowProjectEditModal(true);
   };
 
   const handleTaskMove = async (
@@ -448,9 +468,15 @@ export default function ProjectPage() {
       <ProjectHeader 
         title={project.title} 
         users={users} 
+        onEditClick={handleEditProject}
       />
       <ProjectTabs activeTab={activeTab} onTabChange={setActiveTab} />
       {renderTabContent()}
+      <ProjectEditModal
+        isOpen={showProjectEditModal}
+        onClose={() => setShowProjectEditModal(false)}
+        project={project}
+      />
     </div>
   );
 } 

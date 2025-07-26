@@ -49,6 +49,35 @@ export const taskApi = api.injectEndpoints({
                 body: { columnId, orderedIds }
             }),
             invalidatesTags: ['Task', 'Project']
+        }),
+        // Эндпоинты для работы с исполнителями задач
+        getTaskAssignees: build.query<any[], string>({
+            query: (taskId) => `tasks/${taskId}/assignees`,
+            providesTags: (result, error, taskId) => [{ type: 'Task', id: taskId }]
+        }),
+        addTaskAssignees: build.mutation<Task, { taskId: string; userIds: number[] }>({
+            query: ({ taskId, userIds }) => ({
+                url: `tasks/${taskId}/assignees`,
+                method: 'POST',
+                body: { userIds }
+            }),
+            invalidatesTags: ['Task', 'Project']
+        }),
+        updateTaskAssignees: build.mutation<Task, { taskId: string; userIds: number[] }>({
+            query: ({ taskId, userIds }) => ({
+                url: `tasks/${taskId}/assignees`,
+                method: 'PUT',
+                body: { userIds }
+            }),
+            invalidatesTags: ['Task', 'Project']
+        }),
+        removeTaskAssignees: build.mutation<Task, { taskId: string; userIds: number[] }>({
+            query: ({ taskId, userIds }) => ({
+                url: `tasks/${taskId}/assignees`,
+                method: 'DELETE',
+                body: { userIds }
+            }),
+            invalidatesTags: ['Task', 'Project']
         })
     })
 });
@@ -61,5 +90,10 @@ export const {
     useDeleteTaskMutation,
     useGetTaskCommentsQuery,
     useGetProjectTasksQuery,
-    useUpdateTasksOrderMutation // добавлено
+    useUpdateTasksOrderMutation,
+    // Хуки для работы с исполнителями
+    useGetTaskAssigneesQuery,
+    useAddTaskAssigneesMutation,
+    useUpdateTaskAssigneesMutation,
+    useRemoveTaskAssigneesMutation
 } = taskApi; 

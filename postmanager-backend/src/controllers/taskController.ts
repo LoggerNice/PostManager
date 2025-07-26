@@ -3,7 +3,7 @@ import prisma from '../utils/prisma.js';
 
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { title, description, status, priority, projectId, deadline, order } = req.body;
+        const { title, description, status, priority, projectId, deadline, order, assigneeIds } = req.body;
         
         console.log('createTask called with:');
         console.log('body:', req.body);
@@ -72,10 +72,60 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
                     connect: { id: parseInt(projectId) }
                 }
             },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
         
         console.log('Created task:', task);
-        res.status(201).json(task);
+        // Добавляем исполнителей, если переданы
+        if (assigneeIds && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+            await prisma.taskAssignee.createMany({
+                data: assigneeIds.map((userId: number) => ({
+                    taskId: task.id,
+                    userId: Number(userId)
+                })),
+                skipDuplicates: true
+            });
+        }
+        // Получаем задачу с исполнителями
+        const taskWithAssignees = await prisma.task.findUnique({
+            where: { id: task.id },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        res.status(201).json(taskWithAssignees);
     } catch (error) {
         console.error('Ошибка при создании задачи:', error);
         res.status(500).json({ message: 'Ошибка при создании задачи' });
@@ -84,7 +134,26 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
 
 export const getTasks = async (req: Request, res: Response): Promise<void> => {
     try {
-        const tasks = await prisma.task.findMany();
+        const tasks = await prisma.task.findMany({
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
         res.json(tasks);
     } catch (error) {
         console.error('Ошибка при получении задач:', error);
@@ -95,7 +164,27 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
 export const getTaskById = async (req: Request, res: Response): Promise<void> => {
     try {
         const { taskId } = req.params;
-        const task = await prisma.task.findUnique({ where: { id: parseInt(taskId) } });
+        const task = await prisma.task.findUnique({ 
+            where: { id: parseInt(taskId) },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
@@ -110,7 +199,7 @@ export const getTaskById = async (req: Request, res: Response): Promise<void> =>
 export const updateTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { taskId } = req.params;
-        const { title, description, status, priority, deadline, order } = req.body;
+        const { title, description, status, priority, deadline, order, assigneeIds } = req.body;
         
         // Проверяем, что taskId является валидным числом
         const taskIdNum = parseInt(taskId);
@@ -134,7 +223,9 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         if (title !== undefined) updateData.title = title;
         if (description !== undefined) updateData.description = description;
         if (priority !== undefined) updateData.priority = priority;
-        if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
+        if (deadline !== undefined) {
+            updateData.deadline = deadline ? new Date(deadline) : null;
+        }
         
         // Обрабатываем изменение статуса и порядка
         const newStatus = status !== undefined ? status : currentTask.status;
@@ -232,9 +323,64 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         const updatedTask = await prisma.task.update({
             where: { id: taskIdNum },
             data: updateData,
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
         
-        res.json(updatedTask);
+        // Обновляем исполнителей, если переданы
+        if (assigneeIds && Array.isArray(assigneeIds)) {
+            // Удаляем всех текущих исполнителей
+            await prisma.taskAssignee.deleteMany({ where: { taskId: taskIdNum } });
+            // Добавляем новых исполнителей
+            if (assigneeIds.length > 0) {
+                await prisma.taskAssignee.createMany({
+                    data: assigneeIds.map((userId: number) => ({
+                        taskId: taskIdNum,
+                        userId: Number(userId)
+                    })),
+                    skipDuplicates: true
+                });
+            }
+        }
+        // Получаем задачу с исполнителями
+        const taskWithAssignees = await prisma.task.findUnique({
+            where: { id: taskIdNum },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        res.json(taskWithAssignees);
     } catch (error) {
         console.error('Ошибка при обновлении задачи:', error);
         res.status(500).json({ message: 'Ошибка при обновлении задачи' });
@@ -303,6 +449,257 @@ export const getTaskComments = async (req: Request, res: Response): Promise<void
     } catch (error) {
         console.error('Ошибка при получении комментариев задачи:', error);
         res.status(500).json({ message: 'Ошибка при получении комментариев задачи' });
+    }
+}
+
+// Добавление исполнителей к задаче
+export const addTaskAssignees = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { taskId } = req.params;
+        const { userIds } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            res.status(400).json({ message: 'Список ID пользователей обязателен' });
+            return;
+        }
+
+        // Проверяем существование задачи
+        const task = await prisma.task.findUnique({
+            where: { id: parseInt(taskId) }
+        });
+
+        if (!task) {
+            res.status(404).json({ message: 'Задача не найдена' });
+            return;
+        }
+
+        // Проверяем существование всех пользователей
+        const users = await prisma.user.findMany({
+            where: {
+                id: {
+                    in: userIds.map((id: string | number) => parseInt(id.toString()))
+                }
+            }
+        });
+
+        if (users.length !== userIds.length) {
+            res.status(400).json({ message: 'Некоторые пользователи не найдены' });
+            return;
+        }
+
+        // Добавляем исполнителей
+        const assignees = await prisma.taskAssignee.createMany({
+            data: userIds.map((userId: string | number) => ({
+                taskId: parseInt(taskId),
+                userId: parseInt(userId.toString())
+            })),
+            skipDuplicates: true // Пропускаем дубликаты
+        });
+
+        // Получаем обновленную задачу с исполнителями
+        const updatedTask = await prisma.task.findUnique({
+            where: { id: parseInt(taskId) },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        res.status(200).json(updatedTask);
+    } catch (error) {
+        console.error('Ошибка при добавлении исполнителей:', error);
+        res.status(500).json({ message: 'Ошибка при добавлении исполнителей' });
+    }
+}
+
+// Удаление исполнителей из задачи
+export const removeTaskAssignees = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { taskId } = req.params;
+        const { userIds } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            res.status(400).json({ message: 'Список ID пользователей обязателен' });
+            return;
+        }
+
+        // Проверяем существование задачи
+        const task = await prisma.task.findUnique({
+            where: { id: parseInt(taskId) }
+        });
+
+        if (!task) {
+            res.status(404).json({ message: 'Задача не найдена' });
+            return;
+        }
+
+        // Удаляем исполнителей
+        await prisma.taskAssignee.deleteMany({
+            where: {
+                taskId: parseInt(taskId),
+                userId: {
+                    in: userIds.map((id: string | number) => parseInt(id.toString()))
+                }
+            }
+        });
+
+        // Получаем обновленную задачу с исполнителями
+        const updatedTask = await prisma.task.findUnique({
+            where: { id: parseInt(taskId) },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        res.status(200).json(updatedTask);
+    } catch (error) {
+        console.error('Ошибка при удалении исполнителей:', error);
+        res.status(500).json({ message: 'Ошибка при удалении исполнителей' });
+    }
+}
+
+// Получение исполнителей задачи
+export const getTaskAssignees = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { taskId } = req.params;
+
+        // Проверяем существование задачи
+        const task = await prisma.task.findUnique({
+            where: { id: parseInt(taskId) },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!task) {
+            res.status(404).json({ message: 'Задача не найдена' });
+            return;
+        }
+
+        res.status(200).json(task.assignees);
+    } catch (error) {
+        console.error('Ошибка при получении исполнителей задачи:', error);
+        res.status(500).json({ message: 'Ошибка при получении исполнителей задачи' });
+    }
+}
+
+// Обновление исполнителей задачи (заменяет всех исполнителей)
+export const updateTaskAssignees = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { taskId } = req.params;
+        const { userIds } = req.body;
+
+        // Проверяем существование задачи
+        const task = await prisma.task.findUnique({
+            where: { id: parseInt(taskId) }
+        });
+
+        if (!task) {
+            res.status(404).json({ message: 'Задача не найдена' });
+            return;
+        }
+
+        // Удаляем всех текущих исполнителей
+        await prisma.taskAssignee.deleteMany({
+            where: { taskId: parseInt(taskId) }
+        });
+
+        // Добавляем новых исполнителей, если они переданы
+        if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+            // Проверяем существование всех пользователей
+            const users = await prisma.user.findMany({
+                where: {
+                    id: {
+                        in: userIds.map((id: string | number) => parseInt(id.toString()))
+                    }
+                }
+            });
+
+            if (users.length !== userIds.length) {
+                res.status(400).json({ message: 'Некоторые пользователи не найдены' });
+                return;
+            }
+
+            // Добавляем новых исполнителей
+            await prisma.taskAssignee.createMany({
+                data: userIds.map((userId: string | number) => ({
+                    taskId: parseInt(taskId),
+                    userId: parseInt(userId.toString())
+                }))
+            });
+        }
+
+        // Получаем обновленную задачу с исполнителями
+        const updatedTask = await prisma.task.findUnique({
+            where: { id: parseInt(taskId) },
+            include: {
+                assignees: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                department: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        res.status(200).json(updatedTask);
+    } catch (error) {
+        console.error('Ошибка при обновлении исполнителей задачи:', error);
+        res.status(500).json({ message: 'Ошибка при обновлении исполнителей задачи' });
     }
 }
 

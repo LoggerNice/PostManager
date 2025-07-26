@@ -1,7 +1,7 @@
 'use client';
 
 import { TaskPriority, TaskCardProps } from '@/types/task.types';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
@@ -9,6 +9,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useUpdateTaskMutation, useCreateTaskMutation } from '@/store/api/task.api';
 import PriorityModal from './PriorityModal';
 import TaskMenu from './TaskMenu';
+import TaskModal from './TaskModal';
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
@@ -34,10 +35,34 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState(item.title);
   const [showPriorityModal, setShowPriorityModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTaskData, setEditTaskData] = useState({
+    title: item.title,
+    description: item.description || '',
+    priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
+    deadline: item.deadline ? new Date(item.deadline) : null,
+    assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
+  });
+
+  // Синхронизация локального state с основным state задачи
+  useEffect(() => {
+    setEditTaskData({
+      title: item.title,
+      description: item.description || '',
+      priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
+      deadline: item.deadline ? new Date(item.deadline) : null,
+      assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
+    });
+    setEditingTitle(item.title);
+  }, [item.title, item.description, item.priority, item.deadline]);
 
   const handleDateSelect = async (date: Date | null) => {
-    if (!date) return;
-    setSelectedDate(date);
+    console.log('handleDateSelect called with date:', date);
+    setSelectedDate(date || new Date());
+    
+    setShowDatepicker(false);
+    setShowMenu(false);
+
     try {
       const priorityMap: Record<string, TaskPriority> = {
         'Низкий': 'LOW',
@@ -45,25 +70,28 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         'Высокий': 'HIGH'
       };
 
+      const deadlineValue = date ? format(date, 'yyyy-MM-dd') : null;
+      console.log('Sending deadline to API:', deadlineValue);
+
       await updateTask({
         taskId: item.id,
         task: {
           ...item,
           priority: priorityMap[item.priority as keyof typeof priorityMap],
-          deadline: format(date, 'yyyy-MM-dd')
+          deadline: deadlineValue
         }
       }).unwrap();
 
-      // Update local state with the new task data
+      console.log('API call successful, updating local state with deadline:', date);
+
+      // Обновляем основной state только после успешного сохранения в БД
       onTaskUpdate(item.id, {
         ...item,
-        deadline: date
+        deadline: date || undefined
       });
-
-      setShowDatepicker(false);
-      setShowMenu(false);
     } catch (error) {
       console.error('Failed to update task deadline:', error);
+      // В случае ошибки не обновляем state, так как он не изменился
     }
   };
 
@@ -74,13 +102,18 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         'Средний': 'MEDIUM',
         'Высокий': 'HIGH'
       };
+      
+      // Получаем ID исполнителей из текущей задачи
+      const assigneeIds = item.assignees?.map(assignee => assignee.user.id) || [];
+      
       await createTask({
         title: item.title + ' (копия)',
         description: item.description || '',
         priority: priorityMap[item.priority as keyof typeof priorityMap] || 'LOW',
         status: item.status,
         projectId: Number(item.projectId),
-        deadline: item.deadline ? format(new Date(item.deadline), 'yyyy-MM-dd') : undefined
+        deadline: item.deadline ? format(new Date(item.deadline), 'yyyy-MM-dd') : undefined,
+        assigneeIds: assigneeIds
       }).unwrap();
       // Обновить задачи после дублирования
       onTaskUpdate(item.id, item); // Триггерим обновление списка задач
@@ -147,6 +180,42 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     }
   };
 
+  const handleEdit = () => {
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (data: { title: string; description: string; priority: TaskPriority; deadline?: string }) => {
+    try {
+      await updateTask({
+        taskId: item.id,
+        task: {
+          title: data.title,
+          description: data.description,
+          priority: data.priority,
+          status: item.status,
+          projectId: Number(item.projectId),
+          deadline: data.deadline
+        }
+      }).unwrap();
+
+      onTaskUpdate(item.id, {
+        ...item,
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        deadline: data.deadline ? new Date(data.deadline) : undefined
+      });
+
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
+
+  const handleEditCancel = () => {
+    setShowEditModal(false);
+  };
+
 
   return (
     <div
@@ -187,6 +256,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           onAddDate={() => setShowDatepicker(true)}
           onDelete={() => handleDeleteTask(columnId, item.id)}
           onDuplicate={handleDuplicate}
+          onEdit={handleEdit}
           menuHeight={menuHeight}
           ellipsisRef={ellipsisRef as React.RefObject<HTMLButtonElement>}
           showMenu={showMenu}
@@ -211,17 +281,108 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           </div>
         </div>
       )}
+      {showEditModal && (
+        <TaskModal
+          visible={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            // Сброс данных к исходным при закрытии
+            setEditTaskData({
+              title: item.title,
+              description: item.description || '',
+              priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
+              deadline: item.deadline ? new Date(item.deadline) : null,
+              assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
+            });
+          }}
+          onCreate={async () => {
+            try {
+              const priorityMap: Record<string, TaskPriority> = {
+                'Низкий': 'LOW',
+                'Средний': 'MEDIUM',
+                'Высокий': 'HIGH'
+              };
+
+              const deadlineValue = editTaskData.deadline ? format(editTaskData.deadline, 'yyyy-MM-dd') : null;
+              console.log('Modal edit - sending deadline to API:', deadlineValue);
+
+              await updateTask({
+                taskId: item.id,
+                task: {
+                  title: editTaskData.title,
+                  description: editTaskData.description,
+                  priority: priorityMap[editTaskData.priority],
+                  status: item.status,
+                  projectId: Number(item.projectId),
+                  deadline: deadlineValue,
+                  assigneeIds: editTaskData.assigneeIds
+                }
+              }).unwrap();
+
+              // Обновляем локальное состояние
+              onTaskUpdate(item.id, {
+                ...item,
+                title: editTaskData.title,
+                description: editTaskData.description,
+                priority: editTaskData.priority,
+                deadline: editTaskData.deadline || undefined
+              });
+
+              setShowEditModal(false);
+            } catch (error) {
+              console.error('Failed to update task:', error);
+            }
+          }}
+          newTask={editTaskData}
+          setNewTask={(task) => {
+            setEditTaskData({
+              title: task.title,
+              description: task.description,
+              priority: task.priority,
+              deadline: task.deadline || null,
+              assigneeIds: task.assigneeIds || []
+            });
+          }}
+          columns={{}}
+          selectedColumn=""
+          setSelectedColumn={() => {}}
+        />
+      )}
       <PriorityModal
         isOpen={showPriorityModal}
         onClose={() => setShowPriorityModal(false)}
         task={item}
         onTaskUpdate={onTaskUpdate}
       />
+      
       {item.deadline && !showDatepicker && (
         <div className="text-xs text-gray-400">
           Срок: {new Date(item.deadline).toLocaleDateString('ru-RU')}
         </div>
       )}
+      
+      {/* Отображение исполнителей */}
+      {item.assignees && item.assignees.length > 0 && (
+        <div className="mt-2">
+          <div className="flex flex-wrap gap-1">
+            {item.assignees.slice(0, 3).map((assignee) => (
+              <div
+                key={assignee.id}
+                className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full"
+                title={`${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`}
+              >
+                {assignee.user.name}
+              </div>
+            ))}
+            {item.assignees.length > 3 && (
+              <div className="bg-gray-600 text-white text-xs px-2 py-1 rounded-full">
+                +{item.assignees.length - 3}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
     </div>
   );
 } 
