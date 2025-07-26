@@ -59,7 +59,7 @@ export default function TaskMenu({
   }, [showMenu, ellipsisRef, setShowMenu, setMenuPosition]);
 
   return (
-    <div className="relative">
+    <div className="relative pt-1" onMouseEnter={(e) => e.stopPropagation()} onMouseLeave={(e) => e.stopPropagation()}>
       <button
         ref={ellipsisRef}
         onClick={e => {
@@ -82,6 +82,8 @@ export default function TaskMenu({
           }
           setShowMenu(!showMenu);
         }}
+        onMouseEnter={(e) => e.stopPropagation()}
+        onMouseLeave={(e) => e.stopPropagation()}
         className="text-gray-400 hover:text-white z-10"
       >
         <EllipsisVerticalIcon className="w-5 h-5" />
@@ -92,6 +94,8 @@ export default function TaskMenu({
           className="fixed bg-gray-900 rounded-xl shadow-lg border border-gray-800 z-50"
           style={{ top: menuPosition.top, left: menuPosition.left, minWidth: 160 }}
           onClick={e => e.stopPropagation()}
+          onMouseEnter={(e) => e.stopPropagation()}
+          onMouseLeave={(e) => e.stopPropagation()}
         >
           <button
             onClick={() => {

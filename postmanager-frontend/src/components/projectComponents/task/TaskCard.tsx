@@ -7,9 +7,12 @@ import { ru } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { useUpdateTaskMutation, useCreateTaskMutation } from '@/store/api/task.api';
+import { useGetCommentsByTaskQuery } from '@/store/api/comment.api';
 import PriorityModal from './PriorityModal';
 import TaskMenu from './TaskMenu';
 import TaskModal from './TaskModal';
+import TaskDetailsModal from './TaskDetailsModal';
+import { MessageCircle } from 'lucide-react';
 
 const getPriorityColor = (priority: string) => {
   switch (priority) {
@@ -36,6 +39,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
   const [editingTitle, setEditingTitle] = useState(item.title);
   const [showPriorityModal, setShowPriorityModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [editTaskData, setEditTaskData] = useState({
     title: item.title,
     description: item.description || '',
@@ -43,6 +47,12 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     deadline: item.deadline ? new Date(item.deadline) : null,
     assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
   });
+
+  // Получаем комментарии для отображения количества
+  const { data: comments = [] } = useGetCommentsByTaskQuery(
+    parseInt(item.id),
+    { skip: !item.id }
+  );
 
   // Синхронизация локального state с основным state задачи
   useEffect(() => {
@@ -222,12 +232,22 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       ref={provided.innerRef}
       {...provided.draggableProps}
       {...provided.dragHandleProps}
-      className={`bg-gray-900 rounded-lg p-4 shadow flex flex-col gap-2 border-2 ${getPriorityColor(item.priority)}
+      className={`bg-gray-900 rounded-lg px-4 pt-2 pb-4 shadow flex flex-col gap-2 border-2 ${getPriorityColor(item.priority)}
         ${snapshot.isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
         ${columnId === 'COMPLETED' ? 'opacity-60 text-gray-400 pointer-events-auto' : ''}
+        cursor-pointer
       `}
       style={{
         ...provided.draggableProps.style,
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (!showDetailsModal && !showEditModal && !showDatepicker && !showPriorityModal) {
+          console.log('Открытие модального окна для задачи:', item.title);
+          setShowDetailsModal(true);
+          // Сброс курсора при открытии модального окна
+          document.body.style.cursor = 'default';
+        }
       }}
     >
       <div className="flex items-center justify-between">
@@ -238,33 +258,49 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
             onChange={(e) => setEditingTitle(e.target.value)}
             onBlur={handleTitleSave}
             onKeyDown={handleTitleKeyPress}
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             className="text-white text-[14px] font-semibold focus:outline-none"
             autoFocus
             maxLength={100}
           />
         ) : (
-          <div
-            className="font-semibold text-[14px] cursor-pointer rounded flex-1 max-w-[300px]"
-            onDoubleClick={handleTitleDoubleClick}
-            title="Редактировать"
-          >
-            {item.title}
-          </div>
+                  <div
+          className="font-semibold text-[14px] cursor-pointer rounded flex-1 max-w-[300px]"
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            handleTitleDoubleClick();
+          }}
+          title="Редактировать"
+        >
+          {item.title}
+        </div>
         )}
-        <TaskMenu
-          onEditPriority={() => setShowPriorityModal(true)}
-          onAddDate={() => setShowDatepicker(true)}
-          onDelete={() => handleDeleteTask(columnId, item.id)}
-          onDuplicate={handleDuplicate}
-          onEdit={handleEdit}
-          menuHeight={menuHeight}
-          ellipsisRef={ellipsisRef as React.RefObject<HTMLButtonElement>}
-          showMenu={showMenu}
-          setShowMenu={setShowMenu}
-          setMenuPosition={setMenuPosition}
-          setMenuDirection={setMenuDirection}
-          menuPosition={menuPosition}
-        />
+        <div className="flex items-center gap-2">
+          {/* Индикатор комментариев */}
+          {comments.length > 0 && (
+            <div className="flex gap-1 text-gray-400">
+              <MessageCircle className="w-3 h-3" />
+              <span className="text-xs">{comments.length}</span>
+            </div>
+          )}
+          <div onMouseEnter={(e) => e.stopPropagation()} onMouseLeave={(e) => e.stopPropagation()}>
+            <TaskMenu
+              onEditPriority={() => setShowPriorityModal(true)}
+              onAddDate={() => setShowDatepicker(true)}
+              onDelete={() => handleDeleteTask(columnId, item.id)}
+              onDuplicate={handleDuplicate}
+              onEdit={handleEdit}
+              menuHeight={menuHeight}
+              ellipsisRef={ellipsisRef as React.RefObject<HTMLButtonElement>}
+              showMenu={showMenu}
+              setShowMenu={setShowMenu}
+              setMenuPosition={setMenuPosition}
+              setMenuDirection={setMenuDirection}
+              menuPosition={menuPosition}
+            />
+          </div>
+        </div>
       </div>
       {showDatepicker && (
         <div className="fixed inset-0 bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowDatepicker(false)}>
@@ -354,34 +390,57 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         task={item}
         onTaskUpdate={onTaskUpdate}
       />
+
+      <TaskDetailsModal
+        task={item}
+        visible={showDetailsModal}
+        onClose={() => {
+          console.log('Закрытие модального окна, текущее состояние:', showDetailsModal);
+          setShowDetailsModal(false);
+          // Сброс курсора при закрытии модального окна
+          document.body.style.cursor = '';
+        }}
+        onTaskUpdate={onTaskUpdate}
+      />
       
-      {item.deadline && !showDatepicker && (
-        <div className="text-xs text-gray-400">
-          Срок: {new Date(item.deadline).toLocaleDateString('ru-RU')}
-        </div>
-      )}
-      
-      {/* Отображение исполнителей */}
-      {item.assignees && item.assignees.length > 0 && (
-        <div className="mt-2">
-          <div className="flex flex-wrap gap-1">
-            {item.assignees.slice(0, 3).map((assignee) => (
-              <div
-                key={assignee.id}
-                className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full"
-                title={`${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`}
-              >
-                {assignee.user.name}
-              </div>
-            ))}
-            {item.assignees.length > 3 && (
-              <div className="bg-gray-600 text-white text-xs px-2 py-1 rounded-full">
-                +{item.assignees.length - 3}
+      {/* Срок и исполнители в одной строке */}
+      {(item.deadline || (item.assignees && item.assignees.length > 0)) && (
+        <div className="flex items-end justify-between">
+          {/* Срок слева */}
+          {item.deadline && !showDatepicker && (
+            <div className="text-xs text-gray-400">
+              Срок: {new Date(item.deadline).toLocaleDateString('ru-RU')}
+            </div>
+          )}
+          
+                      {/* Исполнители справа */}
+            {item.assignees && item.assignees.length > 0 && (
+              <div className="flex gap-1">
+                {item.assignees.slice(0, 2).map((assignee) => (
+                  <div
+                    key={assignee.id}
+                    className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                    title={`${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`}
+                  >
+                    {assignee.user.name.charAt(0)}
+                  </div>
+                ))}
+                {item.assignees.length > 2 && (
+                  <div 
+                    className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                    title={item.assignees.slice(2).map(assignee => 
+                      `${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`
+                    ).join('\n')}
+                  >
+                    +{item.assignees.length - 2}
+                  </div>
+                )}
               </div>
             )}
-          </div>
         </div>
       )}
+
+
       
     </div>
   );

@@ -20,7 +20,30 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
 
 export const getComments = async (req: Request, res: Response): Promise<void> => {
     try {
-        const comments = await prisma.comment.findMany();
+        const { taskId } = req.query;
+        
+        const whereClause = taskId ? { taskId: parseInt(taskId as string) } : {};
+        
+        const comments = await prisma.comment.findMany({
+            where: whereClause,
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'asc'
+            }
+        });
+        
         res.status(200).json(comments);
     } catch (error) {
         console.error('Ошибка при получении комментариев:', error);
