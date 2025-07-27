@@ -111,7 +111,7 @@ export const AssigneesModal: React.FC<AssigneesModalProps> = ({
 
                 <div className="mb-4">
                     <MultiSelect
-                        label="Выберите исполнителей"
+                        label=""
                         name="assignees"
                         options={assigneeOptions}
                         value={selectedAssignees.map(id => parseInt(id))}

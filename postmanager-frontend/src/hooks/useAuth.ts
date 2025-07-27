@@ -31,8 +31,9 @@ export function useAuth(): UseAuthReturn {
     const cookieToken = getCookie('accessToken');
     const cookieUserId = getCookie('userId');
     const cookieUserName = getCookie('userName');
+    const cookieUserRole = getCookie('userRole');
 
-    if (cookieToken && cookieUserId && cookieUserName) {
+    if (cookieToken && cookieUserId && cookieUserName && cookieUserRole) {
       // Восстанавливаем состояние из cookies
       dispatch(setCredentials({
         token: cookieToken,
@@ -40,7 +41,7 @@ export function useAuth(): UseAuthReturn {
           id: parseInt(cookieUserId),
           name: cookieUserName,
           login: '', // Будет загружено из API
-          role: '', // Будет загружено из API
+          role: cookieUserRole, // Восстанавливаем роль из куки
           departmentId: 0, // Будет загружено из API
           createdAt: '',
           updatedAt: ''

@@ -42,7 +42,7 @@ export function useRealtimeNotifications({ data, isLoading, dataName }: UseRealt
         : `Добавлено ${newItems.length} новых ${dataName.toLowerCase()}`;
       
       toast.success(message, {
-        duration: 3000,
+        duration: 60000,
         icon: '🆕'
       });
     }
@@ -54,7 +54,7 @@ export function useRealtimeNotifications({ data, isLoading, dataName }: UseRealt
         : `Удалено ${removedItems.length} ${dataName.toLowerCase()}`;
       
       toast.error(message, {
-        duration: 3000,
+        duration: 60000,
         icon: '🗑️'
       });
     }

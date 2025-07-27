@@ -25,6 +25,7 @@ const authSlice = createSlice({
             setCookie('accessToken', token);
             setCookie('userId', user.id.toString());
             setCookie('userName', user.name);
+            setCookie('userRole', user.role);
         },
         logout: (state) => {
             state.user = null;
@@ -32,6 +33,7 @@ const authSlice = createSlice({
             removeCookie('accessToken');
             removeCookie('userId');
             removeCookie('userName');
+            removeCookie('userRole');
         }
     }
 });

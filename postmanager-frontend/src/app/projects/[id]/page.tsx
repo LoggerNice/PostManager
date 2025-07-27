@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useGetProjectByIdQuery } from '@/store/api/project.api';
+import { useGetProjectByIdQuery, useDeleteProjectMutation } from '@/store/api/project.api';
 import { useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation, useGetProjectTasksQuery, useUpdateTasksOrderMutation } from '@/store/api/task.api';
 import { TaskStatus, TaskPriority, TaskPriorityDisplay, TaskForm, Task } from '@/types/task.types';
 import { Column } from '@/types';
 import { useRef } from 'react';
+import { toast } from 'react-hot-toast';
+import { getCookie } from '@/utils/cookie';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 
 import ProjectHeader from '../../../components/projectComponents/ProjectHeader';
 import ProjectTabs from '../../../components/projectComponents/ProjectTabs';
@@ -33,6 +36,32 @@ const initialColumns: Record<string, Column> = {
 export default function ProjectPage() {
   const params = useParams();
   const projectId = Number(params.id);
+  
+  // Функция для воспроизведения звука создания задачи
+  const playTaskCreatedSound = () => {
+    try {
+      const audio = new Audio('/meet-message-sound-1.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(error => {
+        console.log('Не удалось воспроизвести звук создания задачи:', error);
+      });
+    } catch (error) {
+      console.log('Ошибка при создании аудио элемента для создания задачи:', error);
+    }
+  };
+
+  // Функция для воспроизведения звука выполнения задачи
+  const playTaskCompletedSound = () => {
+    try {
+      const audio = new Audio('/cena_notification.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(error => {
+        console.log('Не удалось воспроизвести звук выполнения задачи:', error);
+      });
+    } catch (error) {
+      console.log('Ошибка при создании аудио элемента для выполнения задачи:', error);
+    }
+  };
   const { data: project, isLoading, error } = useGetProjectByIdQuery(projectId);
   const {
     data: projectTasks,
@@ -48,12 +77,20 @@ export default function ProjectPage() {
   const [updateTask] = useUpdateTaskMutation();
   const [deleteTask] = useDeleteTaskMutation();
   const [updateTasksOrder] = useUpdateTasksOrderMutation();
+  const [deleteProject] = useDeleteProjectMutation();
   const [activeTab, setActiveTab] = useState('tasks');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showProjectEditModal, setShowProjectEditModal] = useState(false);
   const [pendingTaskMove, setPendingTaskMove] = useState(false);
   const [localColumns, setLocalColumns] = useState<Record<string, Column>>({});
   const [lastServerSync, setLastServerSync] = useState<number>(0);
+
+  // Используем хук для уведомлений о задачах (только один хук для избежания дублирования)
+  useTaskNotifications({
+    tasks: projectTasks || [],
+    isLoading: isTasksLoading,
+    projectId: projectId
+  });
 
 
   const priorityMapToEnglish: Record<string, TaskPriority> = {
@@ -279,6 +316,15 @@ export default function ProjectPage() {
       const currentColumnItems = localColumns[columnId]?.items || [];
       const nextOrder = currentColumnItems.length;
       
+      // Получаем ID текущего пользователя из cookies или Redux
+      const currentUserId = parseInt(getCookie('userId') || '0');
+      
+      // Убеждаемся, что текущий пользователь включен в список исполнителей
+      const finalAssigneeIds = assigneeIds || [];
+      if (currentUserId && !finalAssigneeIds.includes(currentUserId)) {
+        finalAssigneeIds.push(currentUserId);
+      }
+      
       const taskData: TaskForm = {
         title: title.trim(),
         description: description.trim(),
@@ -287,11 +333,11 @@ export default function ProjectPage() {
         projectId: projectId,
         deadline: deadline,
         order: nextOrder,
-        assigneeIds: assigneeIds || []
+        assigneeIds: finalAssigneeIds
       };
       
       console.log('handleCreateTask called with deadline:', deadline);
-      console.log('handleCreateTask called with assigneeIds:', assigneeIds);
+      console.log('handleCreateTask called with assigneeIds:', finalAssigneeIds);
       console.log('taskData:', taskData);
       
       const newTask = await createTask(taskData).unwrap();
@@ -309,8 +355,42 @@ export default function ProjectPage() {
       // Быстро синхронизируемся с сервером (с коротким индикатором)
       await quickSyncWithServer(true);
       console.log('Task created and synchronized successfully');
+      
+      // Воспроизводим звук создания задачи
+      playTaskCreatedSound();
+      
+      // Показываем уведомление об успешном создании задачи
+      toast.success(`Задача "${title.trim()}" успешно создана! 🎉`, {
+        duration: 4000,
+        icon: '✅',
+        style: {
+          background: '#10b981',
+          color: '#ffffff',
+          fontSize: '14px',
+          fontWeight: '500'
+        }
+      });
+
+      // Уведомляем других исполнителей о новой задаче
+      if (finalAssigneeIds.length > 1) {
+        const otherAssigneeIds = finalAssigneeIds.filter(id => id !== currentUserId);
+        if (otherAssigneeIds.length > 0) {
+          console.log(`Уведомляем исполнителей о новой задаче: ${otherAssigneeIds.join(', ')}`);
+          // Уведомления будут показаны через хук useTaskNotifications
+        }
+      }
     } catch (error) {
       console.error('Failed to create task:', error);
+      
+      // Показываем уведомление об ошибке
+      const errorMessage = error && typeof error === 'object' && 'data' in error && 
+                          error.data && typeof error.data === 'object' && 'message' in error.data
+                          ? String(error.data.message)
+                          : 'Ошибка при создании задачи';
+      toast.error(errorMessage, {
+        duration: 4000,
+        icon: '❌'
+      });
     }
   };
 
@@ -328,6 +408,21 @@ export default function ProjectPage() {
       // Быстро синхронизируемся с сервером (с коротким индикатором)
       await quickSyncWithServer(true);
       console.log('Task deleted and synchronized successfully');
+      
+      // Уведомляем исполнителей об удалении задачи
+      const taskToDelete = Object.values(localColumns)
+        .flatMap(column => column.items)
+        .find(task => task.id === taskId);
+        
+      if (taskToDelete && taskToDelete.assignees && taskToDelete.assignees.length > 0) {
+        const currentUserId = parseInt(getCookie('userId') || '0');
+        const otherAssignees = taskToDelete.assignees.filter(assignee => assignee.userId !== currentUserId);
+        
+        if (otherAssignees.length > 0) {
+          console.log(`Уведомляем исполнителей об удалении задачи: ${otherAssignees.map(a => a.user?.name).join(', ')}`);
+          // Уведомления будут показаны через хук useTaskNotifications
+        }
+      }
     } catch (error) {
       console.error('Failed to delete task:', error);
       // В случае ошибки быстро синхронизируемся с сервером
@@ -353,6 +448,17 @@ export default function ProjectPage() {
     try {
       await quickSyncWithServer(true); // Сохраняем локальный порядок
       console.log('Task updated and synchronized successfully');
+      
+      // Уведомляем исполнителей об обновлении задачи
+      if (updatedTask.assignees && updatedTask.assignees.length > 0) {
+        const currentUserId = parseInt(getCookie('userId') || '0');
+        const otherAssignees = updatedTask.assignees.filter(assignee => assignee.userId !== currentUserId);
+        
+        if (otherAssignees.length > 0) {
+          console.log(`Уведомляем исполнителей об обновлении задачи: ${otherAssignees.map(a => a.user?.name).join(', ')}`);
+          // Уведомления будут показаны через хук useTaskNotifications
+        }
+      }
     } catch (error) {
       console.error('Failed to sync after task update:', error);
     }
@@ -364,6 +470,48 @@ export default function ProjectPage() {
 
   const handleEditProject = () => {
     setShowProjectEditModal(true);
+  };
+
+  const handleDeleteProject = async () => {
+    if (!project) return;
+    
+    // Показываем подтверждение удаления
+    const isConfirmed = window.confirm(
+      `Вы уверены, что хотите удалить проект "${project.title}"?\n\nЭто действие нельзя отменить.`
+    );
+    
+    if (!isConfirmed) return;
+    
+    try {
+      await deleteProject(projectId).unwrap();
+      
+      // Показываем уведомление об успешном удалении
+      toast.success(`Проект "${project.title}" успешно удален!`, {
+        duration: 4000,
+        icon: '✅',
+        style: {
+          background: '#10b981',
+          color: '#ffffff',
+          fontSize: '14px',
+          fontWeight: '500'
+        }
+      });
+      
+      // Перенаправляем на главную страницу
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+      
+      // Показываем уведомление об ошибке
+      const errorMessage = error && typeof error === 'object' && 'data' in error && 
+                          error.data && typeof error.data === 'object' && 'message' in error.data
+                          ? String(error.data.message)
+                          : 'Ошибка при удалении проекта';
+      toast.error(errorMessage, {
+        duration: 4000,
+        icon: '❌'
+      });
+    }
   };
 
   const handleTaskMove = async (
@@ -428,6 +576,22 @@ export default function ProjectPage() {
       
       console.log('Task moved and updated successfully in database');
       
+      // Если задача перемещена в "Выполнено", воспроизводим звук выполнения
+      if (destinationColumnId === 'COMPLETED') {
+        playTaskCompletedSound();
+      }
+      
+      // Уведомляем исполнителей о перемещении задачи
+      if (movedTask.assignees && movedTask.assignees.length > 0) {
+        const currentUserId = parseInt(getCookie('userId') || '0');
+        const otherAssignees = movedTask.assignees.filter(assignee => assignee.userId !== currentUserId);
+        
+        if (otherAssignees.length > 0) {
+          console.log(`Уведомляем исполнителей о перемещении задачи: ${otherAssignees.map(a => a.user?.name).join(', ')}`);
+          // Уведомления будут показаны через хук useTaskNotifications
+        }
+      }
+      
       // Быстрая синхронизация с сервером для получения актуальных данных
       await quickSyncWithServer(false); // Используем серверный порядок
       
@@ -469,6 +633,7 @@ export default function ProjectPage() {
         title={project.title} 
         users={users} 
         onEditClick={handleEditProject}
+        onDeleteClick={handleDeleteProject}
       />
       <ProjectTabs activeTab={activeTab} onTabChange={setActiveTab} />
       {renderTabContent()}

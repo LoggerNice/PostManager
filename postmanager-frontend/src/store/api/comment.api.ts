@@ -12,9 +12,11 @@ export const commentApi = api.injectEndpoints({
         result 
           ? [
               ...result.map(({ id }) => ({ type: 'Comment' as const, id })),
-              { type: 'Comment', id: 'LIST' }
+              { type: 'Comment', id: `task-${taskId}` }
             ]
-          : [{ type: 'Comment', id: 'LIST' }],
+          : [{ type: 'Comment', id: `task-${taskId}` }],
+      // Автоматическое обновление каждые 5 секунд
+      pollingInterval: 5000,
     }),
     createComment: builder.mutation<Comment, CreateCommentRequest>({
       query: (comment) => ({
@@ -22,7 +24,32 @@ export const commentApi = api.injectEndpoints({
         method: 'POST',
         body: comment,
       }),
-      invalidatesTags: [{ type: 'Comment', id: 'LIST' }],
+      invalidatesTags: (result, error, { taskId }) => [
+        { type: 'Comment', id: `task-${taskId}` },
+        { type: 'Comment', id: 'LIST' }
+      ],
+      // Оптимистичное обновление
+      async onQueryStarted({ taskId, content, authorId }, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          commentApi.util.updateQueryData('getCommentsByTask', taskId, (draft) => {
+            const newComment = {
+              id: Date.now(), // Временный ID
+              content,
+              taskId,
+              authorId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              author: null // Будет заполнено после ответа сервера
+            };
+            draft.push(newComment);
+          })
+        );
+        try {
+          await queryFulfilled;
+        } catch {
+          patchResult.undo();
+        }
+      },
     }),
     updateComment: builder.mutation<Comment, { id: number; data: UpdateCommentRequest }>({
       query: ({ id, data }) => ({
@@ -30,12 +57,20 @@ export const commentApi = api.injectEndpoints({
         method: 'PUT',
         body: data,
       }),
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'Comment', id },
+        { type: 'Comment', id: 'LIST' }
+      ],
     }),
     deleteComment: builder.mutation<void, number>({
       query: (id) => ({
         url: `comments/${id}`,
         method: 'DELETE',
       }),
+      invalidatesTags: (result, error, id) => [
+        { type: 'Comment', id },
+        { type: 'Comment', id: 'LIST' }
+      ],
     }),
   }),
 });

@@ -5,6 +5,9 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
 import { useGetUsersQuery } from '@/store/api/user.api';
+import { useAuth } from '@/hooks/useAuth';
+import { useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 
 // Добавляем стили для полной ширины DatePicker
 const datePickerStyles = `
@@ -14,11 +17,33 @@ const datePickerStyles = `
 `;
 
 export default function TaskModal({ visible, onClose, onCreate, newTask, setNewTask, columns, selectedColumn, setSelectedColumn }: TaskModalProps) {
+  const { user: currentUser } = useAuth();
   const { data: users = [] } = useGetUsersQuery();
   const assigneeOptions = users.map(user => ({
     value: user.id,
     label: `${user.name}${user.department ? ' (' + user.department.name + ')' : ''}`
   }));
+
+  // Автоматически добавляем текущего пользователя в список исполнителей
+  useEffect(() => {
+    if (visible && currentUser && currentUser.id) {
+      const currentAssigneeIds = newTask.assigneeIds || [];
+      if (!currentAssigneeIds.includes(currentUser.id)) {
+        setNewTask({
+          ...newTask,
+          assigneeIds: [...currentAssigneeIds, currentUser.id]
+        });
+      }
+    }
+  }, [visible, currentUser, newTask.assigneeIds, setNewTask]);
+
+  // Показываем предупреждение, если текущий пользователь не найден
+  useEffect(() => {
+    if (visible && !currentUser) {
+      toast.error('Не удалось определить текущего пользователя');
+    }
+  }, [visible, currentUser]);
+
   if (!visible) return null;
   return (
     <div className="fixed inset-0 bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50">
@@ -84,7 +109,7 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             Исполнители
           </label>
           <MultiSelect
-            label="Выберите исполнителей"
+            label=""
             name="assignees"
             options={assigneeOptions}
             value={newTask.assigneeIds || []}

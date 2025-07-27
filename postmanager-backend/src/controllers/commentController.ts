@@ -10,6 +10,19 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
                 taskId: parseInt(taskId),
                 authorId: parseInt(authorId),
             },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            }
         });
         res.status(200).json(comment);
     } catch (error) {
@@ -54,7 +67,22 @@ export const getComments = async (req: Request, res: Response): Promise<void> =>
 export const getCommentById = async (req: Request, res: Response): Promise<void> => {
     try {
         const { commentId } = req.params;
-        const comment = await prisma.comment.findUnique({ where: { id: parseInt(commentId) } });
+        const comment = await prisma.comment.findUnique({ 
+            where: { id: parseInt(commentId) },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
         if (!comment) {
             res.status(404).json({ message: 'Комментарий не найден' });
             return;
@@ -73,6 +101,19 @@ export const updateComment = async (req: Request, res: Response): Promise<void> 
         const updatedComment = await prisma.comment.update({
             where: { id: parseInt(commentId) },
             data: { content },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            }
         });
         res.status(200).json(updatedComment);
     } catch (error) {

@@ -5,7 +5,9 @@ import { useState, useEffect } from 'react';
 import { useGetCommentsByTaskQuery, useCreateCommentMutation } from '@/store/api/comment.api';
 import { useUpdateTaskMutation } from '@/store/api/task.api';
 import { useAuth } from '@/hooks/useAuth';
+
 import { X, Send, MessageCircle, Edit } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 interface TaskDetailsModalProps {
   task: Task | null;
@@ -19,13 +21,32 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const [newComment, setNewComment] = useState('');
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   
-  const { data: comments = [], refetch: refetchComments } = useGetCommentsByTaskQuery(
+  // Функция для воспроизведения звука создания комментария
+  const playCommentCreatedSound = () => {
+    try {
+      const audio = new Audio('/meet-message-sound-1.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(error => {
+        console.log('Не удалось воспроизвести звук создания комментария:', error);
+      });
+    } catch (error) {
+      console.log('Ошибка при создании аудио элемента для комментария:', error);
+    }
+  };
+  
+  const { data: comments = [], refetch: refetchComments, isLoading: commentsLoading } = useGetCommentsByTaskQuery(
     task?.id ? parseInt(task.id) : 0,
-    { skip: !task?.id || !visible }
+    { 
+      skip: !task?.id || !visible,
+      pollingInterval: 5000, // Обновляем каждые 5 секунд
+      refetchOnMountOrArgChange: true
+    }
   );
   
   const [createComment] = useCreateCommentMutation();
   const [updateTask] = useUpdateTaskMutation();
+
+
 
   // Обработка закрытия по Escape
   useEffect(() => {
@@ -56,8 +77,33 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       
       setNewComment('');
       refetchComments();
+      
+      // Воспроизводим звук создания комментария
+      playCommentCreatedSound();
+      
+      // Показываем уведомление об успешном создании комментария
+      toast.success('Комментарий успешно добавлен! 💬', {
+        duration: 4000, // 4 секунды для уведомления о создании
+        icon: '💬',
+        style: {
+          background: '#3b82f6',
+          color: '#ffffff',
+          fontSize: '14px',
+          fontWeight: '500'
+        }
+      });
     } catch (error) {
       console.error('Ошибка при создании комментария:', error);
+      
+      // Показываем уведомление об ошибке
+      const errorMessage = error && typeof error === 'object' && 'data' in error && 
+                          error.data && typeof error.data === 'object' && 'message' in error.data
+                          ? String(error.data.message)
+                          : 'Ошибка при создании комментария';
+      toast.error(errorMessage, {
+        duration: 4000, // 4 секунды для уведомления об ошибке
+        icon: '❌'
+      });
     }
   };
 
@@ -145,7 +191,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   };
 
   if (!visible || !task) {
-    console.log('Модальное окно не отображается:', { visible, task: !!task });
+  
     return null;
   }
 
@@ -285,9 +331,19 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
           {/* Comments Section */}
           <div className="flex-1 flex flex-col">
               {/* Comments Header */}
-              <div className="flex items-center gap-2 px-6 py-4 border-b border-gray-700">
-                <MessageCircle className="w-5 h-5 text-blue-400" />
-                <h3 className="text-lg font-semibold text-white">Комментарии</h3>
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-blue-400" />
+                  <h3 className="text-lg font-semibold text-white">Комментарии</h3>
+                </div>
+                <button
+                  onClick={() => refetchComments()}
+                  disabled={commentsLoading}
+                  className="px-3 py-1 text-sm bg-gray-700 text-gray-300 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  title="Обновить комментарии"
+                >
+                  {commentsLoading ? 'Обновление...' : 'Обновить'}
+                </button>
               </div>
 
               {/* Comments Content */}
@@ -295,7 +351,12 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                 <div className="space-y-4">
                   {/* Comments List */}
                   <div className="space-y-4">
-                    {comments.length > 0 ? (
+                    {commentsLoading ? (
+                      <div className="text-center py-4">
+                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                        <p className="text-gray-500 text-sm mt-2">Загрузка комментариев...</p>
+                      </div>
+                    ) : comments.length > 0 ? (
                       comments.map((comment) => (
                         <div key={comment.id} className="flex gap-3">
                           <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">

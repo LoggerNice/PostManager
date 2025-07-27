@@ -13,9 +13,12 @@ import { useCreateProjectMutation } from "@/store/api/project.api";
 import { IUser } from "@/types/user.types";
 import { IDepartment } from "@/types/department.types";
 import { Option } from "@/types/admin.types";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 export default function Test() {
-    const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IProjectForm>({
+    const { user: currentUser } = useAuth();
+    const { register, handleSubmit, reset, control, formState: { errors }, setValue, watch } = useForm<IProjectForm>({
         mode: 'onChange',
     });
 
@@ -23,8 +26,31 @@ export default function Test() {
     const { data: users = [] } = useGetUsersQuery();
     const [createProject] = useCreateProjectMutation();
 
+    // Автоматически добавляем текущего пользователя в список участников
+    useEffect(() => {
+        if (currentUser && currentUser.id) {
+            const currentUserIds = watch('userIds') || [];
+            if (!currentUserIds.includes(currentUser.id)) {
+                setValue('userIds', [...currentUserIds, currentUser.id]);
+            }
+        }
+    }, [currentUser, setValue, watch]);
+
+    // Показываем предупреждение, если текущий пользователь не найден
+    useEffect(() => {
+        if (!currentUser) {
+            toast.error('Не удалось определить текущего пользователя');
+        }
+    }, [currentUser]);
+
     const onSubmit = async (data: IProjectForm) => {
         try {
+            // Убеждаемся, что текущий пользователь включен в список участников
+            const userIds = data.userIds || [];
+            if (currentUser && currentUser.id && !userIds.includes(currentUser.id)) {
+                data.userIds = [...userIds, currentUser.id];
+            }
+            
             await createProject(data).unwrap();
             toast.success('Проект успешно создан');
             reset();

@@ -51,7 +51,11 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
   // Получаем комментарии для отображения количества
   const { data: comments = [] } = useGetCommentsByTaskQuery(
     parseInt(item.id),
-    { skip: !item.id }
+    { 
+      skip: !item.id,
+      pollingInterval: 10000, // Обновляем каждые 10 секунд
+      refetchOnMountOrArgChange: true
+    }
   );
 
   // Синхронизация локального state с основным state задачи

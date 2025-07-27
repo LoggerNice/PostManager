@@ -30,7 +30,7 @@ export interface Task {
     assignees?: TaskAssignee[]; // Множественные исполнители
     createdAt: Date;
     updatedAt: Date;
-    deadline?: Date;
+    deadline?: Date | string | null;
     order?: number;
 }
 

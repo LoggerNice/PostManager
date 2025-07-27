@@ -29,7 +29,11 @@ export const taskApi = api.injectEndpoints({
                 method: 'PUT',
                 body: task
             }),
-            invalidatesTags: ['Task', 'Project'] // Инвалидируем все задачи и проекты для real-time обновлений
+            invalidatesTags: (result, error, { taskId }) => [
+                'Task', 
+                'Project',
+                { type: 'Comment', id: `task-${taskId}` }
+            ]
         }),
         deleteTask: build.mutation<void, string>({
             query: (taskId) => ({
@@ -40,7 +44,10 @@ export const taskApi = api.injectEndpoints({
         }),
         getTaskComments: build.query<any[], string>({
             query: (taskId) => `tasks/${taskId}/comments`,
-            providesTags: (result, error, taskId) => [{ type: 'Task', id: taskId }]
+            providesTags: (result, error, taskId) => [
+                { type: 'Task', id: taskId },
+                { type: 'Comment', id: `task-${taskId}` }
+            ]
         }),
         updateTasksOrder: build.mutation<void, { columnId: string; orderedIds: string[] }>({
             query: ({ columnId, orderedIds }) => ({
@@ -61,7 +68,11 @@ export const taskApi = api.injectEndpoints({
                 method: 'POST',
                 body: { userIds }
             }),
-            invalidatesTags: ['Task', 'Project']
+            invalidatesTags: (result, error, { taskId }) => [
+                'Task', 
+                'Project',
+                { type: 'Comment', id: `task-${taskId}` }
+            ]
         }),
         updateTaskAssignees: build.mutation<Task, { taskId: string; userIds: number[] }>({
             query: ({ taskId, userIds }) => ({
@@ -69,7 +80,11 @@ export const taskApi = api.injectEndpoints({
                 method: 'PUT',
                 body: { userIds }
             }),
-            invalidatesTags: ['Task', 'Project']
+            invalidatesTags: (result, error, { taskId }) => [
+                'Task', 
+                'Project',
+                { type: 'Comment', id: `task-${taskId}` }
+            ]
         }),
         removeTaskAssignees: build.mutation<Task, { taskId: string; userIds: number[] }>({
             query: ({ taskId, userIds }) => ({
@@ -77,7 +92,11 @@ export const taskApi = api.injectEndpoints({
                 method: 'DELETE',
                 body: { userIds }
             }),
-            invalidatesTags: ['Task', 'Project']
+            invalidatesTags: (result, error, { taskId }) => [
+                'Task', 
+                'Project',
+                { type: 'Comment', id: `task-${taskId}` }
+            ]
         })
     })
 });
