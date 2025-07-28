@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import prisma from '../utils/prisma.js';
+import { getTaskOrderBy } from '../utils/taskUtils.js';
 
 export const createDepartment = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -108,7 +109,15 @@ export const getDepartmentTasks = async (req: Request, res: Response): Promise<v
         const { departmentId } = req.params;
         const department = await prisma.department.findUnique({
             where: { id: parseInt(departmentId) },
-            include: { projects: { include: { tasks: true } } },
+            include: { 
+                projects: { 
+                    include: { 
+                        tasks: {
+                            orderBy: getTaskOrderBy()
+                        } 
+                    } 
+                } 
+            },
         });
         if (!department) {
             res.status(404).json({ message: 'Отдел не найден' });

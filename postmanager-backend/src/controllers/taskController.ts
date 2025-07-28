@@ -1,12 +1,10 @@
 import type { Request, Response } from 'express';
 import prisma from '../utils/prisma.js';
+import { getTaskOrderBy } from '../utils/taskUtils.js';
 
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { title, description, status, priority, projectId, deadline, order, assigneeIds } = req.body;
-        
-        console.log('createTask called with:');
-        console.log('body:', req.body);
         
         if (!projectId) {
             res.status(400).json({ message: 'ID проекта обязателен' });
@@ -152,7 +150,8 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
                         }
                     }
                 }
-            }
+            },
+            orderBy: getTaskOrderBy()
         });
         res.json(tasks);
     } catch (error) {

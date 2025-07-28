@@ -10,6 +10,7 @@ import { useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { getCookie } from '@/utils/cookie';
 import { useTaskNotifications } from '@/hooks/useTaskNotifications';
+import { groupAndSortTasks, sortTasksByPriority } from '@/utils/taskSorting';
 
 import ProjectHeader from '../../../components/projectComponents/ProjectHeader';
 import ProjectTabs from '../../../components/projectComponents/ProjectTabs';
@@ -105,42 +106,38 @@ export default function ProjectPage() {
     'HIGH': 'Высокий'
   }), []);
 
+  // Функция для автоматической сортировки всех колонок по приоритету
+  const sortAllColumnsByPriority = (columns: Record<string, Column>) => {
+    const sortedColumns = { ...columns };
+    Object.keys(sortedColumns).forEach(columnId => {
+      sortedColumns[columnId].items = sortTasksByPriority(sortedColumns[columnId].items);
+    });
+    return sortedColumns;
+  };
+
   // Формируем колонки из projectTasks и синхронизируем с локальным состоянием
   const columns: Record<string, Column> = useMemo(() => {
-    const grouped: Record<string, Task[]> = {
-      IN_PROGRESS: [],
-      PROBLEM: [],
-      COMPLETED: []
-    };
     if (projectTasks) {
-      projectTasks.forEach((task: Task) => {
-        const status = task.status as keyof typeof grouped;
-        if (status in grouped) {
-          grouped[status].push({
-            ...task,
-            priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriority | TaskPriorityDisplay
-          });
-        }
-      });
+      // Преобразуем приоритеты в русский язык
+      const tasksWithRussianPriority = projectTasks.map((task: Task) => ({
+        ...task,
+        priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriority | TaskPriorityDisplay
+      }));
+
+      // Группируем и сортируем задачи по приоритету
+      const grouped = groupAndSortTasks(tasksWithRussianPriority);
       
-      // Сортируем задачи по полю order, если оно есть
-      Object.keys(grouped).forEach(status => {
-        grouped[status as keyof typeof grouped].sort((a, b) => {
-          const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
-          const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
-          return orderA - orderB;
-        });
-      });
+      const serverColumns = {
+        IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
+        PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
+        COMPLETED: { name: 'Выполнено', items: grouped.COMPLETED }
+      };
+
+      // Если есть локальные изменения, используем их, иначе серверные данные
+      return Object.keys(localColumns).length > 0 ? localColumns : serverColumns;
     }
     
-    const serverColumns = {
-      IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
-      PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
-      COMPLETED: { name: 'Выполнено', items: grouped.COMPLETED }
-    };
-
-    // Если есть локальные изменения, используем их, иначе серверные данные
-    return Object.keys(localColumns).length > 0 ? localColumns : serverColumns;
+    return initialColumns;
   }, [projectTasks, priorityMapToRussian, localColumns]);
 
   // Функция для автоматической синхронизации с сервером
@@ -169,24 +166,16 @@ export default function ProjectPage() {
 
   // Функция для умной синхронизации локального состояния с серверными данными
   const syncWithServer = (serverTasks: Task[], preserveLocalOrder: boolean = false) => {
-    const grouped: Record<string, Task[]> = {
-      IN_PROGRESS: [],
-      PROBLEM: [],
-      COMPLETED: []
-    };
-    
-    serverTasks.forEach((task: Task) => {
-      const status = task.status as keyof typeof grouped;
-      if (status in grouped) {
-        grouped[status].push({
-          ...task,
-          priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriority | TaskPriorityDisplay
-        });
-      }
-    });
-    
+    // Преобразуем приоритеты в русский язык
+    const tasksWithRussianPriority = serverTasks.map((task: Task) => ({
+      ...task,
+      priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriority | TaskPriorityDisplay
+    }));
+
     // Если нужно сохранить локальный порядок, используем его
     if (preserveLocalOrder && Object.keys(localColumns).length > 0) {
+      const grouped = groupAndSortTasks(tasksWithRussianPriority);
+      
       Object.keys(grouped).forEach(status => {
         const localItems = localColumns[status]?.items || [];
         const serverItems = grouped[status as keyof typeof grouped];
@@ -211,22 +200,24 @@ export default function ProjectPage() {
         
         grouped[status as keyof typeof grouped] = orderedItems;
       });
-    } else {
-      // Сортируем задачи по полю order, если оно есть
-      Object.keys(grouped).forEach(status => {
-        grouped[status as keyof typeof grouped].sort((a, b) => {
-          const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
-          const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
-          return orderA - orderB;
-        });
+      
+      const sortedColumns = sortAllColumnsByPriority({
+        IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
+        PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
+        COMPLETED: { name: 'Выполнено', items: grouped.COMPLETED }
       });
+      setLocalColumns(sortedColumns);
+    } else {
+      // Используем сортировку по приоритету
+      const grouped = groupAndSortTasks(tasksWithRussianPriority);
+      
+      const sortedColumns = sortAllColumnsByPriority({
+        IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
+        PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
+        COMPLETED: { name: 'Выполнено', items: grouped.COMPLETED }
+      });
+      setLocalColumns(sortedColumns);
     }
-    
-    setLocalColumns({
-      IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
-      PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
-      COMPLETED: { name: 'Выполнено', items: grouped.COMPLETED }
-    });
     
     setLastServerSync(Date.now());
   };
@@ -342,13 +333,21 @@ export default function ProjectPage() {
       
       const newTask = await createTask(taskData).unwrap();
       
-      // Обновляем локальное состояние
+      // Обновляем локальное состояние с автоматической сортировкой по приоритету
       const newColumns = { ...localColumns };
       if (newColumns[columnId]) {
-        newColumns[columnId].items.push({
+        // Добавляем новую задачу
+        const newTaskWithRussianPriority = {
           ...newTask,
           priority: priorityMapToRussian[priority] as TaskPriorityDisplay
-        });
+        };
+        
+        // Добавляем задачу в колонку
+        newColumns[columnId].items.push(newTaskWithRussianPriority);
+        
+        // Сортируем задачи в колонке по приоритету
+        newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
+        
         setLocalColumns(newColumns);
       }
       
@@ -400,6 +399,10 @@ export default function ProjectPage() {
       const newColumns = { ...localColumns };
       if (newColumns[columnId]) {
         newColumns[columnId].items = newColumns[columnId].items.filter(task => task.id !== taskId);
+        
+        // Сортируем оставшиеся задачи в колонке по приоритету
+        newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
+        
         setLocalColumns(newColumns);
       }
       
@@ -439,6 +442,9 @@ export default function ProjectPage() {
       const taskIndex = newColumns[columnId].items.findIndex(task => task.id === taskId);
       if (taskIndex !== -1) {
         newColumns[columnId].items[taskIndex] = updatedTask;
+        
+        // Сортируем задачи в колонке по приоритету после обновления
+        newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
       }
     });
     
@@ -544,6 +550,9 @@ export default function ProjectPage() {
     
     // Добавляем задачу в целевую колонку
     destinationColumn.items.splice(destinationIndex, 0, movedTask);
+    
+    // Сортируем задачи в целевой колонке по приоритету
+    destinationColumn.items = sortTasksByPriority(destinationColumn.items);
     
     // Обновляем локальное состояние
     setLocalColumns(newColumns);

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import prisma from '../utils/prisma.js';
+import { getTaskOrderBy } from '../utils/taskUtils.js';
 
 export const createProject = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -230,7 +231,8 @@ export const getProjectTasks = async (req: Request, res: Response): Promise<void
                         }
                     }
                 }
-            }
+            },
+            orderBy: getTaskOrderBy()
         });
         res.status(200).json(tasks);
     } catch (error) {

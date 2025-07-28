@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import SidebarAuthWrapper from "@/components/sidebar/SidebarAuthWrapper";
+import MainContent from "@/components/layout/MainContent";
 
 const inter = Inter({ 
   subsets: ["latin", "cyrillic"],
@@ -53,11 +54,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
         <Providers>
           <div className="flex">
             <SidebarAuthWrapper />
-            <main className="flex-1 ml-0 lg:ml-64 transition-all duration-300 ease-in-out">
-              <div className="container mx-auto px-4 my-6">
-                {children}
-              </div>
-            </main>
+            <MainContent>
+              {children}
+            </MainContent>
           </div>
         </Providers>
       </body>

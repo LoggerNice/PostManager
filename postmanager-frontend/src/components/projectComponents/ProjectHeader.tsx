@@ -46,7 +46,7 @@ export default function ProjectHeader({
         </div>
       </div>
       <div className="flex items-center gap-1 flex-wrap">
-        {users?.slice(0, 5).map((u) => (
+        {users?.slice(0, 3).map((u) => (
           <Link key={u.id} href={`/profile/${u.id}`}>
             <div
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-700 flex items-center justify-center border-2 border-[#222] -ml-1 sm:-ml-2 first:ml-0 hover:ring-2 hover:ring-blue-400 transition"
@@ -56,8 +56,8 @@ export default function ProjectHeader({
             </div>
           </Link>
         ))}
-        {users && users.length > 5 && (
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-600 flex items-center justify-center border-2 border-[#222] text-xs">+{users.length - 5}</div>
+        {users && users.length > 3 && (
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-600 flex items-center justify-center border-2 border-[#222] text-xs">+{users.length - 3}</div>
         )}
       </div>
     </div>

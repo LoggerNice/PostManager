@@ -16,16 +16,13 @@ import { getCookie } from '@/utils/cookie';
 import { useAppDispatch } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
 import { PAGE_URL } from '@/constants';
+import { useSidebar } from '@/contexts/SidebarContext';
 
-interface SidebarProps {
-    collapsed: boolean;
-    toggleSidebar: () => void;
-}
-
-export default function Sidebar({ collapsed, toggleSidebar }: SidebarProps) {
+export default function Sidebar() {
     const pathname = usePathname();
     const router = useRouter();
     const dispatch = useAppDispatch();
+    const { collapsed, toggleSidebar } = useSidebar();
     const [projectsOpen, setProjectsOpen] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string | null>(null);

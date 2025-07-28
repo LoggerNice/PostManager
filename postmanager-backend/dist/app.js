@@ -30,6 +30,10 @@ app.post('/tasks', taskController.createTask);
 app.put('/tasks/:taskId', taskController.updateTask);
 app.delete('/tasks/:taskId', taskController.deleteTask);
 app.get('/tasks/:taskId/comments', taskController.getTaskComments);
+app.get('/tasks/:taskId/assignees', taskController.getTaskAssignees);
+app.post('/tasks/:taskId/assignees', taskController.addTaskAssignees);
+app.put('/tasks/:taskId/assignees', taskController.updateTaskAssignees);
+app.delete('/tasks/:taskId/assignees', taskController.removeTaskAssignees);
 app.get('/projects', projectController.getProjects);
 app.get('/projects/:projectId', projectController.getProjectById);
 app.post('/projects', projectController.createProject);
@@ -45,7 +49,6 @@ app.delete('/comments/:commentId', commentController.deleteComment);
 app.get('/', (req, res) => {
     res.json({ message: 'API работает' });
 });
-// Обработчик ошибок должен быть последним middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ message: 'Что-то пошло не так!' });
@@ -55,3 +58,4 @@ app.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
 });
 export default app;
+//# sourceMappingURL=app.js.map

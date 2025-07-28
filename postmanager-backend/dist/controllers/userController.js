@@ -52,7 +52,7 @@ export const login = async (req, res) => {
             throw new Error('JWT_SECRET не настроен');
         }
         const accessToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
-        res.status(200).json({ accessToken, user });
+        res.status(200).json({ token: accessToken, user });
     }
     catch (error) {
         console.error('Ошибка при входе:', error);
@@ -61,7 +61,7 @@ export const login = async (req, res) => {
 };
 export const register = async (req, res) => {
     try {
-        const { login, name, password, departmentId } = req.body;
+        const { login, name, password, role, departmentId } = req.body;
         if (!login || !name || !password || !departmentId) {
             res.status(400).json({ message: 'Логин, имя, отдел и пароль обязательны' });
             return;
@@ -73,7 +73,7 @@ export const register = async (req, res) => {
             return;
         }
         const user = await prisma.user.create({
-            data: { login, name, password: hashedPassword, departmentId: parseInt(departmentId) },
+            data: { login, name, role, password: hashedPassword, departmentId: parseInt(departmentId) },
             select: {
                 id: true,
                 login: true,
@@ -106,3 +106,4 @@ export const updateUser = async (req, res) => {
         res.status(500).json({ message: 'Ошибка при обновлении пользователя' });
     }
 };
+//# sourceMappingURL=userController.js.map
