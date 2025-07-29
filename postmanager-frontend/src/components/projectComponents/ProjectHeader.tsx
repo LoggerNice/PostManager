@@ -45,6 +45,7 @@ export default function ProjectHeader({
           </div>
         </div>
       </div>
+      {users && users.length > 0 && (
       <div className="flex items-center gap-1 flex-wrap">
         {users?.slice(0, 3).map((u) => (
           <Link key={u.id} href={`/profile/${u.id}`}>
@@ -56,10 +57,18 @@ export default function ProjectHeader({
             </div>
           </Link>
         ))}
-        {users && users.length > 3 && (
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-600 flex items-center justify-center border-2 border-[#222] text-xs">+{users.length - 3}</div>
+        {users.length > 3 && (
+          <div 
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gray-600 flex items-center justify-center border-2 border-[#222] text-xs"
+            title={users.slice(2).map(user => 
+              `${user.name} (${user.department?.name || 'Без отдела'})`
+            ).join('\n')}
+          >
+            +{users.length - 3}
+          </div>
         )}
       </div>
+      )}
     </div>
   );
 } 
