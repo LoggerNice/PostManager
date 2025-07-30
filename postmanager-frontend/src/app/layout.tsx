@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "./providers";
 import SidebarAuthWrapper from "@/components/sidebar/SidebarAuthWrapper";
 import MainContent from "@/components/layout/MainContent";
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ 
   subsets: ["latin", "cyrillic"],
@@ -59,6 +60,28 @@ export default function RootLayout({ children }: RootLayoutProps) {
             </MainContent>
           </div>
         </Providers>
+        <Toaster 
+          position="bottom-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                background: '#10b981',
+              },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                background: '#dc2626',
+              },
+            },
+          }}
+        />
       </body>
     </html>
   );

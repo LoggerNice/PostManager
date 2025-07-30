@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input/Input";
 import { Button } from "@/components/ui/button/Button";
 import { DateInput } from "@/components/ui/date-input/DateInput";
 import { MultiSelect } from "@/components/ui/multi-select/MultiSelect";
-import { toast } from "react-hot-toast";
+
 import { useGetDepartmentsQuery } from "@/store/api/department.api";
 import { useGetUsersQuery } from "@/store/api/user.api";
 import { useCreateProjectMutation } from "@/store/api/project.api";
@@ -36,12 +36,7 @@ export default function Test() {
         }
     }, [currentUser, setValue, watch]);
 
-    // Показываем предупреждение, если текущий пользователь не найден
-    useEffect(() => {
-        if (!currentUser) {
-            toast.error('Не удалось определить текущего пользователя');
-        }
-    }, [currentUser]);
+
 
     const onSubmit = async (data: IProjectForm) => {
         try {
@@ -52,14 +47,9 @@ export default function Test() {
             }
             
             await createProject(data).unwrap();
-            toast.success('Проект успешно создан');
             reset();
         } catch (error: unknown) {
-            const errorMessage = error && typeof error === 'object' && 'data' in error && 
-                                 error.data && typeof error.data === 'object' && 'message' in error.data
-                                 ? String(error.data.message)
-                                 : 'Ошибка при создании проекта';
-            toast.error(errorMessage);
+            console.error('Failed to create project:', error);
         }
     };
 

@@ -1,4 +1,4 @@
-import React from 'react';
+
 import TimelineHeader from './TimelineHeader';
 import TimelineStages from './TimelineStages';
 

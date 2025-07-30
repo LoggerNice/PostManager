@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { format, differenceInDays } from 'date-fns';
 
 interface ProjectStage {

@@ -6,6 +6,7 @@ import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
+
 export default function TasksTab({ 
   columns, 
   handleDeleteTask,
@@ -35,7 +36,7 @@ export default function TasksTab({
       destination.droppableId === 'COMPLETED' &&
       user?.role !== 'MANAGER'
     ) {
-      toast.error('Только начальник отдела может перемещать задачи в "Выполнено"');
+      toast.error('Только начальник отдела может перемещать задачи в столбец "Выполнено"');
       return;
     }
 
@@ -45,7 +46,7 @@ export default function TasksTab({
       destination.droppableId !== 'COMPLETED' &&
       user?.role !== 'MANAGER'
     ) {
-      toast.error('Только начальник отдела может возвращать задачи из "Выполнено"');
+      toast.error('Только начальник отдела может перемещать задачи из столбца "Выполнено"');
       return;
     }
 
@@ -58,6 +59,11 @@ export default function TasksTab({
         source.index,
         destination.index
       );
+      
+      // Уведомление об успешном перемещении в столбец "выполнено"
+      if (destination.droppableId === 'COMPLETED' && user?.role === 'MANAGER') {
+        toast.success('Задача успешно перемещена в столбец "Выполнено"');
+      }
     }
   };
 

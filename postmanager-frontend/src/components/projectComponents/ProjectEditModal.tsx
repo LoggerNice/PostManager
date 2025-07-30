@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input/Input";
 import { Button } from "@/components/ui/button/Button";
 import { DateInput } from "@/components/ui/date-input/DateInput";
 import { MultiSelect } from "@/components/ui/multi-select/MultiSelect";
-import { toast } from "react-hot-toast";
+
 import { useGetDepartmentsQuery } from "@/store/api/department.api";
 import { useGetUsersQuery } from "@/store/api/user.api";
 import { useUpdateProjectMutation } from "@/store/api/project.api";
@@ -62,15 +62,10 @@ export default function ProjectEditModal({ isOpen, onClose, project }: ProjectEd
         
         try {
             await updateProject({ id: project.id, project: data }).unwrap();
-            toast.success('Проект успешно обновлен');
             onClose();
             reset();
         } catch (error: unknown) {
-            const errorMessage = error && typeof error === 'object' && 'data' in error && 
-                                 error.data && typeof error.data === 'object' && 'message' in error.data
-                                 ? String(error.data.message)
-                                 : 'Ошибка при обновлении проекта';
-            toast.error(errorMessage);
+            console.error('Failed to update project:', error);
         }
     };
 

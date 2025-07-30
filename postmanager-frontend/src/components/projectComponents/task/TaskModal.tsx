@@ -7,7 +7,7 @@ import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+
 
 // Добавляем стили для полной ширины DatePicker
 const datePickerStyles = `
@@ -37,12 +37,7 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
     }
   }, [visible, currentUser, newTask.assigneeIds, setNewTask]);
 
-  // Показываем предупреждение, если текущий пользователь не найден
-  useEffect(() => {
-    if (visible && !currentUser) {
-      toast.error('Не удалось определить текущего пользователя');
-    }
-  }, [visible, currentUser]);
+
 
   if (!visible) return null;
   return (

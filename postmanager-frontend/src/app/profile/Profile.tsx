@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/select/Select';
 import { Button } from "@/components/ui/button/Button";
 import { KeyIcon } from "@heroicons/react/24/outline";
 import { ArrowRightStartOnRectangleIcon } from "@heroicons/react/24/outline";
-import { toast } from "react-hot-toast";
+
 import { IProfileForm } from "@/types/forms/profile.types";
 import { PAGE_URL, USER_ROLE_LABELS } from "@/constants";
 import { Badge } from "@/components/ui";
@@ -77,13 +77,8 @@ export default function Profile({ userId: propUserId }: { userId?: number } = {}
                     newPassword: data.newPassword
                 }
             }).unwrap();
-            toast.success('Профиль успешно обновлен');
         } catch (error: unknown) {
-            const errorMessage = error && typeof error === 'object' && 'data' in error && 
-                                 error.data && typeof error.data === 'object' && 'message' in error.data
-                                 ? String(error.data.message)
-                                 : 'Произошла ошибка при обновлении профиля';
-            toast.error(errorMessage);
+            console.error('Failed to update profile:', error);
         }
     };
 

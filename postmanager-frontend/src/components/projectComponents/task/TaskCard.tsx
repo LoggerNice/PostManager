@@ -1,6 +1,6 @@
 'use client';
 
-import { TaskPriority, TaskCardProps } from '@/types/task.types';
+import { TaskPriority, TaskCardProps, Task } from '@/types/task.types';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -35,8 +35,6 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
   const [updateTask] = useUpdateTaskMutation();
   const [createTask] = useCreateTaskMutation();
   const menuHeight = 132;
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editingTitle, setEditingTitle] = useState(item.title);
   const [showPriorityModal, setShowPriorityModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -67,7 +65,6 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       deadline: item.deadline ? new Date(item.deadline) : null,
       assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
     });
-    setEditingTitle(item.title);
   }, [item.title, item.description, item.priority, item.deadline]);
 
   const handleDateSelect = async (date: Date | null) => {
@@ -136,63 +133,9 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     }
   };
 
-  const handleTitleDoubleClick = () => {
-    setIsEditingTitle(true);
-    setEditingTitle(item.title);
-  };
 
-  const handleTitleSave = async () => {
-    if (!editingTitle.trim()) {
-      setEditingTitle(item.title);
-      setIsEditingTitle(false);
-      return;
-    }
 
-    try {
-      const priorityMap: Record<string, TaskPriority> = {
-        'Низкий': 'LOW',
-        'Средний': 'MEDIUM',
-        'Высокий': 'HIGH'
-      };
 
-      await updateTask({
-        taskId: item.id,
-        task: {
-          title: editingTitle.trim(),
-          description: item.description,
-          priority: priorityMap[item.priority as keyof typeof priorityMap],
-          status: item.status,
-          projectId: Number(item.projectId),
-          deadline: item.deadline ? format(new Date(item.deadline), 'yyyy-MM-dd') : undefined
-        }
-      }).unwrap();
-
-      // Update local state with the new task data
-      onTaskUpdate(item.id, {
-        ...item,
-        title: editingTitle.trim()
-      });
-
-      setIsEditingTitle(false);
-    } catch (error) {
-      console.error('Failed to update task title:', error);
-      setEditingTitle(item.title);
-      setIsEditingTitle(false);
-    }
-  };
-
-  const handleTitleCancel = () => {
-    setEditingTitle(item.title);
-    setIsEditingTitle(false);
-  };
-
-  const handleTitleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleTitleSave();
-    } else if (e.key === 'Escape') {
-      handleTitleCancel();
-    }
-  };
 
   const handleEdit = () => {
     setShowEditModal(true);
@@ -255,31 +198,11 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       }}
     >
       <div className="flex items-center justify-between">
-        {isEditingTitle ? (
-          <input
-            type="text"
-            value={editingTitle}
-            onChange={(e) => setEditingTitle(e.target.value)}
-            onBlur={handleTitleSave}
-            onKeyDown={handleTitleKeyPress}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            className="text-white text-[14px] font-semibold focus:outline-none"
-            autoFocus
-            maxLength={100}
-          />
-        ) : (
-                  <div
-          className="font-semibold text-[14px] cursor-pointer rounded flex-1 max-w-[300px]"
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            handleTitleDoubleClick();
-          }}
-          title="Редактировать"
+        <div
+          className="font-semibold text-[14px] rounded flex-1 max-w-[300px]"
         >
           {item.title}
         </div>
-        )}
         <div className="flex items-center gap-2">
           {/* Индикатор комментариев */}
           {comments.length > 0 && (
@@ -359,14 +282,15 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
                 }
               }).unwrap();
 
-              // Обновляем локальное состояние
-              onTaskUpdate(item.id, {
-                ...item,
-                title: editTaskData.title,
-                description: editTaskData.description,
-                priority: editTaskData.priority,
-                deadline: editTaskData.deadline || undefined
-              });
+                    // Обновляем локальное состояние
+      const updatedTask: Task = {
+        ...item,
+        title: editTaskData.title,
+        description: editTaskData.description,
+        priority: editTaskData.priority,
+        deadline: editTaskData.deadline || null
+      };
+      onTaskUpdate(item.id, updatedTask);
 
               setShowEditModal(false);
             } catch (error) {
@@ -391,7 +315,15 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       <PriorityModal
         isOpen={showPriorityModal}
         onClose={() => setShowPriorityModal(false)}
-        task={item}
+        task={{
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          priority: item.priority,
+          status: item.status,
+          projectId: item.projectId,
+          deadline: item.deadline ? new Date(item.deadline) : undefined
+        }}
         onTaskUpdate={onTaskUpdate}
       />
 
