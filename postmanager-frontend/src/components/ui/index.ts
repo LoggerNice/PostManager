@@ -18,3 +18,6 @@ export type { CardProps } from './Card';
 
 export { default as Badge } from './Badge';
 export type { BadgeProps } from './Badge';
+
+export { default as DatePicker } from './DatePicker';
+export type { DatePickerProps } from './DatePicker';

@@ -75,7 +75,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
         'Высокий': 'HIGH'
       };
       
-      const deadlineString = newTaskData.deadline ? format(newTaskData.deadline, 'yyyy-MM-dd') : undefined;
+              const deadlineString = newTaskData.deadline ? format(newTaskData.deadline, 'yyyy-MM-dd HH:mm:ss') : undefined;
       console.log('Creating task with deadline:', deadlineString);
       console.log('newTaskData.deadline:', newTaskData.deadline);
       console.log('Creating task with assigneeIds:', newTaskData.assigneeIds);

@@ -38,7 +38,7 @@ export default function PriorityModal({ isOpen, onClose, task, onTaskUpdate }: P
           priority: priorityMap[newPriority],
           status: task.status as TaskStatus,
           projectId: Number(task.projectId),
-          deadline: task.deadline ? format(new Date(task.deadline), 'yyyy-MM-dd') : undefined
+          deadline: task.deadline ? format(new Date(task.deadline), 'yyyy-MM-dd HH:mm:ss') : undefined
         }
       }).unwrap();
 

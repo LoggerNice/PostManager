@@ -128,7 +128,7 @@ export default function TaskMenu({
             className="w-full px-4 py-2 text-left text-[12px] text-gray-300 hover:bg-gray-700 flex items-center gap-2"
           >
             <CalendarIcon className="w-4 h-4" />
-            Добавить дату
+            Указать срок
           </button>
           <button
             onClick={() => {

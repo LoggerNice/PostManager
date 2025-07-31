@@ -185,7 +185,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
           priority: priorityMap[task.priority as keyof typeof priorityMap] || 'LOW',
           status: newStatus,
           projectId: Number(task.projectId),
-          deadline: task.deadline ? format(new Date(task.deadline), 'yyyy-MM-dd') : undefined
+          deadline: task.deadline ? format(new Date(task.deadline), 'yyyy-MM-dd HH:mm:ss') : undefined
         }
       }).unwrap();
 
@@ -339,9 +339,9 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
           </div>
 
           {/* Comments Section */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
               {/* Comments Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="w-5 h-5 text-blue-400" />
                   <h3 className="text-lg font-semibold text-white">Комментарии</h3>
@@ -356,102 +356,104 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                 </button>
               </div>
 
-              {/* Comments Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <div className="space-y-4">
-                  {/* Comments List */}
+              {/* Comments Content - Scrollable Area */}
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <div className="p-6">
                   <div className="space-y-4">
-                    {commentsLoading ? (
-                      <div className="text-center py-4">
-                        <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-                        <p className="text-gray-500 text-sm mt-2">Загрузка комментариев...</p>
-                      </div>
-                    ) : comments.length > 0 ? (
-                      comments.map((comment) => (
-                        <div key={comment.id} className="flex gap-3">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                            {comment.author?.name?.charAt(0) || 'U'}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between mb-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm text-gray-200">{comment.author?.name || 'Пользователь'}</span>
-                                <span className="text-gray-400 text-xs">
-                                  {format(new Date(comment.createdAt), 'dd MMM HH:mm', { locale: ru })}
-                                </span>
-                              </div>
-                              {user?.id === comment.authorId && (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => startEditingComment(comment.id, comment.content)}
-                                    className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
-                                    title="Редактировать комментарий"
-                                  >
-                                    <PencilIcon className="w-3 h-3" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteComment(comment.id)}
-                                    className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
-                                    title="Удалить комментарий"
-                                  >
-                                    <TrashIcon className="w-3 h-3" />
-                                  </button>
+                    {/* Comments List */}
+                    <div className="space-y-4">
+                      {commentsLoading ? (
+                        <div className="text-center py-4">
+                          <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                          <p className="text-gray-500 text-sm mt-2">Загрузка комментариев...</p>
+                        </div>
+                      ) : comments.length > 0 ? (
+                        comments.map((comment) => (
+                          <div key={comment.id} className="flex gap-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                              {comment.author?.name?.charAt(0) || 'U'}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between mb-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm text-gray-200">{comment.author?.name || 'Пользователь'}</span>
+                                  <span className="text-gray-400 text-xs">
+                                    {format(new Date(comment.createdAt), 'dd MMM HH:mm', { locale: ru })}
+                                  </span>
                                 </div>
+                                {user?.id === comment.authorId && (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => startEditingComment(comment.id, comment.content)}
+                                      className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
+                                      title="Редактировать комментарий"
+                                    >
+                                      <PencilIcon className="w-3 h-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
+                                      title="Удалить комментарий"
+                                    >
+                                      <TrashIcon className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {editingCommentId === comment.id ? (
+                                <div className="space-y-2">
+                                  <textarea
+                                    value={editingCommentText}
+                                    onChange={(e) => setEditingCommentText(e.target.value)}
+                                    className="w-full p-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white resize-none"
+                                    rows={2}
+                                    autoFocus
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleEditComment(comment.id, editingCommentText)}
+                                      className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                    >
+                                      Сохранить
+                                    </button>
+                                    <button
+                                      onClick={cancelEditingComment}
+                                      className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
+                                    >
+                                      Отмена
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-gray-300 text-sm">{comment.content}</p>
                               )}
                             </div>
-                            {editingCommentId === comment.id ? (
-                              <div className="space-y-2">
-                                <textarea
-                                  value={editingCommentText}
-                                  onChange={(e) => setEditingCommentText(e.target.value)}
-                                  className="w-full p-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white resize-none"
-                                  rows={2}
-                                  autoFocus
-                                />
-                                <div className="flex gap-2">
-                                  <button
-                                    onClick={() => handleEditComment(comment.id, editingCommentText)}
-                                    className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                                  >
-                                    Сохранить
-                                  </button>
-                                  <button
-                                    onClick={cancelEditingComment}
-                                    className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
-                                  >
-                                    Отмена
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <p className="text-gray-300 text-sm">{comment.content}</p>
-                            )}
                           </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-2">
+                          <p className="text-gray-500 text-sm">Комментариев нет</p>
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-2">
-                        <p className="text-gray-500 text-sm">Комментариев нет</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Add Comment */}
-                  <div className="border-t border-gray-700 pt-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 mt-2">
-                        {user?.name?.charAt(0) || 'U'}
-                      </div>
-                      <div className="flex-1">
-                        <ChatInput
-                          value={newComment}
-                          onChange={setNewComment}
-                          onSubmit={handleSubmitComment}
-                          placeholder="Написать комментарий..."
-                          disabled={commentsLoading}
-                        />
-                      </div>
+                      )}
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Add Comment - Fixed at Bottom */}
+              <div className="border-t border-gray-700 p-6 flex-shrink-0">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0 mt-2">
+                    {user?.name?.charAt(0) || 'U'}
+                  </div>
+                  <div className="flex-1">
+                    <ChatInput
+                      value={newComment}
+                      onChange={setNewComment}
+                      onSubmit={handleSubmitComment}
+                      placeholder="Написать комментарий..."
+                      disabled={commentsLoading}
+                    />
                   </div>
                 </div>
               </div>

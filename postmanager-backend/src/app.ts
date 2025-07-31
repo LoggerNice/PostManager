@@ -38,6 +38,9 @@ app.put('/tasks/:taskId', taskController.updateTask);
 app.delete('/tasks/:taskId', taskController.deleteTask);
 app.get('/tasks/:taskId/comments', taskController.getTaskComments);
 
+// Маршрут для обновления приоритетов задач на основе дедлайнов
+app.post('/tasks/update-priorities', taskController.updateTaskPriorities);
+
 // Маршруты для работы с исполнителями задач
 app.get('/tasks/:taskId/assignees', taskController.getTaskAssignees);
 app.post('/tasks/:taskId/assignees', taskController.addTaskAssignees);

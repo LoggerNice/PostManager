@@ -1,24 +1,16 @@
 import { TaskModalProps } from '@/types/task.types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import DatePicker from 'react-datepicker';
-import "react-datepicker/dist/react-datepicker.css";
 import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useAuth } from '@/hooks/useAuth';
-import { useEffect } from 'react';
-
-
-// Добавляем стили для полной ширины DatePicker
-const datePickerStyles = `
-  .react-datepicker-wrapper {
-    width: 100% !important;
-  }
-`;
+import { useEffect, useState } from 'react';
+import DatePicker from '@/components/ui/DatePicker';
 
 export default function TaskModal({ visible, onClose, onCreate, newTask, setNewTask, columns, selectedColumn, setSelectedColumn }: TaskModalProps) {
   const { user: currentUser } = useAuth();
   const { data: users = [] } = useGetUsersQuery();
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const assigneeOptions = users.map(user => ({
     value: user.id,
     label: `${user.name}${user.department ? ' (' + user.department.name + ')' : ''}`
@@ -42,9 +34,8 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
   if (!visible) return null;
   return (
     <div className="fixed inset-0 bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50">
-      <style>{datePickerStyles}</style>
       <div className="bg-gray-900 rounded-lg p-6 w-full max-w-md border border-white">
-        <h2 className="text-xl font-bold mb-4 text-white">Создать задачу</h2>
+        <h2 className="text-xl font-bold mb-4 text-white">Задача</h2>
         <div className="mb-3">
           <label className="block text-sm font-medium text-gray-300 mb-1">
             Название задачи *
@@ -88,16 +79,24 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
           <label className="block text-sm font-medium text-gray-300 mb-1">
             Срок выполнения
           </label>
-          <DatePicker
-            selected={newTask.deadline}
-            onChange={(date) => setNewTask({ ...newTask, deadline: date })}
-            locale={ru}
-            dateFormat="dd.MM.yyyy"
-            minDate={new Date()}
-            placeholderText="Выберите дату"
-            className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
-            isClearable
-          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShowDatePicker(true)}
+              className="flex-1 px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white text-left"
+            >
+              {newTask.deadline ? format(newTask.deadline, 'dd.MM.yyyy HH:mm', { locale: ru }) : 'Выберите дату и время'}
+            </button>
+            {newTask.deadline && (
+              <button
+                type="button"
+                onClick={() => setNewTask({ ...newTask, deadline: null })}
+                className="px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white hover:bg-gray-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
         <div className="mb-3">
           <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -124,10 +123,23 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             onClick={onCreate}
             disabled={!newTask.title.trim()}
           >
-            Создать
+            Сохранить
           </button>
         </div>
       </div>
+      
+      {/* Календарь для выбора даты и времени */}
+      <DatePicker
+        isOpen={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onDateSelect={(date) => {
+          setNewTask({ ...newTask, deadline: date });
+        }}
+        selectedDate={newTask.deadline}
+        showTimeSelect={true}
+        minDate={new Date()}
+        placeholder="Выберите дату и время"
+      />
     </div>
   );
 } 

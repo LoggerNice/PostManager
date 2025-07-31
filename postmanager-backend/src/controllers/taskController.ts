@@ -713,3 +713,15 @@ export const updateTaskAssignees = async (req: Request, res: Response): Promise<
     }
 }
 
+export const updateTaskPriorities = async (req: Request, res: Response): Promise<void> => {
+    try {
+        // Выполняем SQL-запрос для обновления приоритетов
+        await prisma.$executeRaw`SELECT update_existing_task_priorities()`;
+        
+        res.status(200).json({ message: 'Приоритеты задач обновлены успешно' });
+    } catch (error) {
+        console.error('Ошибка при обновлении приоритетов задач:', error);
+        res.status(500).json({ message: 'Ошибка при обновлении приоритетов задач' });
+    }
+};
+
