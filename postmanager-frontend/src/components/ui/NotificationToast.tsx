@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { X, CheckCircle, AlertCircle, MessageCircle, Clock } from 'lucide-react';
+import { soundManager } from '@/utils/soundUtils';
 
 export interface NotificationData {
   type: 'task_created' | 'task_updated' | 'comment_added';
@@ -51,6 +52,19 @@ export default function NotificationToast({ notification, onClose }: Notificatio
     // Показываем уведомление с небольшой задержкой для анимации
     const timer = setTimeout(() => setIsVisible(true), 100);
     
+    // Воспроизводим звук в зависимости от типа уведомления
+    if (notification.type === 'task_created') {
+      // Звук при появлении задачи в столбце "В процессе"
+      if (notification.message.includes('В процессе')) {
+        soundManager.playTaskCreatedSound();
+      }
+    } else if (notification.type === 'task_updated') {
+      // Проверяем, связано ли обновление с перемещением в определенные столбцы
+      if (notification.message.includes('Согласование') || notification.message.includes('Выполнено')) {
+        soundManager.playTaskMovedSound();
+      }
+    }
+    
     // Автоматически скрываем через 5 секунд
     const autoHideTimer = setTimeout(() => {
       setIsVisible(false);
@@ -61,7 +75,7 @@ export default function NotificationToast({ notification, onClose }: Notificatio
       clearTimeout(timer);
       clearTimeout(autoHideTimer);
     };
-  }, [onClose]);
+  }, [onClose, notification.type, notification.message]);
 
   return (
     <div

@@ -9,6 +9,7 @@ import { Column } from '@/types';
 import { getCookie } from '@/utils/cookie';
 
 import { groupAndSortTasks, sortTasksByPriority } from '@/utils/taskSorting';
+import { soundManager } from '@/utils/soundUtils';
 
 import ProjectHeader from '../../../components/projectComponents/ProjectHeader';
 import ProjectTabs from '../../../components/projectComponents/ProjectTabs';
@@ -322,7 +323,10 @@ export default function ProjectPage() {
       await quickSyncWithServer(true);
       console.log('Task created and synchronized successfully');
       
-
+      // Воспроизводим звук при появлении задачи в столбце "В процессе"
+      if (columnId === 'IN_PROGRESS') {
+        soundManager.playTaskCreatedSound();
+      }
 
       // Уведомляем других исполнителей о новой задаче
       if (finalAssigneeIds.length > 1) {
@@ -501,6 +505,11 @@ export default function ProjectPage() {
       }).unwrap();
       
       await quickSyncWithServer(false); // Используем серверный порядок
+      
+      // Воспроизводим звук при перемещении в столбцы "Согласование" или "Выполнено"
+      if (destinationColumnId === 'PROBLEM' || destinationColumnId === 'COMPLETED') {
+        soundManager.playTaskMovedSound();
+      }
       
     } catch (error) {
       console.error('Failed to update task order or status:', error);
