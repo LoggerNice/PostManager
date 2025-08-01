@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import prisma from '../utils/prisma.js';
+import { getWebSocketServer } from '../websocketServer.js';
 
 export const createComment = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -24,6 +25,45 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
                 }
             }
         });
+
+        // Отправляем уведомление о новом комментарии участникам задачи
+        const wsServer = getWebSocketServer();
+        if (wsServer) {
+            // Получаем информацию о задаче для уведомления
+            const task = await prisma.task.findUnique({
+                where: { id: parseInt(taskId) },
+                include: {
+                    project: true
+                }
+            });
+
+            if (task) {
+                // Получаем участников задачи
+                const taskAssignees = await prisma.taskAssignee.findMany({
+                    where: { taskId: parseInt(taskId) },
+                    select: { userId: true }
+                });
+
+                // Отправляем уведомление участникам задачи (кроме автора комментария)
+                if (taskAssignees.length > 0) {
+                    taskAssignees.forEach(assignee => {
+                        // Не отправляем уведомление автору комментария
+                        if (assignee.userId !== parseInt(authorId)) {
+                            wsServer.sendNotificationToUser(assignee.userId, {
+                                type: 'comment_added',
+                                title: task.project?.title || 'Неизвестный проект',
+                                message: `${comment.author?.name || 'Пользователь'} добавил комментарий к задаче "${task.title}"`,
+                                taskId: parseInt(taskId),
+                                projectId: task.projectId!,
+                                userId: parseInt(authorId),
+                                timestamp: new Date().toISOString()
+                            });
+                        }
+                    });
+                }
+            }
+        }
+
         res.status(200).json(comment);
     } catch (error) {
         console.error('Ошибка при создании комментария:', error);

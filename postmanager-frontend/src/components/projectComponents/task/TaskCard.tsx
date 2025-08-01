@@ -200,10 +200,10 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         >
           {item.title}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Индикатор комментариев */}
           {comments.length > 0 && (
-            <div className="flex gap-1 text-gray-400">
+            <div className="flex gap-0.5 text-gray-400">
               <MessageCircle className="w-3 h-3" />
               <span className="text-xs">{comments.length}</span>
             </div>
@@ -339,7 +339,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
                       {/* Исполнители справа */}
             {item.assignees && item.assignees.length > 0 && (
               <div className="flex gap-1">
-                {item.assignees.slice(0, 2).map((assignee) => (
+                {item.assignees.slice(0, 1).map((assignee) => (
                   <div
                     key={assignee.id}
                     className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium"
@@ -348,14 +348,14 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
                     {assignee.user.name.charAt(0)}
                   </div>
                 ))}
-                {item.assignees.length > 2 && (
+                {item.assignees.length > 1 && (
                   <div 
                     className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                    title={item.assignees.slice(2).map(assignee => 
+                    title={item.assignees.slice(1).map(assignee => 
                       `${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`
                     ).join('\n')}
                   >
-                    +{item.assignees.length - 2}
+                    +{item.assignees.length - 1}
                   </div>
                 )}
               </div>

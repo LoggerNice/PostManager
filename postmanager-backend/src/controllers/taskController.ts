@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../utils/prisma.js';
 import { getTaskOrderBy } from '../utils/taskUtils.js';
+import { getWebSocketServer } from '../websocketServer.js';
 
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -123,6 +124,31 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
                 }
             }
         });
+
+        // Отправляем уведомление о создании задачи участникам
+        const wsServer = getWebSocketServer();
+        if (wsServer) {
+            // Получаем информацию о проекте
+            const project = await prisma.project.findUnique({
+                where: { id: parseInt(projectId) },
+                select: { title: true }
+            });
+
+            // Отправляем уведомление создателю задачи
+            if (assigneeIds && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+                assigneeIds.forEach(userId => {
+                    wsServer.sendNotificationToUser(userId, {
+                        type: 'task_created',
+                        title: project?.title || 'Неизвестный проект',
+                        message: `Создана задача "${title}"`,
+                        taskId: task.id,
+                        projectId: parseInt(projectId),
+                        timestamp: new Date().toISOString()
+                    });
+                });
+            }
+        }
+
         res.status(201).json(taskWithAssignees);
     } catch (error) {
         console.error('Ошибка при создании задачи:', error);
@@ -379,6 +405,46 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
                 }
             }
         });
+
+        // Отправляем уведомление об изменении статуса задачи участникам
+        const wsServer = getWebSocketServer();
+        if (wsServer && status !== undefined && status !== currentTask.status) {
+            const statusText: Record<string, string> = {
+                'TODO': 'К выполнению',
+                'IN_PROGRESS': 'В работе',
+                'PROBLEM': 'Согласование',
+                'COMPLETED': 'Выполнено',
+                'CANCELLED': 'Отменено'
+            };
+            const statusDisplayText = statusText[status] || status;
+
+            // Получаем информацию о проекте
+            const project = await prisma.project.findUnique({
+                where: { id: currentTask.projectId! },
+                select: { title: true }
+            });
+
+            // Получаем участников задачи
+            const taskAssignees = await prisma.taskAssignee.findMany({
+                where: { taskId: taskIdNum },
+                select: { userId: true }
+            });
+
+            // Отправляем уведомление участникам задачи
+            if (taskAssignees.length > 0) {
+                taskAssignees.forEach(assignee => {
+                    wsServer.sendNotificationToUser(assignee.userId, {
+                        type: 'task_updated',
+                        title: project?.title || 'Неизвестный проект',
+                        message: `Задача "${currentTask.title}" переведена в статус "${statusDisplayText}"`,
+                        taskId: taskIdNum,
+                        projectId: currentTask.projectId!,
+                        timestamp: new Date().toISOString()
+                    });
+                });
+            }
+        }
+
         res.json(taskWithAssignees);
     } catch (error) {
         console.error('Ошибка при обновлении задачи:', error);

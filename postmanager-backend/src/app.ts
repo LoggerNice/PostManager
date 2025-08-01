@@ -1,18 +1,31 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 
 import * as userController from './controllers/userController.js';
 import * as departmentController from './controllers/departmentController.js';
 import * as taskController from './controllers/taskController.js';
 import * as projectController from './controllers/projectController.js';
 import * as commentController from './controllers/commentController.js';
+import { WebSocketServer } from './websocket.js';
+import { setWebSocketServer } from './websocketServer.js';
 
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
 
-app.use(cors());
+// Инициализация WebSocket сервера
+const wsServer = new WebSocketServer(server);
+setWebSocketServer(wsServer);
+
+app.use(cors({
+  origin: ["http://localhost:3000", "http://localhost:3001"],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -66,16 +79,19 @@ app.get('/', (req: Request, res: Response) => {
     res.json({ message: 'API работает' });
 });
 
+
+
 // Обработчик ошибок должен быть последним middleware
 app.use((err: Error, req: Request, res: Response, next: Function) => {
     console.error(err.stack);
     res.status(500).json({ message: 'Что-то пошло не так!' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3045;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
+    console.log(`WebSocket сервер готов к подключениям`);
 });
 
 export default app; 

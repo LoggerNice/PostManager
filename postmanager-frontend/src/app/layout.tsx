@@ -5,6 +5,7 @@ import Providers from "./providers";
 import SidebarAuthWrapper from "@/components/sidebar/SidebarAuthWrapper";
 import MainContent from "@/components/layout/MainContent";
 import { Toaster } from 'react-hot-toast';
+import NotificationManager from "@/components/ui/NotificationManager";
 
 const inter = Inter({ 
   subsets: ["latin", "cyrillic"],
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               {children}
             </MainContent>
           </div>
+          <NotificationManager />
         </Providers>
         <Toaster 
           position="bottom-right"

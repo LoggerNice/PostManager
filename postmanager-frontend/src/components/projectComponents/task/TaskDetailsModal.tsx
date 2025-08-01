@@ -157,9 +157,9 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       case 'IN_PROGRESS':
         return 'В работе';
       case 'PROBLEM':
-        return 'Проблема';
+        return 'Согласование';
       case 'COMPLETED':
-        return 'Завершено';
+        return 'Выполнено';
       case 'CANCELLED':
         return 'Отменено';
       default:
@@ -169,6 +169,12 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
 
   const handleStatusChange = async (newStatus: TaskStatus) => {
     if (!task) return;
+
+    // Проверяем, может ли пользователь изменять статус на "Выполнено"
+    if (newStatus === 'COMPLETED' && user?.role !== 'ADMIN' && user?.role !== 'MANAGER') {
+      alert('Только начальник может изменять статус задачи на "Выполнено"');
+      return;
+    }
 
     try {
       const priorityMap: Record<string, 'LOW' | 'MEDIUM' | 'HIGH'> = {
@@ -255,11 +261,11 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                           onChange={(e) => handleStatusChange(e.target.value as TaskStatus)}
                           className="px-2 py-1 text-sm border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
                         >
-                          <option value="TODO">К выполнению</option>
                           <option value="IN_PROGRESS">В работе</option>
-                          <option value="PROBLEM">Проблема</option>
-                          <option value="COMPLETED">Завершено</option>
-                          <option value="CANCELLED">Отменено</option>
+                          <option value="PROBLEM">Согласование</option>
+                          {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                            <option value="COMPLETED">Выполнено</option>
+                          )}
                         </select>
                         <button
                           onClick={() => setIsEditingStatus(false)}
