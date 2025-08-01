@@ -121,7 +121,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
             {column.name} <span className="text-blue-500 pl-2">{column.items.length}</span>
           </h2>
         )}
-        {columnId !== 'COMPLETED' && columnId !== 'PROBLEM' && (
+        {columnId !== 'COMPLETED' && (
           <button
             className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-2xl"
             onClick={handleAddTaskClick}
@@ -139,24 +139,20 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
               snapshot.isDraggingOver ? 'bg-gray-700 bg-opacity-50 rounded-lg' : ''
             }`}
           >
-            {column.items.map((item, idx) => {
-              // Убеждаемся, что у каждой задачи уникальный ключ
-              const uniqueKey = `${item.id}-${columnId}-${idx}`;
-              return (
-                <Draggable key={uniqueKey} draggableId={String(item.id)} index={idx}>
-                  {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
-                    <TaskCard
-                      item={item}
-                      columnId={columnId}
-                      handleDeleteTask={handleDeleteTask}
-                      onTaskUpdate={onTaskUpdate}
-                      provided={provided}
-                      snapshot={snapshot}
-                    />
-                  )}
-                </Draggable>
-              );
-            })}
+            {column.items.map((item, idx) => (
+              <Draggable key={item.id} draggableId={String(item.id)} index={idx}>
+                {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
+                  <TaskCard
+                    item={item}
+                    columnId={columnId}
+                    handleDeleteTask={handleDeleteTask}
+                    onTaskUpdate={onTaskUpdate}
+                    provided={provided}
+                    snapshot={snapshot}
+                  />
+                )}
+              </Draggable>
+            ))}
             {provided.placeholder}
           </div>
         )}

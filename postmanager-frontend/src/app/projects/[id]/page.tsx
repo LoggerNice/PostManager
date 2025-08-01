@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useGetProjectByIdQuery, useDeleteProjectMutation } from '@/store/api/project.api';
 import { useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation, useGetProjectTasksQuery, useUpdateTasksOrderMutation } from '@/store/api/task.api';
 import { TaskStatus, TaskPriority, TaskPriorityDisplay, TaskForm, Task } from '@/types/task.types';
 import { Column } from '@/types';
 import { getCookie } from '@/utils/cookie';
-import { useAuth } from '@/hooks/useAuth';
-import { useRealTimeTasks } from '@/hooks/useRealTimeTasks';
 
 import { groupAndSortTasks, sortTasksByPriority } from '@/utils/taskSorting';
 import { soundManager } from '@/utils/soundUtils';
@@ -38,7 +36,6 @@ const initialColumns: Record<string, Column> = {
 export default function ProjectPage() {
   const params = useParams();
   const projectId = Number(params.id);
-  const { user } = useAuth();
   
 
   const { data: project, isLoading, error } = useGetProjectByIdQuery(projectId);
@@ -48,7 +45,7 @@ export default function ProjectPage() {
     isLoading: isTasksLoading,
     error: tasksError
   } = useGetProjectTasksQuery(projectId, {
-    // Убираем polling, так как теперь используем WebSocket
+    pollingInterval: 5000,
     refetchOnFocus: true,
     refetchOnReconnect: true
   });
@@ -64,6 +61,7 @@ export default function ProjectPage() {
   const [localColumns, setLocalColumns] = useState<Record<string, Column>>({});
   const [lastServerSync, setLastServerSync] = useState<number>(0);
 
+
   const priorityMapToEnglish: Record<string, TaskPriority> = {
     'Низкий': 'LOW',
     'Средний': 'MEDIUM',
@@ -75,123 +73,6 @@ export default function ProjectPage() {
     'MEDIUM': 'Средний',
     'HIGH': 'Высокий'
   }), []);
-
-  // WebSocket обработчики для задач в реальном времени
-  const handleTaskCreated = useCallback((newTask: Task) => {
-    // Обновляем локальное состояние с новой задачей
-    setLocalColumns(prevColumns => {
-      const updatedColumns = { ...prevColumns };
-      const status = newTask.status as keyof typeof updatedColumns;
-      
-      if (updatedColumns[status]) {
-        // Удаляем задачу из всех колонок, если она уже существует
-        Object.keys(updatedColumns).forEach(columnId => {
-          updatedColumns[columnId].items = updatedColumns[columnId].items.filter(
-            task => task.id !== newTask.id
-          );
-        });
-        
-        // Преобразуем приоритет в русский язык
-        const taskWithRussianPriority = {
-          ...newTask,
-          priority: (priorityMapToRussian[newTask.priority as TaskPriority] || newTask.priority) as TaskPriority | TaskPriorityDisplay
-        };
-        
-        // Добавляем задачу в правильную колонку
-        updatedColumns[status].items = [...updatedColumns[status].items, taskWithRussianPriority];
-      }
-      
-      return updatedColumns;
-    });
-  }, [priorityMapToRussian]);
-
-  const handleTaskUpdated = useCallback((updatedTask: Task) => {
-    // Обновляем локальное состояние с обновленной задачей
-    setLocalColumns(prevColumns => {
-      const updatedColumns = { ...prevColumns };
-      const newStatus = updatedTask.status as keyof typeof updatedColumns;
-      
-      // Преобразуем приоритет в русский язык
-      const taskWithRussianPriority = {
-        ...updatedTask,
-        priority: (priorityMapToRussian[updatedTask.priority as TaskPriority] || updatedTask.priority) as TaskPriority | TaskPriorityDisplay
-      };
-      
-      // Удаляем задачу из всех колонок
-      Object.keys(updatedColumns).forEach(columnId => {
-        updatedColumns[columnId].items = updatedColumns[columnId].items.filter(
-          task => task.id !== updatedTask.id
-        );
-      });
-      
-      // Добавляем задачу в правильную колонку
-      if (updatedColumns[newStatus]) {
-        updatedColumns[newStatus].items = [...updatedColumns[newStatus].items, taskWithRussianPriority];
-      }
-      
-      return updatedColumns;
-    });
-  }, [priorityMapToRussian]);
-
-  const handleTaskDeleted = useCallback((taskId: number) => {
-    console.log('handleTaskDeleted called with taskId:', taskId);
-    // Удаляем задачу из локального состояния
-    setLocalColumns(prevColumns => {
-      const updatedColumns = { ...prevColumns };
-      
-      Object.keys(updatedColumns).forEach(columnId => {
-        const beforeCount = updatedColumns[columnId].items.length;
-        updatedColumns[columnId].items = updatedColumns[columnId].items.filter(
-          task => task.id !== taskId.toString()
-        );
-        const afterCount = updatedColumns[columnId].items.length;
-        if (beforeCount !== afterCount) {
-          console.log(`Removed task ${taskId} from column ${columnId}`);
-        }
-      });
-      
-      return updatedColumns;
-    });
-  }, []);
-
-  const handleTaskMoved = useCallback((taskId: number, sourceColumn: string, destinationColumn: string) => {
-    // Перемещаем задачу в локальном состоянии
-    setLocalColumns(prevColumns => {
-      const updatedColumns = { ...prevColumns };
-      
-      // Находим задачу в исходной колонке
-      const sourceItems = updatedColumns[sourceColumn]?.items || [];
-      const taskIndex = sourceItems.findIndex(task => task.id === taskId.toString());
-      
-      if (taskIndex !== -1) {
-        const task = sourceItems[taskIndex];
-        
-        // Удаляем задачу из всех колонок
-        Object.keys(updatedColumns).forEach(columnId => {
-          updatedColumns[columnId].items = updatedColumns[columnId].items.filter(
-            t => t.id !== task.id
-          );
-        });
-        
-        // Добавляем в целевую колонку
-        if (updatedColumns[destinationColumn]) {
-          updatedColumns[destinationColumn].items = [...updatedColumns[destinationColumn].items, task];
-        }
-      }
-      
-      return updatedColumns;
-    });
-  }, []);
-
-  // Используем WebSocket для задач в реальном времени
-  useRealTimeTasks({
-    projectId,
-    onTaskCreated: handleTaskCreated,
-    onTaskUpdated: handleTaskUpdated,
-    onTaskDeleted: handleTaskDeleted,
-    onTaskMoved: handleTaskMoved,
-    currentUserId: user?.id
-  });
 
   // Функция для автоматической сортировки всех колонок по приоритету
   const sortAllColumnsByPriority = (columns: Record<string, Column>) => {
@@ -272,23 +153,17 @@ export default function ProjectPage() {
         
         // Сначала добавляем задачи в локальном порядке, обновляя их данными с сервера
         const orderedItems: Task[] = [];
-        const usedTaskIds = new Set<string>();
-        
         localItems.forEach(localTask => {
           const serverTask = serverTasksMap.get(localTask.id);
-          if (serverTask && !usedTaskIds.has(localTask.id)) {
+          if (serverTask) {
             orderedItems.push(serverTask);
-            usedTaskIds.add(localTask.id);
             serverTasksMap.delete(localTask.id);
           }
         });
         
         // Затем добавляем новые задачи, которых не было в локальном состоянии
         serverTasksMap.forEach(newTask => {
-          if (!usedTaskIds.has(newTask.id)) {
-            orderedItems.push(newTask);
-            usedTaskIds.add(newTask.id);
-          }
+          orderedItems.push(newTask);
         });
         
         grouped[status as keyof typeof grouped] = orderedItems;
@@ -429,19 +304,19 @@ export default function ProjectPage() {
       // Обновляем локальное состояние с автоматической сортировкой по приоритету
       const newColumns = { ...localColumns };
       if (newColumns[columnId]) {
-          // Добавляем новую задачу
-          const newTaskWithRussianPriority = {
-            ...newTask,
-            priority: priorityMapToRussian[priority] as TaskPriorityDisplay
-          };
-          
-          // Добавляем задачу в колонку
-          newColumns[columnId].items.push(newTaskWithRussianPriority);
-          
-          // Сортируем задачи в колонке по приоритету
-          newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
-          
-          setLocalColumns(newColumns);
+        // Добавляем новую задачу
+        const newTaskWithRussianPriority = {
+          ...newTask,
+          priority: priorityMapToRussian[priority] as TaskPriorityDisplay
+        };
+        
+        // Добавляем задачу в колонку
+        newColumns[columnId].items.push(newTaskWithRussianPriority);
+        
+        // Сортируем задачи в колонке по приоритету
+        newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
+        
+        setLocalColumns(newColumns);
       }
       
       // Быстро синхронизируемся с сервером (с коротким индикатором)
@@ -467,11 +342,6 @@ export default function ProjectPage() {
 
   const handleDeleteTask = async (columnId: string, taskId: string) => {
     try {
-      // Находим задачу для уведомлений до удаления
-      const taskToDelete = Object.values(localColumns)
-        .flatMap(column => column.items)
-        .find(task => task.id === taskId);
-      
       // Сначала удаляем из локального состояния для быстрого отклика UI
       const newColumns = { ...localColumns };
       if (newColumns[columnId]) {
@@ -490,6 +360,10 @@ export default function ProjectPage() {
       console.log('Task deleted and synchronized successfully');
       
       // Уведомляем исполнителей об удалении задачи
+      const taskToDelete = Object.values(localColumns)
+        .flatMap(column => column.items)
+        .find(task => task.id === taskId);
+        
       if (taskToDelete && taskToDelete.assignees && taskToDelete.assignees.length > 0) {
         const currentUserId = parseInt(getCookie('userId') || '0');
         const otherAssignees = taskToDelete.assignees.filter(assignee => assignee.userId !== currentUserId);
@@ -596,11 +470,12 @@ export default function ProjectPage() {
         movedTask.priority = 'Низкий';
       }
     }
-
-      destinationColumn.items.splice(destinationIndex, 0, movedTask);
-      
-      // Сортируем задачи в целевой колонке по приоритету
-      destinationColumn.items = sortTasksByPriority(destinationColumn.items);
+    
+    // Добавляем задачу в целевую колонку
+    destinationColumn.items.splice(destinationIndex, 0, movedTask);
+    
+    // Сортируем задачи в целевой колонке по приоритету
+    destinationColumn.items = sortTasksByPriority(destinationColumn.items);
     
     // Обновляем локальное состояние
     setLocalColumns(newColumns);

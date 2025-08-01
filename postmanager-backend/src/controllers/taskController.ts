@@ -2,19 +2,8 @@ import type { Request, Response } from 'express';
 import prisma from '../utils/prisma.js';
 import { getTaskOrderBy } from '../utils/taskUtils.js';
 import { getWebSocketServer } from '../websocketServer.js';
-import { TaskEventData } from '../websocket.js';
 
-// Расширяем тип Request для включения пользователя
-interface AuthenticatedRequest extends Request {
-    user?: {
-        id: number;
-        name: string;
-        email: string;
-        role: string;
-    };
-}
-
-export const createTask = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { title, description, status, priority, projectId, deadline, order, assigneeIds } = req.body;
         
@@ -136,7 +125,7 @@ export const createTask = async (req: AuthenticatedRequest, res: Response): Prom
             }
         });
 
-        // Отправляем WebSocket события о создании задачи
+        // Отправляем уведомление о создании задачи участникам
         const wsServer = getWebSocketServer();
         if (wsServer) {
             // Получаем информацию о проекте
@@ -145,21 +134,9 @@ export const createTask = async (req: AuthenticatedRequest, res: Response): Prom
                 select: { title: true }
             });
 
-            // Отправляем событие задачи только исполнителям задачи
+            // Отправляем уведомление создателю задачи
             if (assigneeIds && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
-                const taskEvent: TaskEventData = {
-                    type: 'task_created',
-                    task: taskWithAssignees,
-                    projectId: parseInt(projectId),
-                    userId: req.user?.id,
-                    timestamp: new Date().toISOString()
-                };
-                
-                // Отправляем событие каждому исполнителю отдельно
                 assigneeIds.forEach(userId => {
-                    wsServer.sendTaskEventToUser(userId, taskEvent);
-                    
-                    // Отправляем уведомление исполнителю
                     wsServer.sendNotificationToUser(userId, {
                         type: 'task_created',
                         title: project?.title || 'Неизвестный проект',
@@ -244,7 +221,7 @@ export const getTaskById = async (req: Request, res: Response): Promise<void> =>
     }
 }
 
-export const updateTask = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const updateTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { taskId } = req.params;
         const { title, description, status, priority, deadline, order, assigneeIds } = req.body;
@@ -429,58 +406,42 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response): Prom
             }
         });
 
-        // Отправляем WebSocket события об обновлении задачи
+        // Отправляем уведомление об изменении статуса задачи участникам
         const wsServer = getWebSocketServer();
-        if (wsServer) {
+        if (wsServer && status !== undefined && status !== currentTask.status) {
+            const statusText: Record<string, string> = {
+                'TODO': 'К выполнению',
+                'IN_PROGRESS': 'В работе',
+                'PROBLEM': 'Согласование',
+                'COMPLETED': 'Выполнено',
+                'CANCELLED': 'Отменено'
+            };
+            const statusDisplayText = statusText[status] || status;
+
+            // Получаем информацию о проекте
+            const project = await prisma.project.findUnique({
+                where: { id: currentTask.projectId! },
+                select: { title: true }
+            });
+
             // Получаем участников задачи
             const taskAssignees = await prisma.taskAssignee.findMany({
                 where: { taskId: taskIdNum },
                 select: { userId: true }
             });
 
-            // Отправляем событие задачи только исполнителям
+            // Отправляем уведомление участникам задачи
             if (taskAssignees.length > 0) {
-                const taskEvent: TaskEventData = {
-                    type: 'task_updated',
-                    task: taskWithAssignees,
-                    projectId: currentTask.projectId!,
-                    userId: req.user?.id,
-                    timestamp: new Date().toISOString()
-                };
-
                 taskAssignees.forEach(assignee => {
-                    wsServer.sendTaskEventToUser(assignee.userId, taskEvent);
+                    wsServer.sendNotificationToUser(assignee.userId, {
+                        type: 'task_updated',
+                        title: project?.title || 'Неизвестный проект',
+                        message: `Задача "${currentTask.title}" переведена в статус "${statusDisplayText}"`,
+                        taskId: taskIdNum,
+                        projectId: currentTask.projectId!,
+                        timestamp: new Date().toISOString()
+                    });
                 });
-
-                // Отправляем уведомление об изменении статуса задачи исполнителям
-                if (status !== undefined && status !== currentTask.status) {
-                    const statusText: Record<string, string> = {
-                        'TODO': 'К выполнению',
-                        'IN_PROGRESS': 'В работе',
-                        'PROBLEM': 'Согласование',
-                        'COMPLETED': 'Выполнено',
-                        'CANCELLED': 'Отменено'
-                    };
-                    const statusDisplayText = statusText[status] || status;
-
-                    // Получаем информацию о проекте
-                    const project = await prisma.project.findUnique({
-                        where: { id: currentTask.projectId! },
-                        select: { title: true }
-                    });
-
-                    // Отправляем уведомление исполнителям задачи
-                    taskAssignees.forEach(assignee => {
-                        wsServer.sendNotificationToUser(assignee.userId, {
-                            type: 'task_updated',
-                            title: project?.title || 'Неизвестный проект',
-                            message: `Задача "${currentTask.title}" переведена в статус "${statusDisplayText}"`,
-                            taskId: taskIdNum,
-                            projectId: currentTask.projectId!,
-                            timestamp: new Date().toISOString()
-                        });
-                    });
-                }
             }
         }
 
@@ -491,7 +452,7 @@ export const updateTask = async (req: AuthenticatedRequest, res: Response): Prom
     }
 }
 
-export const deleteTask = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+export const deleteTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { taskId } = req.params;
         const taskIdNum = parseInt(taskId);
@@ -529,31 +490,6 @@ export const deleteTask = async (req: AuthenticatedRequest, res: Response): Prom
                 }
             }
         });
-        
-        // Отправляем WebSocket событие об удалении задачи
-        const wsServer = getWebSocketServer();
-        if (wsServer) {
-            // Получаем участников задачи перед удалением
-            const taskAssignees = await prisma.taskAssignee.findMany({
-                where: { taskId: taskIdNum },
-                select: { userId: true }
-            });
-
-            const taskEvent: TaskEventData = {
-                type: 'task_deleted',
-                taskId: taskIdNum,
-                projectId: taskToDelete.projectId!,
-                userId: req.user?.id,
-                timestamp: new Date().toISOString()
-            };
-
-            // Отправляем событие только исполнителям задачи
-            if (taskAssignees.length > 0) {
-                taskAssignees.forEach(assignee => {
-                    wsServer.sendTaskEventToUser(assignee.userId, taskEvent);
-                });
-            }
-        }
         
         console.log(`Task ${taskIdNum} deleted, order adjusted for remaining tasks`);
         res.status(200).json({ message: 'Задача удалена' });
