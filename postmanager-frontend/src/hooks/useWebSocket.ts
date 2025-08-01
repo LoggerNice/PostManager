@@ -1,15 +1,32 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './useAuth';
 import { NotificationData } from '@/components/ui/NotificationToast';
+
+export interface TaskEventData {
+  type: 'task_created' | 'task_updated' | 'task_deleted' | 'task_moved';
+  task?: any;
+  taskId?: number;
+  projectId: number;
+  userId?: number;
+  sourceColumn?: string;
+  destinationColumn?: string;
+  sourceIndex?: number;
+  destinationIndex?: number;
+  timestamp: string;
+}
 
 interface UseWebSocketReturn {
   isConnected: boolean;
   notifications: NotificationData[];
   addNotification: (notification: NotificationData) => void;
   removeNotification: (index: number) => void;
+  joinProject: (projectId: number) => void;
+  leaveProject: (projectId: number) => void;
+  onTaskEvent: (callback: (event: TaskEventData) => void) => void;
+  offTaskEvent: (callback: (event: TaskEventData) => void) => void;
 }
 
 export function useWebSocket(): UseWebSocketReturn {
@@ -17,6 +34,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const taskEventCallbacks = useRef<((event: TaskEventData) => void)[]>([]);
 
   useEffect(() => {
     if (!user || !token) {
@@ -64,6 +82,18 @@ export function useWebSocket(): UseWebSocketReturn {
       addNotification(notification);
     });
 
+    // Обработка событий задач
+    socket.on('task_event', (event: TaskEventData) => {
+      console.log('Received task event:', event);
+      taskEventCallbacks.current.forEach(callback => {
+        try {
+          callback(event);
+        } catch (error) {
+          console.error('Error in task event callback:', error);
+        }
+      });
+    });
+
     // Обработка ошибок
     socket.on('connect_error', (error) => {
       console.error('Ошибка подключения WebSocket:', error);
@@ -97,10 +127,39 @@ export function useWebSocket(): UseWebSocketReturn {
     setNotifications(prev => prev.filter((_, i) => i !== index));
   };
 
+  const joinProject = useCallback((projectId: number) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('join_project', projectId);
+      console.log(`Joined project room: ${projectId}`);
+    }
+  }, [isConnected]);
+
+  const leaveProject = useCallback((projectId: number) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('leave_project', projectId);
+      console.log(`Left project room: ${projectId}`);
+    }
+  }, [isConnected]);
+
+  const onTaskEvent = useCallback((callback: (event: TaskEventData) => void) => {
+    taskEventCallbacks.current.push(callback);
+  }, []);
+
+  const offTaskEvent = useCallback((callback: (event: TaskEventData) => void) => {
+    const index = taskEventCallbacks.current.indexOf(callback);
+    if (index > -1) {
+      taskEventCallbacks.current.splice(index, 1);
+    }
+  }, []);
+
   return {
     isConnected,
     notifications,
     addNotification,
     removeNotification,
+    joinProject,
+    leaveProject,
+    onTaskEvent,
+    offTaskEvent,
   };
 } 
