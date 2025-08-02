@@ -4,10 +4,13 @@ import { getWebSocketServer } from '../websocketServer.js';
 
 export const createComment = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { content, taskId, authorId } = req.body;
+        const { content, taskId, authorId, fileUrl, fileName, fileSize } = req.body;
         const comment = await prisma.comment.create({
             data: {
                 content,
+                fileUrl: fileUrl || null,
+                fileName: fileName || null,
+                fileSize: fileSize ? parseInt(fileSize) : null,
                 taskId: parseInt(taskId),
                 authorId: parseInt(authorId),
             },

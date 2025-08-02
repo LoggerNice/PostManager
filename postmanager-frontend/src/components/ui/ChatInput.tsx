@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { PaperClipIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { PaperClipIcon } from '@heroicons/react/24/outline';
+import { Send, X } from 'lucide-react';
+import { validateFile, formatFileSize, getFileIcon } from '@/utils/fileUtils';
 
 interface ChatInputProps {
   value: string;
@@ -9,6 +11,9 @@ interface ChatInputProps {
   onSubmit: () => void;
   placeholder?: string;
   disabled?: boolean;
+  onFileSelect?: (file: File) => void;
+  selectedFile?: File | null;
+  onFileRemove?: () => void;
 }
 
 export default function ChatInput({ 
@@ -16,9 +21,13 @@ export default function ChatInput({
   onChange, 
   onSubmit, 
   placeholder = "Your message...",
-  disabled = false 
+  disabled = false,
+  onFileSelect,
+  selectedFile,
+  onFileRemove
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Автоматическое изменение высоты textarea
   useEffect(() => {
@@ -40,6 +49,22 @@ export default function ChatInput({
     onSubmit();
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onFileSelect) {
+      const validation = validateFile(file);
+      if (validation.isValid) {
+        onFileSelect(file);
+      } else {
+        alert(validation.error);
+      }
+    }
+  };
+
+  const handleFileButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
   return (
     <form onSubmit={handleSubmit}>
       <label htmlFor="chat" className="sr-only">Your message</label>
@@ -48,10 +73,18 @@ export default function ChatInput({
           type="button" 
           className="inline-flex justify-center p-2 text-gray-500 rounded-lg cursor-pointer hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-600"
           disabled={disabled}
+          onClick={handleFileButtonClick}
         >
           <PaperClipIcon className="w-5 h-5" />
           <span className="sr-only">Attach file</span>
         </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleFileSelect}
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.jpg,.jpeg,.png,.gif,.webp,.svg,.zip,.rar,.7z,.json,.xml"
+        />
         <textarea 
           id="chat" 
           rows={1} 
@@ -66,14 +99,39 @@ export default function ChatInput({
         <button 
           type="submit" 
           className="inline-flex justify-center p-2 text-blue-600 rounded-full cursor-pointer hover:bg-blue-100 dark:text-blue-500 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={disabled || !value.trim()}
+          disabled={disabled || (!value.trim() && !selectedFile)}
         >
-          <svg className="w-5 h-5 rotate-90 rtl:-rotate-90" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 20">
-            <path d="m17.914 18.594-8-18a1 1 0 0 0-1.828 0l-8 18a1 1 0 0 0 1.157 1.376L8 18.281V9a1 1 0 0 1 2 0v9.281l6.758 1.689a1 1 0 0 0 1.156-1.376Z"/>
-          </svg>
+          <Send className="w-5 h-5 rotate-90 rtl:-rotate-90" />
           <span className="sr-only">Send message</span>
         </button>
       </div>
+      
+      {/* Selected File Display */}
+      {selectedFile && (
+        <div className="mt-2 p-3 bg-gray-700 rounded-lg border border-gray-600">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{getFileIcon(selectedFile.type)}</span>
+              <div>
+                <p className="text-sm font-medium text-gray-200 truncate" title={selectedFile.name}>
+                  {selectedFile.name}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {formatFileSize(selectedFile.size)}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onFileRemove}
+              className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-colors"
+              title="Удалить файл"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 } 

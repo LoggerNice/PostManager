@@ -8,6 +8,7 @@ import * as departmentController from './controllers/departmentController.js';
 import * as taskController from './controllers/taskController.js';
 import * as projectController from './controllers/projectController.js';
 import * as commentController from './controllers/commentController.js';
+import * as fileController from './controllers/fileController.js';
 import { WebSocketServer } from './websocket.js';
 import { setWebSocketServer } from './websocketServer.js';
 
@@ -77,6 +78,13 @@ app.delete('/comments/:commentId', commentController.deleteComment);
 
 // Маршруты для работы с просмотрами комментариев
 app.post('/comments/:commentId/view', commentController.markCommentAsViewed);
+
+// Маршруты для загрузки файлов
+app.post('/upload/file', fileController.upload.single('file'), fileController.uploadFile);
+app.delete('/upload/file/:filename', fileController.deleteFile);
+
+// Статические файлы
+app.use('/uploads', express.static('uploads'));
 
 
 app.get('/', (req: Request, res: Response) => {

@@ -20,7 +20,7 @@ export const commentApi = api.injectEndpoints({
                 : [{ type: 'Comment', id: `task-${taskId}` }],
             pollingInterval: 5000,
         }),
-        createComment: build.mutation<any, { content: string; taskId: number; authorId: number }>({
+        createComment: build.mutation<any, { content: string; taskId: number; authorId: number; fileUrl?: string; fileName?: string; fileSize?: number }>({
             query: (data) => ({
                 url: 'comments',
                 method: 'POST',

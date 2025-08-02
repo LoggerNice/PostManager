@@ -24,3 +24,5 @@ export type { DatePickerProps } from './DatePicker';
 
 export { CommentViewIndicator } from './CommentViewIndicator';
 export type { CommentViewStats } from './CommentViewIndicator';
+
+export { default as CommentFile } from './CommentFile';

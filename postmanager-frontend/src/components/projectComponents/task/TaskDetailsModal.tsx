@@ -1,11 +1,14 @@
+'use client';
+
 import { Task, TaskStatus } from '@/types/task.types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { useGetCommentsByTaskQuery, useCreateCommentMutation, useUpdateCommentMutation, useDeleteCommentMutation, useMarkCommentAsViewedMutation, useGetCommentViewStatsQuery } from '@/store/api/comment.api';
 import { useUpdateTaskMutation } from '@/store/api/task.api';
+import { useUploadFileMutation } from '@/store/api/file.api';
 import { useAuth } from '@/hooks/useAuth';
-import { ChatInput } from '@/components/ui';
+import { ChatInput, CommentFile } from '@/components/ui';
 import { CommentViewIndicator } from '@/components/ui/CommentViewIndicator';
 import { ArrowPathIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
@@ -22,6 +25,7 @@ interface TaskDetailsModalProps {
 export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate }: TaskDetailsModalProps) {
   const { user } = useAuth();
   const [newComment, setNewComment] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
@@ -40,6 +44,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const [deleteComment] = useDeleteCommentMutation();
   const [markCommentAsViewed] = useMarkCommentAsViewedMutation();
   const [updateTask] = useUpdateTaskMutation();
+  const [uploadFile] = useUploadFileMutation();
 
   // Получаем статистику просмотров для всех комментариев одним запросом
   const { data: allViewStats = [], refetch: refetchViewStats } = useGetCommentViewStatsQuery(
@@ -106,16 +111,41 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   }, [comments.length, visible, refetchViewStats]);
 
   const handleSubmitComment = async () => {
-    if (!newComment.trim() || !task?.id || !user?.id) return;
+    if ((!newComment.trim() && !selectedFile) || !task?.id || !user?.id) return;
 
     try {
+      // Если есть файл, сначала загружаем его
+      let fileUrl = '';
+      let fileName = '';
+      let fileSize = 0;
+
+      if (selectedFile) {
+        try {
+          const formData = new FormData();
+          formData.append('file', selectedFile);
+          
+          const uploadResult = await uploadFile(formData).unwrap();
+          fileUrl = uploadResult.file.url;
+          fileName = uploadResult.file.originalname;
+          fileSize = uploadResult.file.size;
+        } catch (uploadError) {
+          console.error('Ошибка при загрузке файла:', uploadError);
+          alert('Ошибка при загрузке файла. Попробуйте еще раз.');
+          return;
+        }
+      }
+
       await createComment({
         content: newComment,
         taskId: parseInt(task.id),
         authorId: user.id,
+        fileUrl: fileUrl || undefined,
+        fileName: fileName || undefined,
+        fileSize: fileSize || undefined,
       }).unwrap();
       
       setNewComment('');
+      setSelectedFile(null);
       refetchComments();
       // Обновляем статистику просмотров после создания комментария
       setTimeout(() => {
@@ -168,6 +198,14 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const cancelEditingComment = () => {
     setEditingCommentId(null);
     setEditingCommentText('');
+  };
+
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file);
+  };
+
+  const handleFileRemove = () => {
+    setSelectedFile(null);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -500,7 +538,19 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                     </div>
                                   </div>
                                 ) : (
-                                  <p className="text-gray-300 text-sm">{comment.content}</p>
+                                  <div className="space-y-2">
+                                    {comment.content && (
+                                      <p className="text-gray-300 text-sm">{comment.content}</p>
+                                    )}
+                                    {comment.fileUrl && comment.fileName && (
+                                      <CommentFile
+                                        fileName={comment.fileName}
+                                        fileUrl={comment.fileUrl}
+                                        fileSize={comment.fileSize}
+                                        fileType={comment.fileName.split('.').pop() || ''}
+                                      />
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -529,6 +579,9 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                       onSubmit={handleSubmitComment}
                       placeholder="Написать комментарий..."
                       disabled={commentsLoading}
+                      onFileSelect={handleFileSelect}
+                      selectedFile={selectedFile}
+                      onFileRemove={handleFileRemove}
                     />
                   </div>
                 </div>

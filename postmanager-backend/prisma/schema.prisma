@@ -72,6 +72,9 @@ model Task {
 model Comment {
   id Int @id @default(autoincrement())
   content String
+  fileUrl String? // URL загруженного файла
+  fileName String? // Имя файла
+  fileSize Int? // Размер файла в байтах
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   task Task? @relation(fields: [taskId], references: [id])
