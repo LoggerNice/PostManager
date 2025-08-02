@@ -2,10 +2,11 @@ import { Task, TaskStatus } from '@/types/task.types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
-import { useGetCommentsByTaskQuery, useCreateCommentMutation, useUpdateCommentMutation, useDeleteCommentMutation } from '@/store/api/comment.api';
+import { useGetCommentsByTaskQuery, useCreateCommentMutation, useUpdateCommentMutation, useDeleteCommentMutation, useMarkCommentAsViewedMutation, useGetCommentViewStatsQuery } from '@/store/api/comment.api';
 import { useUpdateTaskMutation } from '@/store/api/task.api';
 import { useAuth } from '@/hooks/useAuth';
 import { ChatInput } from '@/components/ui';
+import { CommentViewIndicator } from '@/components/ui/CommentViewIndicator';
 import { ArrowPathIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 import { X, Send, MessageCircle, Edit } from 'lucide-react';
@@ -37,7 +38,18 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const [createComment] = useCreateCommentMutation();
   const [updateComment] = useUpdateCommentMutation();
   const [deleteComment] = useDeleteCommentMutation();
+  const [markCommentAsViewed] = useMarkCommentAsViewedMutation();
   const [updateTask] = useUpdateTaskMutation();
+
+  // Получаем статистику просмотров для всех комментариев одним запросом
+  const { data: allViewStats = [], refetch: refetchViewStats } = useGetCommentViewStatsQuery(
+    { commentIds: comments.map(comment => comment.id) },
+    { 
+      skip: !comments.length || !visible,
+      pollingInterval: 3000, // Обновляем каждые 3 секунды
+      refetchOnMountOrArgChange: true
+    }
+  );
 
 
 
@@ -58,6 +70,41 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
     };
   }, [visible, onClose]);
 
+  // Автоматическое отслеживание просмотров при открытии модального окна
+  useEffect(() => {
+    if (visible && user?.id && comments.length > 0) {
+      // Отмечаем все комментарии как просмотренные при открытии модального окна
+      const markCommentsAsViewed = async () => {
+        for (const comment of comments) {
+          try {
+            await markCommentAsViewed({
+              commentId: comment.id,
+              userId: user.id
+            }).unwrap();
+          } catch (error) {
+            console.error('Ошибка при отметке комментария как просмотренного:', error);
+          }
+        }
+        // Обновляем статистику просмотров после отметки
+        refetchViewStats();
+      };
+      
+      markCommentsAsViewed();
+    }
+  }, [visible, user?.id, comments, markCommentAsViewed, refetchViewStats]);
+
+  // Автоматическое обновление статистики при изменении комментариев
+  useEffect(() => {
+    if (visible && comments.length > 0) {
+      // Обновляем статистику просмотров при изменении списка комментариев
+      const timer = setTimeout(() => {
+        refetchViewStats();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [comments.length, visible, refetchViewStats]);
+
   const handleSubmitComment = async () => {
     if (!newComment.trim() || !task?.id || !user?.id) return;
 
@@ -70,6 +117,10 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       
       setNewComment('');
       refetchComments();
+      // Обновляем статистику просмотров после создания комментария
+      setTimeout(() => {
+        refetchViewStats();
+      }, 500);
       
     } catch (error) {
       console.error('Ошибка при создании комментария:', error);
@@ -106,6 +157,8 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       console.error('Ошибка при удалении комментария:', error);
     }
   };
+
+
 
   const startEditingComment = (commentId: number, currentContent: string) => {
     setEditingCommentId(commentId);
@@ -374,68 +427,85 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                           <p className="text-gray-500 text-sm mt-2">Загрузка комментариев...</p>
                         </div>
                       ) : comments.length > 0 ? (
-                        comments.map((comment) => (
-                          <div key={comment.id} className="flex gap-3">
-                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                              {comment.author?.name?.charAt(0) || 'U'}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm text-gray-200">{comment.author?.name || 'Пользователь'}</span>
-                                  <span className="text-gray-400 text-xs">
-                                    {format(new Date(comment.createdAt), 'dd MMM HH:mm', { locale: ru })}
-                                  </span>
-                                </div>
-                                {user?.id === comment.authorId && (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      onClick={() => startEditingComment(comment.id, comment.content)}
-                                      className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
-                                      title="Редактировать комментарий"
-                                    >
-                                      <PencilIcon className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteComment(comment.id)}
-                                      className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
-                                      title="Удалить комментарий"
-                                    >
-                                      <TrashIcon className="w-3 h-3" />
-                                    </button>
+                        comments.map((comment) => {
+                          // Получаем статистику просмотров для комментария из предварительно загруженных данных
+                          const viewStats = allViewStats.find(stats => stats.commentId === comment.id);
+
+                          return (
+                            <div key={comment.id} className="flex gap-3">
+                              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                                {comment.author?.name?.charAt(0) || 'U'}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between mb-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium text-sm text-gray-200">{comment.author?.name || 'Пользователь'}</span>
+                                    <span className="text-gray-400 text-xs">
+                                      {format(new Date(comment.createdAt), 'dd MMM HH:mm', { locale: ru })}
+                                    </span>
                                   </div>
+                                  <div className="flex items-center gap-2">
+                                                                         {/* Индикатор просмотра */}
+                                     {viewStats && (
+                                       <CommentViewIndicator
+                                         stats={viewStats}
+                                         currentUserId={user?.id || 0}
+                                         commentAuthorId={comment.authorId}
+                                         className="ml-2"
+                                       />
+                                     )}
+                                    {/* Кнопки редактирования */}
+                                    {user?.id === comment.authorId && (
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          onClick={() => startEditingComment(comment.id, comment.content)}
+                                          className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
+                                          title="Редактировать комментарий"
+                                        >
+                                          <PencilIcon className="w-3 h-3" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteComment(comment.id)}
+                                          className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
+                                          title="Удалить комментарий"
+                                        >
+                                          <TrashIcon className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                {editingCommentId === comment.id ? (
+                                  <div className="space-y-2">
+                                    <textarea
+                                      value={editingCommentText}
+                                      onChange={(e) => setEditingCommentText(e.target.value)}
+                                      className="w-full p-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white resize-none"
+                                      rows={2}
+                                      autoFocus
+                                    />
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => handleEditComment(comment.id, editingCommentText)}
+                                        className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                      >
+                                        Сохранить
+                                      </button>
+                                      <button
+                                        onClick={cancelEditingComment}
+                                        className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
+                                      >
+                                        Отмена
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-gray-300 text-sm">{comment.content}</p>
                                 )}
                               </div>
-                              {editingCommentId === comment.id ? (
-                                <div className="space-y-2">
-                                  <textarea
-                                    value={editingCommentText}
-                                    onChange={(e) => setEditingCommentText(e.target.value)}
-                                    className="w-full p-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white resize-none"
-                                    rows={2}
-                                    autoFocus
-                                  />
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => handleEditComment(comment.id, editingCommentText)}
-                                      className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                                    >
-                                      Сохранить
-                                    </button>
-                                    <button
-                                      onClick={cancelEditingComment}
-                                      className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
-                                    >
-                                      Отмена
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="text-gray-300 text-sm">{comment.content}</p>
-                              )}
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       ) : (
                         <div className="text-center py-2">
                           <p className="text-gray-500 text-sm">Комментариев нет</p>

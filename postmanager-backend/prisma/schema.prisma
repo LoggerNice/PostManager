@@ -48,6 +48,7 @@ model User {
   updatedAt  DateTime @updatedAt
   projects Project[]
   assignedTasks TaskAssignee[] // Связь с задачами, которые назначены пользователю
+  commentViews CommentView[] // Связь с просмотрами комментариев
 }
 
 model Task {
@@ -77,6 +78,7 @@ model Comment {
   taskId Int?
   author User? @relation(fields: [authorId], references: [id])
   authorId Int?
+  views CommentView[] // Связь с просмотрами комментария
 }
 
 model Project {
@@ -108,4 +110,16 @@ model TaskAssignee {
   assignedAt DateTime @default(now())
   
   @@unique([taskId, userId])
+}
+
+// Модель для отслеживания просмотров комментариев
+model CommentView {
+  id Int @id @default(autoincrement())
+  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId Int
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+  viewedAt DateTime @default(now())
+  
+  @@unique([commentId, userId])
 }

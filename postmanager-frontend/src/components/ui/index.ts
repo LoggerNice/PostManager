@@ -21,3 +21,6 @@ export type { BadgeProps } from './Badge';
 
 export { default as DatePicker } from './DatePicker';
 export type { DatePickerProps } from './DatePicker';
+
+export { CommentViewIndicator } from './CommentViewIndicator';
+export type { CommentViewStats } from './CommentViewIndicator';

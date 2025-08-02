@@ -69,10 +69,14 @@ app.get('/projects/:projectId/tasks', projectController.getProjectTasks);
 app.get('/projects/user/:userId', projectController.getProjectsByUserId);
 
 app.get('/comments', commentController.getComments);
+app.get('/comments/view-stats', commentController.getCommentViewStats);
 app.get('/comments/:commentId', commentController.getCommentById);
 app.post('/comments', commentController.createComment);
 app.put('/comments/:commentId', commentController.updateComment);
 app.delete('/comments/:commentId', commentController.deleteComment);
+
+// Маршруты для работы с просмотрами комментариев
+app.post('/comments/:commentId/view', commentController.markCommentAsViewed);
 
 
 app.get('/', (req: Request, res: Response) => {

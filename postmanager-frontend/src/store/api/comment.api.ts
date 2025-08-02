@@ -1,84 +1,106 @@
 import { api } from './api';
-import { Comment, CreateCommentRequest, UpdateCommentRequest } from '@/types/comment.types';
+import { CommentViewStats } from '@/components/ui/CommentViewIndicator';
 
 export const commentApi = api.injectEndpoints({
-  endpoints: (builder) => ({
-    getComments: builder.query<Comment[], void>({
-      query: () => 'comments',
-    }),
-    getCommentsByTask: builder.query<Comment[], number>({
-      query: (taskId) => `comments?taskId=${taskId}`,
-      providesTags: (result, error, taskId) => 
-        result 
-          ? [
-              ...result.map(({ id }) => ({ type: 'Comment' as const, id })),
-              { type: 'Comment', id: `task-${taskId}` }
-            ]
-          : [{ type: 'Comment', id: `task-${taskId}` }],
-      // Автоматическое обновление каждые 5 секунд
-      pollingInterval: 5000,
-    }),
-    createComment: builder.mutation<Comment, CreateCommentRequest>({
-      query: (comment) => ({
-        url: 'comments',
-        method: 'POST',
-        body: comment,
-      }),
-      invalidatesTags: (result, error, { taskId }) => [
-        { type: 'Comment', id: `task-${taskId}` },
-        { type: 'Comment', id: 'LIST' }
-      ],
-      // Оптимистичное обновление
-      async onQueryStarted({ taskId, content, authorId }, { dispatch, queryFulfilled }) {
-        const patchResult = dispatch(
-          commentApi.util.updateQueryData('getCommentsByTask', taskId, (draft) => {
-            const newComment = {
-              id: Date.now(), // Временный ID
-              content,
-              taskId,
-              authorId,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              author: null // Будет заполнено после ответа сервера
-            };
-            draft.push(newComment);
-          })
-        );
-        try {
-          await queryFulfilled;
-        } catch {
-          patchResult.undo();
-        }
-      },
-    }),
-    updateComment: builder.mutation<Comment, { id: number; data: UpdateCommentRequest }>({
-      query: ({ id, data }) => ({
-        url: `comments/${id}`,
-        method: 'PUT',
-        body: data,
-      }),
-      invalidatesTags: (result, error, { id }) => [
-        { type: 'Comment', id },
-        { type: 'Comment', id: 'LIST' }
-      ],
-    }),
-    deleteComment: builder.mutation<void, number>({
-      query: (id) => ({
-        url: `comments/${id}`,
-        method: 'DELETE',
-      }),
-      invalidatesTags: (result, error, id) => [
-        { type: 'Comment', id },
-        { type: 'Comment', id: 'LIST' }
-      ],
-    }),
-  }),
+    endpoints: (build) => ({
+        getComments: build.query<any[], { taskId?: number }>({
+            query: (params) => ({
+                url: 'comments',
+                params
+            })
+        }),
+        getCommentsByTask: build.query<any[], number>({
+            query: (taskId) => `comments?taskId=${taskId}`,
+            providesTags: (result, error, taskId) => 
+              result 
+                ? [
+                    ...result.map(({ id }) => ({ type: 'Comment' as const, id })),
+                    { type: 'Comment', id: `task-${taskId}` }
+                  ]
+                : [{ type: 'Comment', id: `task-${taskId}` }],
+            pollingInterval: 5000,
+        }),
+        createComment: build.mutation<any, { content: string; taskId: number; authorId: number }>({
+            query: (data) => ({
+                url: 'comments',
+                method: 'POST',
+                body: data
+            }),
+            invalidatesTags: (result, error, { taskId }) => [
+                { type: 'Comment', id: `task-${taskId}` },
+                { type: 'Comment', id: 'LIST' },
+                { type: 'CommentViewStats', id: 'LIST' }
+            ],
+            // Обновляем статистику просмотров после создания комментария
+            async onQueryStarted({ taskId }, { dispatch, queryFulfilled }) {
+                try {
+                    await queryFulfilled;
+                    // Принудительно обновляем статистику просмотров
+                    dispatch(commentApi.util.invalidateTags([{ type: 'CommentViewStats', id: 'LIST' }]));
+                } catch (error) {
+                    console.error('Ошибка при обновлении статистики просмотров:', error);
+                }
+            },
+        }),
+        updateComment: build.mutation<any, { id: number; data: { content: string } }>({
+            query: ({ id, data }) => ({
+                url: `comments/${id}`,
+                method: 'PUT',
+                body: data
+            }),
+            invalidatesTags: (result, error, { id }) => [
+                { type: 'Comment', id },
+                { type: 'Comment', id: 'LIST' }
+            ],
+        }),
+        deleteComment: build.mutation<any, number>({
+            query: (id) => ({
+                url: `comments/${id}`,
+                method: 'DELETE'
+            }),
+            invalidatesTags: (result, error, id) => [
+                { type: 'Comment', id },
+                { type: 'Comment', id: 'LIST' }
+            ],
+        }),
+        markCommentAsViewed: build.mutation<any, { commentId: number; userId: number }>({
+            query: ({ commentId, userId }) => ({
+                url: `comments/${commentId}/view`,
+                method: 'POST',
+                body: { userId }
+            }),
+            invalidatesTags: (result, error, { commentId }) => [
+                { type: 'CommentViewStats', id: commentId },
+                { type: 'CommentViewStats', id: 'LIST' }
+            ],
+            // Обновляем статистику просмотров после отметки
+            async onQueryStarted({ commentId }, { dispatch, queryFulfilled }) {
+                try {
+                    await queryFulfilled;
+                    // Принудительно обновляем статистику просмотров
+                    dispatch(commentApi.util.invalidateTags([{ type: 'CommentViewStats', id: 'LIST' }]));
+                } catch (error) {
+                    console.error('Ошибка при обновлении статистики просмотров:', error);
+                }
+            },
+        }),
+        getCommentViewStats: build.query<CommentViewStats[], { commentIds: number[] }>({
+            query: ({ commentIds }) => ({
+                url: `comments/view-stats`,
+                params: { commentIds: commentIds.join(',') }
+            }),
+            providesTags: (result, error, { commentIds }) => 
+                commentIds.map(id => ({ type: 'CommentViewStats', id }))
+        })
+    })
 });
 
 export const {
-  useGetCommentsQuery,
-  useGetCommentsByTaskQuery,
-  useCreateCommentMutation,
-  useUpdateCommentMutation,
-  useDeleteCommentMutation,
+    useGetCommentsQuery,
+    useGetCommentsByTaskQuery,
+    useCreateCommentMutation,
+    useUpdateCommentMutation,
+    useDeleteCommentMutation,
+    useMarkCommentAsViewedMutation,
+    useGetCommentViewStatsQuery
 } = commentApi; 
