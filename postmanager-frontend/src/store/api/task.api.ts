@@ -21,7 +21,8 @@ export const taskApi = api.injectEndpoints({
                 method: 'POST',
                 body: task
             }),
-            invalidatesTags: ['Task', 'Project'] // Инвалидируем и задачи, и проекты
+            // Убираем автоматическую инвалидацию, используем WebSocket для обновлений
+            // invalidatesTags: ['Task', 'Project']
         }),
         updateTask: build.mutation<Task, { taskId: string; task: Partial<TaskForm> }>({
             query: ({ taskId, task }) => ({
@@ -29,18 +30,20 @@ export const taskApi = api.injectEndpoints({
                 method: 'PUT',
                 body: task
             }),
-            invalidatesTags: (result, error, { taskId }) => [
-                'Task', 
-                'Project',
-                { type: 'Comment', id: `task-${taskId}` }
-            ]
+            // Убираем автоматическую инвалидацию, используем WebSocket для обновлений
+            // invalidatesTags: (result, error, { taskId }) => [
+            //     'Task', 
+            //     'Project',
+            //     { type: 'Comment', id: `task-${taskId}` }
+            // ]
         }),
         deleteTask: build.mutation<void, string>({
             query: (taskId) => ({
                 url: `tasks/${taskId}`,
                 method: 'DELETE'
             }),
-            invalidatesTags: ['Task', 'Project'] // Инвалидируем все задачи и проекты для real-time обновлений
+            // Убираем автоматическую инвалидацию, используем WebSocket для обновлений
+            // invalidatesTags: ['Task', 'Project']
         }),
         getTaskComments: build.query<any[], string>({
             query: (taskId) => `tasks/${taskId}/comments`,

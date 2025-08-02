@@ -12,6 +12,12 @@ export interface NotificationData {
   timestamp: string;
 }
 
+export interface TaskEventData {
+  task?: any;
+  taskId?: number;
+  projectId: number;
+}
+
 export class WebSocketServer {
   private io: SocketIOServer;
   private userSockets: Map<number, string> = new Map();
@@ -80,8 +86,23 @@ export class WebSocketServer {
     this.io.emit('notification', notification);
   }
 
+  // Отправка событий задач всем подключенным пользователям
+  public sendTaskEvent(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData) {
+    this.io.emit(eventType, data);
+  }
+
+  // Отправка событий задач пользователям конкретного проекта
+  public sendTaskEventToProject(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData) {
+    this.io.emit(`project_${eventType}`, data);
+  }
+
   // Получение количества подключенных пользователей
   public getConnectedUsersCount(): number {
     return this.userSockets.size;
+  }
+
+  // Получение списка подключенных пользователей (для отладки)
+  public getConnectedUsers(): number[] {
+    return Array.from(this.userSockets.keys());
   }
 } 

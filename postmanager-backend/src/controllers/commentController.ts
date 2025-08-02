@@ -38,18 +38,24 @@ export const createComment = async (req: Request, res: Response): Promise<void> 
             });
 
             if (task) {
-                // Получаем участников задачи
-                const taskAssignees = await prisma.taskAssignee.findMany({
-                    where: { taskId: parseInt(taskId) },
-                    select: { userId: true }
+                // Получаем всех участников проекта для отправки уведомлений
+                const projectWithUsers = await prisma.project.findUnique({
+                    where: { id: task.projectId! },
+                    include: {
+                        users: {
+                            select: { id: true }
+                        }
+                    }
                 });
 
-                // Отправляем уведомление участникам задачи (кроме автора комментария)
-                if (taskAssignees.length > 0) {
-                    taskAssignees.forEach(assignee => {
+                const projectUsers = projectWithUsers?.users || [];
+
+                // Отправляем уведомление всем участникам проекта (кроме автора комментария)
+                if (projectUsers.length > 0) {
+                    projectUsers.forEach(projectUser => {
                         // Не отправляем уведомление автору комментария
-                        if (assignee.userId !== parseInt(authorId)) {
-                            wsServer.sendNotificationToUser(assignee.userId, {
+                        if (projectUser.id !== parseInt(authorId)) {
+                            wsServer.sendNotificationToUser(projectUser.id, {
                                 type: 'comment_added',
                                 title: task.project?.title || 'Неизвестный проект',
                                 message: `${comment.author?.name || 'Пользователь'} добавил комментарий к задаче "${task.title}"`,

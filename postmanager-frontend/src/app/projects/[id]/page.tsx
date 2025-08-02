@@ -7,6 +7,7 @@ import { useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation, us
 import { TaskStatus, TaskPriority, TaskPriorityDisplay, TaskForm, Task } from '@/types/task.types';
 import { Column } from '@/types';
 import { getCookie } from '@/utils/cookie';
+import { useWebSocketTasks } from '@/hooks/useWebSocketTasks';
 
 import { groupAndSortTasks, sortTasksByPriority } from '@/utils/taskSorting';
 import { soundManager } from '@/utils/soundUtils';
@@ -36,31 +37,14 @@ const initialColumns: Record<string, Column> = {
 export default function ProjectPage() {
   const params = useParams();
   const projectId = Number(params.id);
-  
 
-  const { data: project, isLoading, error } = useGetProjectByIdQuery(projectId);
-  const {
-    data: projectTasks,
-    refetch: refetchTasks,
-    isLoading: isTasksLoading,
-    error: tasksError
-  } = useGetProjectTasksQuery(projectId, {
-    pollingInterval: 5000,
-    refetchOnFocus: true,
-    refetchOnReconnect: true
-  });
-  const [createTask] = useCreateTaskMutation();
-  const [updateTask] = useUpdateTaskMutation();
-  const [deleteTask] = useDeleteTaskMutation();
-  const [updateTasksOrder] = useUpdateTasksOrderMutation();
-  const [deleteProject] = useDeleteProjectMutation();
+  // State variables
   const [activeTab, setActiveTab] = useState('tasks');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showProjectEditModal, setShowProjectEditModal] = useState(false);
   const [pendingTaskMove, setPendingTaskMove] = useState(false);
   const [localColumns, setLocalColumns] = useState<Record<string, Column>>({});
   const [lastServerSync, setLastServerSync] = useState<number>(0);
-
 
   const priorityMapToEnglish: Record<string, TaskPriority> = {
     'Низкий': 'LOW',
@@ -73,6 +57,109 @@ export default function ProjectPage() {
     'MEDIUM': 'Средний',
     'HIGH': 'Высокий'
   }), []);
+
+  // WebSocket обработчики для real-time обновлений
+  const handleWebSocketTaskCreate = (task: Task) => {
+    // Проверяем, что задача относится к текущему проекту
+    if (task.projectId !== projectId) return;
+
+    // Преобразуем приоритет в русский язык
+    const taskWithRussianPriority = {
+      ...task,
+      priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriorityDisplay
+    };
+
+    // Обновляем локальное состояние
+    setLocalColumns(prevColumns => {
+      const newColumns = { ...prevColumns };
+      const columnId = task.status;
+
+      if (newColumns[columnId]) {
+        // Проверяем, что задача еще не существует
+        const existingTaskIndex = newColumns[columnId].items.findIndex(t => t.id === task.id);
+        if (existingTaskIndex === -1) {
+          newColumns[columnId].items.push(taskWithRussianPriority);
+          newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
+        }
+      }
+
+      return newColumns;
+    });
+
+    // Воспроизводим звук при появлении задачи в столбце "В процессе"
+    if (task.status === 'IN_PROGRESS') {
+      soundManager.playTaskCreatedSound();
+    }
+  };
+
+  const handleWebSocketTaskUpdate = (task: Task) => {
+    // Проверяем, что задача относится к текущему проекту
+    if (task.projectId !== projectId) return;
+
+    // Преобразуем приоритет в русский язык
+    const taskWithRussianPriority = {
+      ...task,
+      priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriorityDisplay
+    };
+
+    // Обновляем локальное состояние
+    setLocalColumns(prevColumns => {
+      const newColumns = { ...prevColumns };
+
+      // Удаляем задачу из всех колонок
+      Object.keys(newColumns).forEach(columnId => {
+        newColumns[columnId].items = newColumns[columnId].items.filter(t => t.id !== task.id);
+      });
+
+      // Добавляем обновленную задачу в правильную колонку
+      const columnId = task.status;
+      if (newColumns[columnId]) {
+        newColumns[columnId].items.push(taskWithRussianPriority);
+        newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
+      }
+
+      return newColumns;
+    });
+  };
+
+  const handleWebSocketTaskDelete = (taskId: number) => {
+    // Обновляем локальное состояние
+    setLocalColumns(prevColumns => {
+      const newColumns = { ...prevColumns };
+
+      // Удаляем задачу из всех колонок
+      Object.keys(newColumns).forEach(columnId => {
+        newColumns[columnId].items = newColumns[columnId].items.filter(t => t.id !== taskId.toString());
+      });
+
+      return newColumns;
+    });
+  };
+
+  // Инициализируем WebSocket подключение
+  const { isConnected } = useWebSocketTasks({
+    onTaskUpdate: handleWebSocketTaskUpdate,
+    onTaskCreate: handleWebSocketTaskCreate,
+    onTaskDelete: handleWebSocketTaskDelete
+  });
+
+  // API hooks
+  const { data: project, isLoading, error } = useGetProjectByIdQuery(projectId);
+  const {
+    data: projectTasks,
+    refetch: refetchTasks,
+    isLoading: isTasksLoading,
+    error: tasksError
+  } = useGetProjectTasksQuery(projectId, {
+    pollingInterval: isConnected ? 30000 : 5000, // Увеличиваем интервал при WebSocket подключении
+    refetchOnFocus: true,
+    refetchOnReconnect: true
+  });
+  const [createTask] = useCreateTaskMutation();
+  const [updateTask] = useUpdateTaskMutation();
+  const [deleteTask] = useDeleteTaskMutation();
+  const [updateTasksOrder] = useUpdateTasksOrderMutation();
+  const [deleteProject] = useDeleteProjectMutation();
 
   // Функция для автоматической сортировки всех колонок по приоритету
   const sortAllColumnsByPriority = (columns: Record<string, Column>) => {
@@ -94,7 +181,7 @@ export default function ProjectPage() {
 
       // Группируем и сортируем задачи по приоритету
       const grouped = groupAndSortTasks(tasksWithRussianPriority);
-      
+
       const serverColumns = {
         IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
         PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
@@ -104,7 +191,7 @@ export default function ProjectPage() {
       // Если есть локальные изменения, используем их, иначе серверные данные
       return Object.keys(localColumns).length > 0 ? localColumns : serverColumns;
     }
-    
+
     return initialColumns;
   }, [projectTasks, priorityMapToRussian, localColumns]);
 
@@ -143,14 +230,14 @@ export default function ProjectPage() {
     // Если нужно сохранить локальный порядок, используем его
     if (preserveLocalOrder && Object.keys(localColumns).length > 0) {
       const grouped = groupAndSortTasks(tasksWithRussianPriority);
-      
+
       Object.keys(grouped).forEach(status => {
         const localItems = localColumns[status]?.items || [];
         const serverItems = grouped[status as keyof typeof grouped];
-        
+
         // Создаем Map для быстрого поиска серверных задач
         const serverTasksMap = new Map(serverItems.map(task => [task.id, task]));
-        
+
         // Сначала добавляем задачи в локальном порядке, обновляя их данными с сервера
         const orderedItems: Task[] = [];
         localItems.forEach(localTask => {
@@ -160,15 +247,15 @@ export default function ProjectPage() {
             serverTasksMap.delete(localTask.id);
           }
         });
-        
+
         // Затем добавляем новые задачи, которых не было в локальном состоянии
         serverTasksMap.forEach(newTask => {
           orderedItems.push(newTask);
         });
-        
+
         grouped[status as keyof typeof grouped] = orderedItems;
       });
-      
+
       const sortedColumns = sortAllColumnsByPriority({
         IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
         PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
@@ -178,7 +265,7 @@ export default function ProjectPage() {
     } else {
       // Используем сортировку по приоритету
       const grouped = groupAndSortTasks(tasksWithRussianPriority);
-      
+
       const sortedColumns = sortAllColumnsByPriority({
         IN_PROGRESS: { name: 'В процессе', items: grouped.IN_PROGRESS },
         PROBLEM: { name: 'Согласование', items: grouped.PROBLEM },
@@ -186,7 +273,7 @@ export default function ProjectPage() {
       });
       setLocalColumns(sortedColumns);
     }
-    
+
     setLastServerSync(Date.now());
   };
 
@@ -195,7 +282,7 @@ export default function ProjectPage() {
     if (projectTasks) {
       const now = Date.now();
       const timeSinceLastSync = now - lastServerSync;
-      
+
       // При первой загрузке или если прошло много времени с последней синхронизации
       if (Object.keys(localColumns).length === 0 || timeSinceLastSync > 30000) { // 30 секунд
         syncWithServer(projectTasks, Object.keys(localColumns).length > 0);
@@ -208,7 +295,7 @@ export default function ProjectPage() {
     const handleFocus = () => {
       const now = Date.now();
       const timeSinceLastSync = now - lastServerSync;
-      
+
       // Синхронизируемся если прошло более 10 секунд с последней синхронизации
       if (timeSinceLastSync > 10000) {
         autoSyncWithServer(true);
@@ -219,7 +306,7 @@ export default function ProjectPage() {
       if (!document.hidden) {
         const now = Date.now();
         const timeSinceLastSync = now - lastServerSync;
-        
+
         // Синхронизируемся если страница стала видимой и прошло более 5 секунд
         if (timeSinceLastSync > 5000) {
           autoSyncWithServer(true);
@@ -242,7 +329,7 @@ export default function ProjectPage() {
       if (document.visibilityState === 'visible') {
         const now = Date.now();
         const timeSinceLastSync = now - lastServerSync;
-        
+
         // Автоматическая синхронизация каждые 60 секунд
         if (timeSinceLastSync > 60000) {
           autoSyncWithServer(true);
@@ -262,67 +349,67 @@ export default function ProjectPage() {
   // Удаляю onDragEnd и все связанные с drag-and-drop пропсы и логику
 
   const handleCreateTask = async (
-    columnId: string, 
-    title: string, 
-    description: string = '', 
+    columnId: string,
+    title: string,
+    description: string = '',
     priority: TaskPriority = 'LOW',
     deadline?: string,
     assigneeIds?: number[]
   ) => {
     if (!title.trim()) return;
+
+    // Определяем порядок для новой задачи (в конце списка)
+    const currentColumnItems = localColumns[columnId]?.items || [];
+    const nextOrder = currentColumnItems.length;
+
+    // Получаем ID текущего пользователя из cookies или Redux
+    const currentUserId = parseInt(getCookie('userId') || '0');
+
+    // Убеждаемся, что текущий пользователь включен в список исполнителей
+    const finalAssigneeIds = assigneeIds || [];
+    if (currentUserId && !finalAssigneeIds.includes(currentUserId)) {
+      finalAssigneeIds.push(currentUserId);
+    }
+
+    const taskData: TaskForm = {
+      title: title.trim(),
+      description: description.trim(),
+      priority: priority,
+      status: columnId as TaskStatus,
+      projectId: projectId,
+      deadline: deadline,
+      order: nextOrder,
+      assigneeIds: finalAssigneeIds
+    };
+
     try {
-      // Определяем порядок для новой задачи (в конце списка)
-      const currentColumnItems = localColumns[columnId]?.items || [];
-      const nextOrder = currentColumnItems.length;
-      
-      // Получаем ID текущего пользователя из cookies или Redux
-      const currentUserId = parseInt(getCookie('userId') || '0');
-      
-      // Убеждаемся, что текущий пользователь включен в список исполнителей
-      const finalAssigneeIds = assigneeIds || [];
-      if (currentUserId && !finalAssigneeIds.includes(currentUserId)) {
-        finalAssigneeIds.push(currentUserId);
-      }
-      
-      const taskData: TaskForm = {
-        title: title.trim(),
-        description: description.trim(),
-        priority: priority,
-        status: columnId as TaskStatus,
-        projectId: projectId,
-        deadline: deadline,
-        order: nextOrder,
-        assigneeIds: finalAssigneeIds
-      };
-      
-      console.log('handleCreateTask called with deadline:', deadline);
-      console.log('handleCreateTask called with assigneeIds:', finalAssigneeIds);
-      console.log('taskData:', taskData);
-      
       const newTask = await createTask(taskData).unwrap();
-      
-      // Обновляем локальное состояние с автоматической сортировкой по приоритету
-      const newColumns = { ...localColumns };
-      if (newColumns[columnId]) {
-        // Добавляем новую задачу
-        const newTaskWithRussianPriority = {
-          ...newTask,
-          priority: priorityMapToRussian[priority] as TaskPriorityDisplay
-        };
-        
-        // Добавляем задачу в колонку
-        newColumns[columnId].items.push(newTaskWithRussianPriority);
-        
-        // Сортируем задачи в колонке по приоритету
-        newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
-        
-        setLocalColumns(newColumns);
-      }
-      
-      // Быстро синхронизируемся с сервером (с коротким индикатором)
-      await quickSyncWithServer(true);
-      console.log('Task created and synchronized successfully');
-      
+
+      // Преобразуем приоритет в русский язык для локального состояния
+      const newTaskWithRussianPriority = {
+        ...newTask,
+        priority: priorityMapToRussian[priority] as TaskPriorityDisplay
+      };
+
+      // Обновляем локальное состояние с новой задачей
+      setLocalColumns(prevColumns => {
+        const newColumns = { ...prevColumns };
+        if (newColumns[columnId]) {
+          // Проверяем, что задача еще не существует (избегаем дубликатов)
+          const existingTaskIndex = newColumns[columnId].items.findIndex(t => t.id === newTask.id);
+          if (existingTaskIndex === -1) {
+            // Добавляем новую задачу
+            newColumns[columnId].items.push(newTaskWithRussianPriority);
+            // Сортируем задачи в колонке по приоритету
+            newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
+          }
+        }
+        return newColumns;
+      });
+
+      // Обновляем время последней синхронизации, чтобы избежать конфликтов
+      setLastServerSync(Date.now());
+
       // Воспроизводим звук при появлении задачи в столбце "В процессе"
       if (columnId === 'IN_PROGRESS') {
         soundManager.playTaskCreatedSound();
@@ -332,11 +419,14 @@ export default function ProjectPage() {
       if (finalAssigneeIds.length > 1) {
         const otherAssigneeIds = finalAssigneeIds.filter(id => id !== currentUserId);
         if (otherAssigneeIds.length > 0) {
-          console.log(`Уведомляем исполнителей о новой задаче: ${otherAssigneeIds.join(', ')}`);
+          // Уведомления отправляются через WebSocket
         }
       }
     } catch (error) {
       console.error('Failed to create task:', error);
+      console.error('Task data that failed:', taskData);
+      // Показываем пользователю сообщение об ошибке
+      alert('Ошибка при создании задачи. Проверьте консоль для деталей.');
     }
   };
 
@@ -346,32 +436,17 @@ export default function ProjectPage() {
       const newColumns = { ...localColumns };
       if (newColumns[columnId]) {
         newColumns[columnId].items = newColumns[columnId].items.filter(task => task.id !== taskId);
-        
+
         // Сортируем оставшиеся задачи в колонке по приоритету
         newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
-        
+
         setLocalColumns(newColumns);
       }
-      
+
       await deleteTask(taskId).unwrap();
-      
-      // Быстро синхронизируемся с сервером (с коротким индикатором)
-      await quickSyncWithServer(true);
-      console.log('Task deleted and synchronized successfully');
-      
-      // Уведомляем исполнителей об удалении задачи
-      const taskToDelete = Object.values(localColumns)
-        .flatMap(column => column.items)
-        .find(task => task.id === taskId);
-        
-      if (taskToDelete && taskToDelete.assignees && taskToDelete.assignees.length > 0) {
-        const currentUserId = parseInt(getCookie('userId') || '0');
-        const otherAssignees = taskToDelete.assignees.filter(assignee => assignee.userId !== currentUserId);
-        
-        if (otherAssignees.length > 0) {
-          console.log(`Уведомляем исполнителей об удалении задачи: ${otherAssignees.map(a => a.user?.name).join(', ')}`);
-        }
-      }
+
+      // Обновляем время последней синхронизации
+      setLastServerSync(Date.now());
     } catch (error) {
       console.error('Failed to delete task:', error);
       // В случае ошибки быстро синхронизируемся с сервером
@@ -382,34 +457,23 @@ export default function ProjectPage() {
   const handleTaskUpdate = async (taskId: string, updatedTask: Task) => {
     // Обновляем локальное состояние для быстрого отклика UI
     const newColumns = { ...localColumns };
-    
+
     // Находим и обновляем задачу во всех колонках
     Object.keys(newColumns).forEach(columnId => {
       const taskIndex = newColumns[columnId].items.findIndex(task => task.id === taskId);
       if (taskIndex !== -1) {
         newColumns[columnId].items[taskIndex] = updatedTask;
-        
+
         // Сортируем задачи в колонке по приоритету после обновления
         newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
       }
     });
-    
+
     setLocalColumns(newColumns);
-    
+
     // Быстро синхронизируемся с сервером после обновления задачи (с коротким индикатором)
     try {
       await quickSyncWithServer(true); // Сохраняем локальный порядок
-      console.log('Task updated and synchronized successfully');
-      
-      // Уведомляем исполнителей об обновлении задачи
-      if (updatedTask.assignees && updatedTask.assignees.length > 0) {
-        const currentUserId = parseInt(getCookie('userId') || '0');
-        const otherAssignees = updatedTask.assignees.filter(assignee => assignee.userId !== currentUserId);
-        
-        if (otherAssignees.length > 0) {
-          console.log(`Уведомляем исполнителей об обновлении задачи: ${otherAssignees.map(a => a.user?.name).join(', ')}`);
-        }
-      }
     } catch (error) {
       console.error('Failed to sync after task update:', error);
     }
@@ -425,17 +489,17 @@ export default function ProjectPage() {
 
   const handleDeleteProject = async () => {
     if (!project) return;
-    
+
     // Показываем подтверждение удаления
     const isConfirmed = window.confirm(
       `Вы уверены, что хотите удалить проект "${project.title}"?\n\nЭто действие нельзя отменить.`
     );
-    
+
     if (!isConfirmed) return;
-    
+
     try {
       await deleteProject(projectId).unwrap();
-      
+
       // Перенаправляем на главную страницу
       window.location.href = '/';
     } catch (error) {
@@ -452,16 +516,16 @@ export default function ProjectPage() {
   ) => {
     // Создаем копию текущих колонок для локального обновления
     const newColumns = { ...localColumns };
-    
+
     // Находим задачу в исходной колонке
     const sourceColumn = newColumns[sourceColumnId];
     const destinationColumn = newColumns[destinationColumnId];
-    
+
     if (!sourceColumn || !destinationColumn) return;
-    
+
     // Удаляем задачу из исходной колонки
     const [movedTask] = sourceColumn.items.splice(sourceIndex, 1);
-    
+
     // Если перемещаем в другую колонку, обновляем статус задачи
     if (sourceColumnId !== destinationColumnId) {
       movedTask.status = destinationColumnId as TaskStatus;
@@ -470,16 +534,16 @@ export default function ProjectPage() {
         movedTask.priority = 'Низкий';
       }
     }
-    
+
     // Добавляем задачу в целевую колонку
     destinationColumn.items.splice(destinationIndex, 0, movedTask);
-    
+
     // Сортируем задачи в целевой колонке по приоритету
     destinationColumn.items = sortTasksByPriority(destinationColumn.items);
-    
+
     // Обновляем локальное состояние
     setLocalColumns(newColumns);
-    
+
     try {
       const priorityMap: Record<string, TaskPriority> = {
         'Низкий': 'LOW',
@@ -503,14 +567,15 @@ export default function ProjectPage() {
         taskId: taskId,
         task: updateData
       }).unwrap();
-      
-      await quickSyncWithServer(false); // Используем серверный порядок
-      
+
+      // Обновляем время последней синхронизации
+      setLastServerSync(Date.now());
+
       // Воспроизводим звук при перемещении в столбцы "Согласование" или "Выполнено"
       if (destinationColumnId === 'PROBLEM' || destinationColumnId === 'COMPLETED') {
         soundManager.playTaskMovedSound();
       }
-      
+
     } catch (error) {
       console.error('Failed to update task order or status:', error);
       // В случае ошибки возвращаем задачу обратно
@@ -545,9 +610,9 @@ export default function ProjectPage() {
 
   return (
     <div className="flex flex-col">
-      <ProjectHeader 
-        title={project.title} 
-        users={users} 
+      <ProjectHeader
+        title={project.title}
+        users={users}
         onEditClick={handleEditProject}
         onDeleteClick={handleDeleteProject}
       />

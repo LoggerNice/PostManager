@@ -4,7 +4,6 @@ import { IProject } from '@/types/project.types';
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { EllipsisVerticalIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
-
 interface ProjectHeaderProps extends IProject {
   onEditClick?: () => void;
   onDeleteClick?: () => void;

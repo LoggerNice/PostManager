@@ -1,10 +1,10 @@
 'use client';
 
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import NotificationToast from './NotificationToast';
 
 export default function NotificationManager() {
-  const { notifications, removeNotification } = useWebSocket();
+  const { notifications, removeNotification } = useWebSocketContext();
 
   return (
     <div className="fixed bottom-4 right-4 z-50 space-y-2">

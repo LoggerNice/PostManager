@@ -76,9 +76,6 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
       };
       
               const deadlineString = newTaskData.deadline ? format(newTaskData.deadline, 'yyyy-MM-dd HH:mm:ss') : undefined;
-      console.log('Creating task with deadline:', deadlineString);
-      console.log('newTaskData.deadline:', newTaskData.deadline);
-      console.log('Creating task with assigneeIds:', newTaskData.assigneeIds);
       
       onAddTask(
         columnId, 
@@ -121,7 +118,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
             {column.name} <span className="text-blue-500 pl-2">{column.items.length}</span>
           </h2>
         )}
-        {columnId !== 'COMPLETED' && (
+        {columnId !== 'COMPLETED' && columnId !== 'PROBLEM' && (
           <button
             className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-2xl"
             onClick={handleAddTaskClick}
@@ -140,7 +137,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
             }`}
           >
             {column.items.map((item, idx) => (
-              <Draggable key={item.id} draggableId={String(item.id)} index={idx}>
+              <Draggable key={`${columnId}-${item.id}-${idx}`} draggableId={String(item.id)} index={idx}>
                 {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
                   <TaskCard
                     item={item}

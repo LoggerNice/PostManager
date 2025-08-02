@@ -50,7 +50,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
   // Получаем комментарии для отображения количества
   const { data: comments = [] } = useGetCommentsByTaskQuery(
     parseInt(item.id),
-    { 
+    {
       skip: !item.id,
       pollingInterval: 10000, // Обновляем каждые 10 секунд
       refetchOnMountOrArgChange: true
@@ -77,10 +77,10 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         'Средний': 'MEDIUM',
         'Высокий': 'HIGH'
       };
-      
+
       // Получаем ID исполнителей из текущей задачи
       const assigneeIds = item.assignees?.map(assignee => assignee.user.id) || [];
-      
+
       await createTask({
         title: item.title + ' (копия)',
         description: item.description || '',
@@ -265,15 +265,15 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
                 }
               }).unwrap();
 
-                    // Обновляем локальное состояние
-      const updatedTask: Task = {
-        ...item,
-        title: editTaskData.title,
-        description: editTaskData.description,
-        priority: editTaskData.priority,
-        deadline: editTaskData.deadline || null
-      };
-      onTaskUpdate(item.id, updatedTask);
+              // Обновляем локальное состояние
+              const updatedTask: Task = {
+                ...item,
+                title: editTaskData.title,
+                description: editTaskData.description,
+                priority: editTaskData.priority,
+                deadline: editTaskData.deadline || null
+              };
+              onTaskUpdate(item.id, updatedTask);
 
               setShowEditModal(false);
             } catch (error) {
@@ -292,7 +292,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           }}
           columns={{}}
           selectedColumn=""
-          setSelectedColumn={() => {}}
+          setSelectedColumn={() => { }}
         />
       )}
       <PriorityModal
@@ -329,37 +329,37 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           {item.deadline && !showTimePicker && (
             <div className="text-xs text-gray-400">
               Срок: {new Date(item.deadline).toLocaleDateString('ru-RU')}
-              {new Date(item.deadline).getHours() !== 0 || new Date(item.deadline).getMinutes() !== 0 ? 
-                ` ${new Date(item.deadline).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : 
+              {new Date(item.deadline).getHours() !== 0 || new Date(item.deadline).getMinutes() !== 0 ?
+                ` ${new Date(item.deadline).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` :
                 ''
               }
             </div>
           )}
-          
-                      {/* Исполнители справа */}
-            {item.assignees && item.assignees.length > 0 && (
-              <div className="flex gap-1">
-                {item.assignees.slice(0, 1).map((assignee) => (
-                  <div
-                    key={assignee.id}
-                    className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                    title={`${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`}
-                  >
-                    {assignee.user.name.charAt(0)}
-                  </div>
-                ))}
-                {item.assignees.length > 1 && (
-                  <div 
-                    className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-medium"
-                    title={item.assignees.slice(1).map(assignee => 
-                      `${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`
-                    ).join('\n')}
-                  >
-                    +{item.assignees.length - 1}
-                  </div>
-                )}
-              </div>
-            )}
+
+          {/* Исполнители справа */}
+          {item.assignees && item.assignees.length > 0 && (
+            <div className="flex gap-1">
+              {item.assignees.slice(0, 1).map((assignee) => (
+                <div
+                  key={assignee.id}
+                  className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                  title={`${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`}
+                >
+                  {assignee.user.name.charAt(0)}
+                </div>
+              ))}
+              {item.assignees.length > 1 && (
+                <div
+                  className="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                  title={item.assignees.slice(1).map(assignee =>
+                    `${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`
+                  ).join('\n')}
+                >
+                  +{item.assignees.length - 1}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -369,7 +369,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         onTimeSelect={handleTimeSelect}
         currentDeadline={item.deadline ? new Date(item.deadline) : null}
       />
-      
+
     </div>
   );
 } 

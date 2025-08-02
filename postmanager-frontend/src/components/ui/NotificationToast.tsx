@@ -12,6 +12,7 @@ export interface NotificationData {
   projectId?: number;
   userId?: number;
   timestamp: string | Date;
+  id?: string;
 }
 
 interface NotificationToastProps {
@@ -51,7 +52,7 @@ export default function NotificationToast({ notification, onClose }: Notificatio
   useEffect(() => {
     // Показываем уведомление с небольшой задержкой для анимации
     const timer = setTimeout(() => setIsVisible(true), 100);
-    
+
     // Воспроизводим звук в зависимости от типа уведомления
     if (notification.type === 'task_created') {
       // Звук при появлении задачи в столбце "В процессе"
@@ -63,8 +64,11 @@ export default function NotificationToast({ notification, onClose }: Notificatio
       if (notification.message.includes('Согласование') || notification.message.includes('Выполнено')) {
         soundManager.playTaskMovedSound();
       }
+    } else if (notification.type === 'comment_added') {
+      // Звук при добавлении комментария (такой же как при перемещении в согласование)
+      soundManager.playTaskMovedSound();
     }
-    
+
     // Автоматически скрываем через 5 секунд
     const autoHideTimer = setTimeout(() => {
       setIsVisible(false);
@@ -79,23 +83,22 @@ export default function NotificationToast({ notification, onClose }: Notificatio
 
   return (
     <div
-      className={`max-w-sm w-full transform transition-all duration-300 ${
-        isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-      }`}
+      className={`max-w-sm w-full transform transition-all duration-300 ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+        }`}
     >
       <div className={`border-l-4 p-4 rounded-lg shadow-lg ${getNotificationColor(notification.type)}`}>
         <div className="flex items-start">
           <div className="flex-shrink-0">
             {getNotificationIcon(notification.type)}
           </div>
-                     <div className="ml-3 flex-1">
-             <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-               {notification.title}
-             </h4>
-             <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-               {notification.message}
-             </p>
-           </div>
+          <div className="ml-3 flex-1">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {notification.title}
+            </h4>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+              {notification.message}
+            </p>
+          </div>
           <div className="ml-4 flex-shrink-0">
             <button
               onClick={() => {

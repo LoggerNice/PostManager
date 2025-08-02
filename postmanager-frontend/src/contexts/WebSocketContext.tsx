@@ -1,50 +1,34 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useAuth } from './useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { NotificationData } from '@/components/ui/NotificationToast';
 import { Task } from '@/types/task.types';
 
-interface UseWebSocketReturn {
+interface WebSocketContextType {
   isConnected: boolean;
   notifications: NotificationData[];
   addNotification: (notification: NotificationData) => void;
   removeNotification: (index: number) => void;
+  subscribeToTaskEvents: (callbacks: TaskEventCallbacks) => () => void;
+}
+
+interface TaskEventCallbacks {
   onTaskUpdate?: (task: Task) => void;
   onTaskCreate?: (task: Task) => void;
   onTaskDelete?: (taskId: number) => void;
   onTaskMove?: (taskId: number, newStatus: string) => void;
 }
 
-export function useWebSocket(
-  onTaskUpdate?: (task: Task) => void,
-  onTaskCreate?: (task: Task) => void,
-  onTaskDelete?: (taskId: number) => void,
-  onTaskMove?: (taskId: number, newStatus: string) => void
-): UseWebSocketReturn {
+const WebSocketContext = createContext<WebSocketContextType | null>(null);
+
+export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuth();
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
-
-  // Сохраняем callback функции в ref для избежания проблем с замыканиями
-  const callbacksRef = useRef({
-    onTaskUpdate,
-    onTaskCreate,
-    onTaskDelete,
-    onTaskMove
-  });
-
-  // Обновляем callbacks при изменении
-  useEffect(() => {
-    callbacksRef.current = {
-      onTaskUpdate,
-      onTaskCreate,
-      onTaskDelete,
-      onTaskMove
-    };
-  }, [onTaskUpdate, onTaskCreate, onTaskDelete, onTaskMove]);
+  const subscribersRef = useRef<Set<TaskEventCallbacks>>(new Set());
 
   useEffect(() => {
     if (!user || !token) {
@@ -93,33 +77,40 @@ export function useWebSocket(
     });
 
     // Обработка событий задач
-    socket.on('task_created', (task: Task) => {
-      if (callbacksRef.current.onTaskCreate) {
-        callbacksRef.current.onTaskCreate(task);
-      }
+    socket.on('task_created', (data: { task: Task; projectId: number }) => {
+      subscribersRef.current.forEach(callbacks => {
+        if (callbacks.onTaskCreate) {
+          callbacks.onTaskCreate(data.task);
+        }
+      });
     });
 
-    socket.on('task_updated', (task: Task) => {
-      if (callbacksRef.current.onTaskUpdate) {
-        callbacksRef.current.onTaskUpdate(task);
-      }
+    socket.on('task_updated', (data: { task: Task; projectId: number }) => {
+      subscribersRef.current.forEach(callbacks => {
+        if (callbacks.onTaskUpdate) {
+          callbacks.onTaskUpdate(data.task);
+        }
+      });
     });
 
-    socket.on('task_deleted', (data: { taskId: number }) => {
-      if (callbacksRef.current.onTaskDelete) {
-        callbacksRef.current.onTaskDelete(data.taskId);
-      }
+    socket.on('task_deleted', (data: { taskId: number; projectId: number }) => {
+      subscribersRef.current.forEach(callbacks => {
+        if (callbacks.onTaskDelete) {
+          callbacks.onTaskDelete(data.taskId);
+        }
+      });
     });
 
     socket.on('task_moved', (data: { taskId: number; newStatus: string }) => {
-      if (callbacksRef.current.onTaskMove) {
-        callbacksRef.current.onTaskMove(data.taskId, data.newStatus);
-      }
+      subscribersRef.current.forEach(callbacks => {
+        if (callbacks.onTaskMove) {
+          callbacks.onTaskMove(data.taskId, data.newStatus);
+        }
+      });
     });
 
     // Обработка ошибок
     socket.on('connect_error', (error) => {
-      console.error('Ошибка подключения WebSocket:', error);
       setIsConnected(false);
     });
 
@@ -128,11 +119,11 @@ export function useWebSocket(
     });
 
     socket.on('reconnect_error', (error) => {
-      console.error('Ошибка переподключения WebSocket:', error);
+      // Тихо обрабатываем ошибку переподключения
     });
 
     socket.on('reconnect_failed', () => {
-      console.error('Не удалось переподключиться к WebSocket серверу');
+      // Тихо обрабатываем неудачу переподключения
     });
 
     return () => {
@@ -143,17 +134,45 @@ export function useWebSocket(
   }, [user, token]);
 
   const addNotification = useCallback((notification: NotificationData) => {
-    setNotifications(prev => [...prev, notification]);
+    setNotifications(prev => {
+      // Добавляем уникальный ID к уведомлению если его нет
+      const notificationWithId = {
+        ...notification,
+        id: `${Date.now()}-${Math.random()}`
+      };
+      return [...prev, notificationWithId];
+    });
   }, []);
 
   const removeNotification = useCallback((index: number) => {
     setNotifications(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  return {
-    isConnected,
-    notifications,
-    addNotification,
-    removeNotification,
-  };
-} 
+  const subscribeToTaskEvents = useCallback((callbacks: TaskEventCallbacks) => {
+    subscribersRef.current.add(callbacks);
+    
+    return () => {
+      subscribersRef.current.delete(callbacks);
+    };
+  }, []);
+
+  return (
+    <WebSocketContext.Provider value={{
+      isConnected,
+      notifications,
+      addNotification,
+      removeNotification,
+      subscribeToTaskEvents
+    }}>
+      {children}
+    </WebSocketContext.Provider>
+  );
+}
+
+export function useWebSocketContext() {
+  const context = useContext(WebSocketContext);
+  if (!context) {
+    throw new Error('useWebSocketContext must be used within a WebSocketProvider');
+  }
+  return context;
+}
