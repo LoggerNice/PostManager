@@ -1,63 +1,270 @@
 import type { Request, Response } from 'express';
+import type { TaskStatus, TaskPriority } from '@prisma/client';
 import prisma from '../utils/prisma.js';
 import { getTaskOrderBy } from '../utils/taskUtils.js';
 import { getWebSocketServer } from '../websocketServer.js';
 
-export const createTask = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { title, description, status, priority, projectId, deadline, order, assigneeIds } = req.body;
-        
-        if (!projectId) {
-            res.status(400).json({ message: 'ID проекта обязателен' });
-            return;
-        }
+// Типы для WebSocket событий
+type TaskEventType = 'task_created' | 'task_updated' | 'task_deleted';
+type NotificationType = 'task_created' | 'task_updated' | 'comment_added';
 
-        // Если order не передан, определяем его автоматически
-        let taskOrder = order;
-        if (taskOrder === undefined || taskOrder === null) {
-            // Находим максимальный order среди задач с тем же статусом в проекте
-            const maxOrderTask = await prisma.task.findFirst({
-                where: {
-                    projectId: parseInt(projectId),
-                    status: status
-                },
-                orderBy: {
-                    order: 'desc'
-                }
-            });
-            
-            // Устанавливаем order как максимальный + 1, или 0 если задач нет
-            taskOrder = (maxOrderTask && maxOrderTask.order !== null) ? (maxOrderTask.order + 1) : 0;
-        } else {
-            // Если order передан, проверяем на дублирование и корректируем при необходимости
-            const existingTask = await prisma.task.findFirst({
-                where: {
-                    projectId: parseInt(projectId),
-                    status: status,
-                    order: taskOrder
-                }
-            });
-            
-            if (existingTask) {
-                // Если задача с таким order уже существует, сдвигаем все последующие задачи
-                await prisma.task.updateMany({
-                    where: {
-                        projectId: parseInt(projectId),
-                        status: status,
-                        order: {
-                            gte: taskOrder
-                        }
-                    },
-                    data: {
-                        order: {
-                            increment: 1
+// Типы и интерфейсы
+interface TaskInclude {
+    assignees: {
+        include: {
+            user: {
+                select: {
+                    id: true;
+                    name: true;
+                    department: {
+                        select: {
+                            id: true;
+                            name: true;
+                        };
+                    };
+                };
+            };
+        };
+    };
+}
+
+interface CreateTaskData {
+    title: string;
+    description?: string;
+    status: TaskStatus;
+    priority?: TaskPriority;
+    projectId: string;
+    deadline?: string;
+    order?: number;
+    assigneeIds?: number[];
+}
+
+interface UpdateTaskData {
+    title?: string;
+    description?: string;
+    status?: TaskStatus;
+    priority?: TaskPriority;
+    deadline?: string;
+    order?: number;
+    assigneeIds?: number[];
+}
+
+// Константы
+const TASK_INCLUDE_CONFIG: TaskInclude = {
+    assignees: {
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    department: {
+                        select: {
+                            id: true,
+                            name: true
                         }
                     }
-                });
+                }
             }
         }
+    }
+};
 
-        console.log('Calculated order:', taskOrder);
+const STATUS_DISPLAY_TEXT: Record<TaskStatus, string> = {
+    TODO: 'К выполнению',
+    IN_PROGRESS: 'В работе',
+    PROBLEM: 'Согласование',
+    COMPLETED: 'Выполнено',
+    CANCELLED: 'Отменено'
+};
+
+// Утилиты валидации
+const validateTaskId = (taskId: string): number => {
+    const id = parseInt(taskId);
+    if (isNaN(id)) {
+        throw new Error('Неверный ID задачи');
+    }
+    return id;
+};
+
+const validateProjectId = (projectId: string): number => {
+    const id = parseInt(projectId);
+    if (isNaN(id) || !projectId) {
+        throw new Error('ID проекта обязателен');
+    }
+    return id;
+};
+
+const validateUserIds = (userIds: any[]): number[] => {
+    if (!Array.isArray(userIds)) {
+        throw new Error('Список ID пользователей должен быть массивом');
+    }
+    return userIds.map(id => {
+        const numId = parseInt(id.toString());
+        if (isNaN(numId)) {
+            throw new Error('Неверный ID пользователя');
+        }
+        return numId;
+    });
+};
+
+// Утилиты для работы с порядком задач
+const calculateTaskOrder = async (projectId: number, status: TaskStatus, order?: number): Promise<number> => {
+    if (order === undefined || order === null) {
+        const maxOrderTask = await prisma.task.findFirst({
+            where: { projectId, status },
+            orderBy: { order: 'desc' }
+        });
+        return (maxOrderTask?.order ?? -1) + 1;
+    }
+    return order;
+};
+
+const adjustTaskOrderOnCreate = async (projectId: number, status: TaskStatus, order: number): Promise<void> => {
+    const existingTask = await prisma.task.findFirst({
+        where: { projectId, status, order }
+    });
+
+    if (existingTask) {
+        await prisma.task.updateMany({
+            where: {
+                projectId,
+                status,
+                order: { gte: order }
+            },
+            data: { order: { increment: 1 } }
+        });
+    }
+};
+
+const adjustTaskOrderOnDelete = async (projectId: number, status: TaskStatus, deletedOrder: number): Promise<void> => {
+    await prisma.task.updateMany({
+        where: {
+            projectId,
+            status,
+            order: { gt: deletedOrder }
+        },
+        data: { order: { decrement: 1 } }
+    });
+};
+
+const handleStatusChange = async (task: any, newStatus: TaskStatus): Promise<number> => {
+    // Удаляем из старой колонки
+    await prisma.task.updateMany({
+        where: {
+            projectId: task.projectId,
+            status: task.status,
+            order: { gt: task.order || 0 }
+        },
+        data: { order: { decrement: 1 } }
+    });
+
+    // Добавляем в новую колонку
+    const maxOrderTask = await prisma.task.findFirst({
+        where: { projectId: task.projectId, status: newStatus },
+        orderBy: { order: 'desc' }
+    });
+
+    return (maxOrderTask?.order ?? -1) + 1;
+};
+
+const handleOrderChange = async (task: any, newOrder: number): Promise<void> => {
+    const currentOrder = task.order || 0;
+
+    if (newOrder > currentOrder) {
+        // Перемещение вниз
+        await prisma.task.updateMany({
+            where: {
+                projectId: task.projectId,
+                status: task.status,
+                order: { gt: currentOrder, lte: newOrder }
+            },
+            data: { order: { decrement: 1 } }
+        });
+    } else {
+        // Перемещение вверх
+        await prisma.task.updateMany({
+            where: {
+                projectId: task.projectId,
+                status: task.status,
+                order: { gte: newOrder, lt: currentOrder }
+            },
+            data: { order: { increment: 1 } }
+        });
+    }
+};
+
+// Утилиты для работы с исполнителями
+const manageTaskAssignees = async (taskId: number, assigneeIds?: number[]): Promise<void> => {
+    if (!assigneeIds || !Array.isArray(assigneeIds)) return;
+
+    await prisma.taskAssignee.deleteMany({ where: { taskId } });
+
+    if (assigneeIds.length > 0) {
+        await prisma.taskAssignee.createMany({
+            data: assigneeIds.map(userId => ({ taskId, userId })),
+            skipDuplicates: true
+        });
+    }
+};
+
+const getTaskWithAssignees = async (taskId: number) => {
+    return prisma.task.findUnique({
+        where: { id: taskId },
+        include: TASK_INCLUDE_CONFIG
+    });
+};
+
+// Утилиты для WebSocket уведомлений
+const sendTaskWebSocketEvent = (eventType: TaskEventType, data: any): void => {
+    const wsServer = getWebSocketServer();
+    if (wsServer) {
+        wsServer.sendTaskEvent(eventType, data);
+    }
+};
+
+const sendTaskNotificationToProject = async (
+    projectId: number,
+    taskId: number,
+    taskTitle: string,
+    message: string,
+    type: NotificationType = 'task_updated'
+): Promise<void> => {
+    const wsServer = getWebSocketServer();
+    if (!wsServer) return;
+
+    const projectWithUsers = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: {
+            title: true,
+            users: { select: { id: true } }
+        }
+    });
+
+    if (!projectWithUsers?.users.length) return;
+
+    const notification = {
+        type,
+        title: projectWithUsers.title || 'Неизвестный проект',
+        message,
+        taskId,
+        projectId,
+        timestamp: new Date().toISOString()
+    };
+
+    projectWithUsers.users.forEach(user => {
+        wsServer.sendNotificationToUser(user.id, notification);
+    });
+};
+
+// Основные контроллеры
+export const createTask = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { title, description, status, priority, projectId, deadline, order, assigneeIds }: CreateTaskData = req.body;
+
+        const projectIdNum = validateProjectId(projectId);
+        const taskOrder = await calculateTaskOrder(projectIdNum, status, order);
+
+        await adjustTaskOrderOnCreate(projectIdNum, status, taskOrder);
 
         const task = await prisma.task.create({
             data: {
@@ -67,134 +274,40 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
                 priority,
                 order: taskOrder,
                 deadline: deadline ? new Date(deadline) : null,
-                project: {
-                    connect: { id: parseInt(projectId) }
-                }
+                project: { connect: { id: projectIdNum } }
             },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        console.log('Created task:', task);
-        // Добавляем исполнителей, если переданы
-        if (assigneeIds && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
-            await prisma.taskAssignee.createMany({
-                data: assigneeIds.map((userId: number) => ({
-                    taskId: task.id,
-                    userId: Number(userId)
-                })),
-                skipDuplicates: true
-            });
-        }
-        // Получаем задачу с исполнителями
-        const taskWithAssignees = await prisma.task.findUnique({
-            where: { id: task.id },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            include: TASK_INCLUDE_CONFIG
         });
 
-        // Отправляем WebSocket события о создании задачи
-        const wsServer = getWebSocketServer();
-        if (wsServer) {
-            // Получаем информацию о проекте
-            const project = await prisma.project.findUnique({
-                where: { id: parseInt(projectId) },
-                select: { title: true }
-            });
+        await manageTaskAssignees(task.id, assigneeIds);
+        const taskWithAssignees = await getTaskWithAssignees(task.id);
 
-            // Отправляем событие создания задачи всем участникам проекта
-            wsServer.sendTaskEvent('task_created', {
-                task: taskWithAssignees,
-                projectId: parseInt(projectId)
-            });
+        // WebSocket уведомления
+        sendTaskWebSocketEvent('task_created', {
+            task: taskWithAssignees,
+            projectId: projectIdNum
+        });
 
-            // Получаем всех участников проекта для отправки уведомлений
-            const projectWithUsers = await prisma.project.findUnique({
-                where: { id: parseInt(projectId) },
-                include: {
-                    users: {
-                        select: { id: true }
-                    }
-                }
-            });
-
-            const projectUsers = projectWithUsers?.users || [];
-
-            // Отправляем уведомления всем участникам проекта
-            if (projectUsers.length > 0) {
-                projectUsers.forEach(projectUser => {
-                    wsServer.sendNotificationToUser(projectUser.id, {
-                        type: 'task_created',
-                        title: project?.title || 'Неизвестный проект',
-                        message: `Создана задача "${title}"`,
-                        taskId: task.id,
-                        projectId: parseInt(projectId),
-                        timestamp: new Date().toISOString()
-                    });
-                });
-            }
-        }
+        await sendTaskNotificationToProject(
+            projectIdNum,
+            task.id,
+            title,
+            `Создана задача "${title}"`,
+            'task_created'
+        );
 
         res.status(201).json(taskWithAssignees);
     } catch (error) {
         console.error('Ошибка при создании задачи:', error);
-        res.status(500).json({ message: 'Ошибка при создании задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при создании задачи';
+        res.status(400).json({ message });
     }
-}
+};
 
 export const getTasks = async (req: Request, res: Response): Promise<void> => {
     try {
         const tasks = await prisma.task.findMany({
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
+            include: TASK_INCLUDE_CONFIG,
             orderBy: getTaskOrderBy()
         });
         res.json(tasks);
@@ -202,424 +315,152 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
         console.error('Ошибка при получении задач:', error);
         res.status(500).json({ message: 'Ошибка при получении задач' });
     }
-}
+};
 
 export const getTaskById = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
-        const task = await prisma.task.findUnique({ 
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        const taskId = validateTaskId(req.params.taskId);
+        const task = await getTaskWithAssignees(taskId);
+
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
+
         res.json(task);
     } catch (error) {
         console.error('Ошибка при получении задачи:', error);
-        res.status(500).json({ message: 'Ошибка при получении задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при получении задачи';
+        res.status(400).json({ message });
     }
-}
+};
 
 export const updateTask = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
-        const { title, description, status, priority, deadline, order, assigneeIds } = req.body;
-        
-        // Проверяем, что taskId является валидным числом
-        const taskIdNum = parseInt(taskId);
-        if (isNaN(taskIdNum)) {
-            res.status(400).json({ message: 'Неверный ID задачи' });
-            return;
-        }
-        
-        // Получаем текущую задачу для сравнения
-        const currentTask = await prisma.task.findUnique({
-            where: { id: taskIdNum }
-        });
-        
+        const taskId = validateTaskId(req.params.taskId);
+        const { title, description, status, priority, deadline, order, assigneeIds }: UpdateTaskData = req.body;
+
+        const currentTask = await prisma.task.findUnique({ where: { id: taskId } });
         if (!currentTask) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
-        
-        // Подготавливаем данные для обновления, исключая undefined значения
+
         const updateData: any = {};
         if (title !== undefined) updateData.title = title;
         if (description !== undefined) updateData.description = description;
         if (priority !== undefined) updateData.priority = priority;
-        if (deadline !== undefined) {
-            updateData.deadline = deadline ? new Date(deadline) : null;
-        }
-        
-        // Обрабатываем изменение статуса и порядка
-        const newStatus = status !== undefined ? status : currentTask.status;
-        const newOrder = order !== undefined ? order : currentTask.order;
-        
-        // Если статус изменился, нужно пересчитать порядок
+        if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
+
+        // Обработка изменения статуса
         if (status !== undefined && status !== currentTask.status) {
-            // Удаляем задачу из старой колонки (сдвигаем порядок)
-            await prisma.task.updateMany({
-                where: {
-                    projectId: currentTask.projectId,
-                    status: currentTask.status,
-                    order: {
-                        gt: currentTask.order || 0
-                    }
-                },
-                data: {
-                    order: {
-                        decrement: 1
-                    }
-                }
-            });
-            
-            // Находим максимальный order в новой колонке
-            const maxOrderTask = await prisma.task.findFirst({
-                where: {
-                    projectId: currentTask.projectId,
-                    status: newStatus
-                },
-                orderBy: {
-                    order: 'desc'
-                }
-            });
-            
-            // Устанавливаем новый порядок в конец новой колонки
-            updateData.order = (maxOrderTask && maxOrderTask.order !== null) ? (maxOrderTask.order + 1) : 0;
-            updateData.status = newStatus;
+            updateData.status = status;
+            updateData.order = await handleStatusChange(currentTask, status);
         } else if (order !== undefined && order !== currentTask.order) {
-            // Если изменился только порядок в той же колонке
-            const existingTask = await prisma.task.findFirst({
-                where: {
-                    projectId: currentTask.projectId,
-                    status: newStatus,
-                    order: newOrder,
-                    id: {
-                        not: taskIdNum // Исключаем текущую задачу
-                    }
-                }
-            });
-            
-            if (existingTask) {
-                // Если позиция занята, сдвигаем задачи
-                if (newOrder > (currentTask.order || 0)) {
-                    // Перемещение вниз - сдвигаем задачи вверх
-                    await prisma.task.updateMany({
-                        where: {
-                            projectId: currentTask.projectId,
-                            status: newStatus,
-                            order: {
-                                gt: currentTask.order || 0,
-                                lte: newOrder
-                            }
-                        },
-                        data: {
-                            order: {
-                                decrement: 1
-                            }
-                        }
-                    });
-                } else {
-                    // Перемещение вверх - сдвигаем задачи вниз
-                    await prisma.task.updateMany({
-                        where: {
-                            projectId: currentTask.projectId,
-                            status: newStatus,
-                            order: {
-                                gte: newOrder,
-                                lt: currentTask.order || 0
-                            }
-                        },
-                        data: {
-                            order: {
-                                increment: 1
-                            }
-                        }
-                    });
-                }
-            }
-            
-            updateData.order = newOrder;
+            await handleOrderChange(currentTask, order);
+            updateData.order = order;
         }
-        
-        console.log('updateData:', updateData);
-        
+
         const updatedTask = await prisma.task.update({
-            where: { id: taskIdNum },
+            where: { id: taskId },
             data: updateData,
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
-        // Обновляем исполнителей, если переданы
-        if (assigneeIds && Array.isArray(assigneeIds)) {
-            // Удаляем всех текущих исполнителей
-            await prisma.taskAssignee.deleteMany({ where: { taskId: taskIdNum } });
-            // Добавляем новых исполнителей
-            if (assigneeIds.length > 0) {
-                await prisma.taskAssignee.createMany({
-                    data: assigneeIds.map((userId: number) => ({
-                        taskId: taskIdNum,
-                        userId: Number(userId)
-                    })),
-                    skipDuplicates: true
-                });
-            }
-        }
-        // Получаем задачу с исполнителями
-        const taskWithAssignees = await prisma.task.findUnique({
-            where: { id: taskIdNum },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            include: TASK_INCLUDE_CONFIG
         });
 
-        // Отправляем WebSocket события об обновлении задачи
-        const wsServer = getWebSocketServer();
-        if (wsServer) {
-            // Отправляем событие обновления задачи всем участникам проекта
-            wsServer.sendTaskEvent('task_updated', {
-                task: taskWithAssignees,
-                projectId: currentTask.projectId!
-            });
+        await manageTaskAssignees(taskId, assigneeIds);
+        const taskWithAssignees = await getTaskWithAssignees(taskId);
 
-            // Отправляем уведомление об изменении статуса участникам
-            if (status !== undefined && status !== currentTask.status) {
-                const statusText: Record<string, string> = {
-                    'TODO': 'К выполнению',
-                    'IN_PROGRESS': 'В работе',
-                    'PROBLEM': 'Согласование',
-                    'COMPLETED': 'Выполнено',
-                    'CANCELLED': 'Отменено'
-                };
-                const statusDisplayText = statusText[status] || status;
+        // WebSocket уведомления
+        sendTaskWebSocketEvent('task_updated', {
+            task: taskWithAssignees,
+            projectId: currentTask.projectId!
+        });
 
-                // Получаем информацию о проекте
-                const project = await prisma.project.findUnique({
-                    where: { id: currentTask.projectId! },
-                    select: { title: true }
-                });
-
-                // Получаем всех участников проекта для отправки уведомлений
-                const projectWithUsers = await prisma.project.findUnique({
-                    where: { id: currentTask.projectId! },
-                    include: {
-                        users: {
-                            select: { id: true }
-                        }
-                    }
-                });
-
-                const projectUsers = projectWithUsers?.users || [];
-
-                // Отправляем уведомление всем участникам проекта
-                if (projectUsers.length > 0) {
-                    projectUsers.forEach(projectUser => {
-                        wsServer.sendNotificationToUser(projectUser.id, {
-                            type: 'task_updated',
-                            title: project?.title || 'Неизвестный проект',
-                            message: `Задача "${currentTask.title}" переведена в статус "${statusDisplayText}"`,
-                            taskId: taskIdNum,
-                            projectId: currentTask.projectId!,
-                            timestamp: new Date().toISOString()
-                        });
-                    });
-                }
-            }
+        if (status !== undefined && status !== currentTask.status) {
+            const statusText = STATUS_DISPLAY_TEXT[status] || status;
+            await sendTaskNotificationToProject(
+                currentTask.projectId!,
+                taskId,
+                currentTask.title,
+                `Задача "${currentTask.title}" переведена в статус "${statusText}"`
+            );
         }
 
         res.json(taskWithAssignees);
     } catch (error) {
         console.error('Ошибка при обновлении задачи:', error);
-        res.status(500).json({ message: 'Ошибка при обновлении задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при обновлении задачи';
+        res.status(400).json({ message });
     }
-}
+};
 
 export const deleteTask = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
-        const taskIdNum = parseInt(taskId);
-        
-        if (isNaN(taskIdNum)) {
-            res.status(400).json({ message: 'Неверный ID задачи' });
-            return;
-        }
-        
-        // Получаем задачу перед удалением для корректировки порядка
-        const taskToDelete = await prisma.task.findUnique({
-            where: { id: taskIdNum },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-        
+        const taskId = validateTaskId(req.params.taskId);
+
+        const taskToDelete = await getTaskWithAssignees(taskId);
         if (!taskToDelete) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
-        
-        // Удаляем задачу
-        await prisma.task.delete({ where: { id: taskIdNum } });
-        
-        // Сдвигаем порядок всех последующих задач в той же колонке
-        await prisma.task.updateMany({
-            where: {
-                projectId: taskToDelete.projectId,
-                status: taskToDelete.status,
-                order: {
-                    gt: taskToDelete.order || 0
-                }
-            },
-            data: {
-                order: {
-                    decrement: 1
-                }
-            }
+
+        await prisma.task.delete({ where: { id: taskId } });
+
+        // Корректируем порядок только если задача принадлежит проекту
+        if (taskToDelete.projectId) {
+            await adjustTaskOrderOnDelete(taskToDelete.projectId, taskToDelete.status, taskToDelete.order || 0);
+        }
+
+        // WebSocket уведомления
+        sendTaskWebSocketEvent('task_deleted', {
+            taskId,
+            projectId: taskToDelete.projectId!
         });
 
-        // Отправляем WebSocket события об удалении задачи
-        const wsServer = getWebSocketServer();
-        if (wsServer) {
-            // Отправляем событие удаления задачи всем участникам проекта
-            wsServer.sendTaskEvent('task_deleted', {
-                taskId: taskIdNum,
-                projectId: taskToDelete.projectId!
-            });
+        await sendTaskNotificationToProject(
+            taskToDelete.projectId!,
+            taskId,
+            taskToDelete.title,
+            `Задача "${taskToDelete.title}" была удалена`
+        );
 
-            // Получаем всех участников проекта для отправки уведомлений
-            const projectWithUsers = await prisma.project.findUnique({
-                where: { id: taskToDelete.projectId! },
-                select: {
-                    title: true,
-                    users: {
-                        select: { id: true }
-                    }
-                }
-            });
-
-            const projectUsers = projectWithUsers?.users || [];
-
-            // Отправляем уведомления всем участникам проекта
-            if (projectUsers.length > 0) {
-                projectUsers.forEach(projectUser => {
-                    wsServer.sendNotificationToUser(projectUser.id, {
-                        type: 'task_updated',
-                        title: projectWithUsers?.title || 'Неизвестный проект',
-                        message: `Задача "${taskToDelete.title}" была удалена`,
-                        taskId: taskIdNum,
-                        projectId: taskToDelete.projectId!,
-                        timestamp: new Date().toISOString()
-                    });
-                });
-            }
-        }
-        
-        console.log(`Task ${taskIdNum} deleted, order adjusted for remaining tasks`);
         res.status(200).json({ message: 'Задача удалена' });
     } catch (error) {
         console.error('Ошибка при удалении задачи:', error);
-        res.status(500).json({ message: 'Ошибка при удалении задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при удалении задачи';
+        res.status(400).json({ message });
     }
-}
+};
 
 export const getTaskComments = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
+
         const comments = await prisma.comment.findMany({
-            where: { taskId: parseInt(taskId) },
+            where: { taskId },
             include: {
                 author: {
                     select: {
                         id: true,
                         name: true,
-                        department: {
-                            select: {
-                                name: true
-                            }
-                        }
+                        department: { select: { name: true } }
                     }
                 }
             },
-            orderBy: {
-                createdAt: 'asc'
-            }
+            orderBy: { createdAt: 'asc' }
         });
+
         res.status(200).json(comments);
     } catch (error) {
         console.error('Ошибка при получении комментариев задачи:', error);
-        res.status(500).json({ message: 'Ошибка при получении комментариев задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при получении комментариев задачи';
+        res.status(400).json({ message });
     }
-}
+};
 
-// Добавление исполнителей к задаче
 export const addTaskAssignees = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const { userIds } = req.body;
 
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
@@ -627,73 +468,42 @@ export const addTaskAssignees = async (req: Request, res: Response): Promise<voi
             return;
         }
 
-        // Проверяем существование задачи
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) }
-        });
+        const validUserIds = validateUserIds(userIds);
 
+        // Проверяем существование задачи
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
 
-        // Проверяем существование всех пользователей
+        // Проверяем существование пользователей
         const users = await prisma.user.findMany({
-            where: {
-                id: {
-                    in: userIds.map((id: string | number) => parseInt(id.toString()))
-                }
-            }
+            where: { id: { in: validUserIds } }
         });
 
-        if (users.length !== userIds.length) {
+        if (users.length !== validUserIds.length) {
             res.status(400).json({ message: 'Некоторые пользователи не найдены' });
             return;
         }
 
-        // Добавляем исполнителей
-        const assignees = await prisma.taskAssignee.createMany({
-            data: userIds.map((userId: string | number) => ({
-                taskId: parseInt(taskId),
-                userId: parseInt(userId.toString())
-            })),
-            skipDuplicates: true // Пропускаем дубликаты
+        await prisma.taskAssignee.createMany({
+            data: validUserIds.map(userId => ({ taskId, userId })),
+            skipDuplicates: true
         });
 
-        // Получаем обновленную задачу с исполнителями
-        const updatedTask = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
+        const updatedTask = await getTaskWithAssignees(taskId);
         res.status(200).json(updatedTask);
     } catch (error) {
         console.error('Ошибка при добавлении исполнителей:', error);
-        res.status(500).json({ message: 'Ошибка при добавлении исполнителей' });
+        const message = error instanceof Error ? error.message : 'Ошибка при добавлении исполнителей';
+        res.status(400).json({ message });
     }
-}
+};
 
-// Удаление исполнителей из задачи
 export const removeTaskAssignees = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const { userIds } = req.body;
 
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
@@ -701,84 +511,36 @@ export const removeTaskAssignees = async (req: Request, res: Response): Promise<
             return;
         }
 
-        // Проверяем существование задачи
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) }
-        });
+        const validUserIds = validateUserIds(userIds);
 
+        // Проверяем существование задачи
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
 
-        // Удаляем исполнителей
         await prisma.taskAssignee.deleteMany({
             where: {
-                taskId: parseInt(taskId),
-                userId: {
-                    in: userIds.map((id: string | number) => parseInt(id.toString()))
-                }
+                taskId,
+                userId: { in: validUserIds }
             }
         });
 
-        // Получаем обновленную задачу с исполнителями
-        const updatedTask = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
+        const updatedTask = await getTaskWithAssignees(taskId);
         res.status(200).json(updatedTask);
     } catch (error) {
         console.error('Ошибка при удалении исполнителей:', error);
-        res.status(500).json({ message: 'Ошибка при удалении исполнителей' });
+        const message = error instanceof Error ? error.message : 'Ошибка при удалении исполнителей';
+        res.status(400).json({ message });
     }
-}
+};
 
-// Получение исполнителей задачи
 export const getTaskAssignees = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
 
-        // Проверяем существование задачи
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
+        const task = await getTaskWithAssignees(taskId);
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
@@ -787,95 +549,60 @@ export const getTaskAssignees = async (req: Request, res: Response): Promise<voi
         res.status(200).json(task.assignees);
     } catch (error) {
         console.error('Ошибка при получении исполнителей задачи:', error);
-        res.status(500).json({ message: 'Ошибка при получении исполнителей задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при получении исполнителей задачи';
+        res.status(400).json({ message });
     }
-}
+};
 
-// Обновление исполнителей задачи (заменяет всех исполнителей)
 export const updateTaskAssignees = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const { userIds } = req.body;
 
         // Проверяем существование задачи
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) }
-        });
-
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
 
         // Удаляем всех текущих исполнителей
-        await prisma.taskAssignee.deleteMany({
-            where: { taskId: parseInt(taskId) }
-        });
+        await prisma.taskAssignee.deleteMany({ where: { taskId } });
 
         // Добавляем новых исполнителей, если они переданы
         if (userIds && Array.isArray(userIds) && userIds.length > 0) {
-            // Проверяем существование всех пользователей
+            const validUserIds = validateUserIds(userIds);
+
+            // Проверяем существование пользователей
             const users = await prisma.user.findMany({
-                where: {
-                    id: {
-                        in: userIds.map((id: string | number) => parseInt(id.toString()))
-                    }
-                }
+                where: { id: { in: validUserIds } }
             });
 
-            if (users.length !== userIds.length) {
+            if (users.length !== validUserIds.length) {
                 res.status(400).json({ message: 'Некоторые пользователи не найдены' });
                 return;
             }
 
-            // Добавляем новых исполнителей
             await prisma.taskAssignee.createMany({
-                data: userIds.map((userId: string | number) => ({
-                    taskId: parseInt(taskId),
-                    userId: parseInt(userId.toString())
-                }))
+                data: validUserIds.map(userId => ({ taskId, userId }))
             });
         }
 
-        // Получаем обновленную задачу с исполнителями
-        const updatedTask = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
+        const updatedTask = await getTaskWithAssignees(taskId);
         res.status(200).json(updatedTask);
     } catch (error) {
         console.error('Ошибка при обновлении исполнителей задачи:', error);
-        res.status(500).json({ message: 'Ошибка при обновлении исполнителей задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при обновлении исполнителей задачи';
+        res.status(400).json({ message });
     }
-}
+};
 
 export const updateTaskPriorities = async (req: Request, res: Response): Promise<void> => {
     try {
-        // Выполняем SQL-запрос для обновления приоритетов
         await prisma.$executeRaw`SELECT update_existing_task_priorities()`;
-        
         res.status(200).json({ message: 'Приоритеты задач обновлены успешно' });
     } catch (error) {
         console.error('Ошибка при обновлении приоритетов задач:', error);
         res.status(500).json({ message: 'Ошибка при обновлении приоритетов задач' });
     }
 };
-
