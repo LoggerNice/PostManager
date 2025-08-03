@@ -135,11 +135,13 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
   const addNotification = useCallback((notification: NotificationData) => {
     setNotifications(prev => {
-      // Добавляем уникальный ID к уведомлению если его нет
+      // Добавляем уникальный ID к уведомлению если его нет и устанавливаем статус "не прочитано"
       const notificationWithId = {
         ...notification,
-        id: `${Date.now()}-${Math.random()}`
+        id: `${Date.now()}-${Math.random()}`,
+        isRead: false
       };
+      
       return [...prev, notificationWithId];
     });
   }, []);

@@ -79,8 +79,25 @@ export default function CommentFile({ fileName, fileUrl, fileSize, fileType }: C
             className="max-w-full max-h-96 rounded-lg border border-gray-600 cursor-pointer hover:opacity-90 transition-opacity"
             onClick={handleOpen}
             onError={(e) => {
-              console.error('Ошибка загрузки изображения:', e);
-              e.currentTarget.style.display = 'none';
+              console.error('Ошибка загрузки изображения:', {
+                fileName,
+                fileUrl,
+                fullFileUrl,
+                error: e.target
+              });
+              // Скрываем изображение и показываем fallback
+              const imgElement = e.currentTarget;
+              imgElement.style.display = 'none';
+              
+              // Создаем fallback элемент
+              const fallback = document.createElement('div');
+              fallback.className = 'bg-gray-700 rounded-lg border border-gray-600 p-4 text-center text-gray-400';
+              fallback.innerHTML = `
+                <div class="text-2xl mb-2">🖼️</div>
+                <div class="text-sm">Изображение недоступно</div>
+                <div class="text-xs mt-1">${fileName}</div>
+              `;
+              imgElement.parentNode?.appendChild(fallback);
             }}
           />
         </div>

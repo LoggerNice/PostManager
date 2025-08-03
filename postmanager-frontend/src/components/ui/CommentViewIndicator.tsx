@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Check, CheckCheck } from 'lucide-react';
 
 interface CommentViewStats {
@@ -27,7 +27,7 @@ interface CommentViewIndicatorProps {
   className?: string;
 }
 
-export const CommentViewIndicator: React.FC<CommentViewIndicatorProps> = ({
+export const CommentViewIndicator: React.FC<CommentViewIndicatorProps> = memo(({
   stats,
   currentUserId,
   commentAuthorId,
@@ -66,6 +66,16 @@ export const CommentViewIndicator: React.FC<CommentViewIndicatorProps> = ({
     return null;
   }
 
+  // Добавляем дополнительную проверку на валидность данных
+  if (!stats || !stats.viewStatus || stats.commentId === undefined) {
+    return null;
+  }
+
+  // Проверяем, что данные статистики корректны
+  if (stats.totalAssignees === undefined || stats.viewedAssignees === undefined) {
+    return null;
+  }
+
   return (
     <div 
       className={`flex items-center gap-1 ${className}`}
@@ -79,6 +89,8 @@ export const CommentViewIndicator: React.FC<CommentViewIndicatorProps> = ({
       )}
     </div>
   );
-};
+});
+
+CommentViewIndicator.displayName = 'CommentViewIndicator';
 
 export type { CommentViewStats }; 

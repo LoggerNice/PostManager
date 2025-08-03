@@ -13,6 +13,7 @@ export interface NotificationData {
   userId?: number;
   timestamp: string | Date;
   id?: string;
+  isRead?: boolean;
 }
 
 interface NotificationToastProps {
@@ -69,7 +70,7 @@ export default function NotificationToast({ notification, onClose }: Notificatio
       soundManager.playTaskMovedSound();
     }
 
-    // Автоматически скрываем через 5 секунд
+    // Автоматически скрываем через 5 секунд (но не отмечаем как прочитанное)
     const autoHideTimer = setTimeout(() => {
       setIsVisible(false);
       setTimeout(onClose, 300); // Ждем окончания анимации

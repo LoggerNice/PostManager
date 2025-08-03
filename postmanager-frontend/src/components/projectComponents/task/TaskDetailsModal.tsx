@@ -34,7 +34,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
     task?.id ? parseInt(task.id) : 0,
     { 
       skip: !task?.id || !visible,
-      pollingInterval: 5000, // Обновляем каждые 5 секунд
+      pollingInterval: 8000, // Увеличиваем интервал до 8 секунд для стабильности
       refetchOnMountOrArgChange: true
     }
   );
@@ -51,7 +51,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
     { commentIds: comments.map(comment => comment.id) },
     { 
       skip: !comments.length || !visible,
-      pollingInterval: 3000, // Обновляем каждые 3 секунды
+      pollingInterval: 10000, // Увеличиваем интервал до 10 секунд для стабильности
       refetchOnMountOrArgChange: true
     }
   );
@@ -90,8 +90,10 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
             console.error('Ошибка при отметке комментария как просмотренного:', error);
           }
         }
-        // Обновляем статистику просмотров после отметки
-        refetchViewStats();
+        // Обновляем статистику просмотров после отметки с задержкой
+        setTimeout(() => {
+          refetchViewStats();
+        }, 1000);
       };
       
       markCommentsAsViewed();
@@ -101,10 +103,10 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   // Автоматическое обновление статистики при изменении комментариев
   useEffect(() => {
     if (visible && comments.length > 0) {
-      // Обновляем статистику просмотров при изменении списка комментариев
+      // Обновляем статистику просмотров при изменении списка комментариев с задержкой
       const timer = setTimeout(() => {
         refetchViewStats();
-      }, 1000);
+      }, 2000); // Увеличиваем задержку до 2 секунд
       
       return () => clearTimeout(timer);
     }
@@ -146,11 +148,16 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       
       setNewComment('');
       setSelectedFile(null);
-      refetchComments();
-      // Обновляем статистику просмотров после создания комментария
+      
+      // Обновляем комментарии с задержкой для стабильности
+      setTimeout(() => {
+        refetchComments();
+      }, 500);
+      
+      // Обновляем статистику просмотров после создания комментария с большей задержкой
       setTimeout(() => {
         refetchViewStats();
-      }, 500);
+      }, 1500);
       
     } catch (error) {
       console.error('Ошибка при создании комментария:', error);
@@ -486,6 +493,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                                                          {/* Индикатор просмотра */}
                                      {viewStats && (
                                        <CommentViewIndicator
+                                         key={`view-indicator-${comment.id}-${viewStats.viewStatus}-${viewStats.viewedAssignees}`}
                                          stats={viewStats}
                                          currentUserId={user?.id || 0}
                                          commentAuthorId={comment.authorId}
