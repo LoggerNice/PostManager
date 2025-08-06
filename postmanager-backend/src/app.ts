@@ -46,6 +46,7 @@ app.get('/departments/:departmentId/projects', departmentController.getDepartmen
 app.get('/departments/:departmentId/tasks', departmentController.getDepartmentTasks);
 
 app.get('/tasks', taskController.getTasks);
+app.get('/tasks/user/:userId', taskController.getUserTasks);
 app.get('/tasks/:taskId', taskController.getTaskById);
 app.post('/tasks', taskController.createTask);
 app.put('/tasks/:taskId', taskController.updateTask);

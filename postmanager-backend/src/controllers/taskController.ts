@@ -26,6 +26,13 @@ interface TaskInclude {
             };
         };
     };
+    project: {
+        select: {
+            id: true;
+            title: true;
+            description: true;
+        };
+    };
 }
 
 interface CreateTaskData {
@@ -65,6 +72,13 @@ const TASK_INCLUDE_CONFIG: TaskInclude = {
                     }
                 }
             }
+        }
+    },
+    project: {
+        select: {
+            id: true,
+            title: true,
+            description: true
         }
     }
 };
@@ -215,10 +229,14 @@ const getTaskWithAssignees = async (taskId: number) => {
 };
 
 // Утилиты для WebSocket уведомлений
-const sendTaskWebSocketEvent = (eventType: TaskEventType, data: any): void => {
+const sendTaskWebSocketEvent = (eventType: TaskEventType, data: any, immediate: boolean = false): void => {
     const wsServer = getWebSocketServer();
     if (wsServer) {
-        wsServer.sendTaskEvent(eventType, data);
+        if (immediate) {
+            wsServer.sendTaskEventToProjectImmediate(eventType, data);
+        } else {
+            wsServer.sendTaskEventToProject(eventType, data);
+        }
     }
 };
 
@@ -285,8 +303,10 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
         // WebSocket уведомления
         sendTaskWebSocketEvent('task_created', {
             task: taskWithAssignees,
-            projectId: projectIdNum
-        });
+            projectId: projectIdNum,
+            userId: req.user?.id, // предполагается, что пользователь добавлен в middleware
+            assigneeIds: taskWithAssignees?.assignees?.map(a => a.userId) || []
+        }, true); // немедленная отправка для создания задач
 
         await sendTaskNotificationToProject(
             projectIdNum,
@@ -314,6 +334,33 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
     } catch (error) {
         console.error('Ошибка при получении задач:', error);
         res.status(500).json({ message: 'Ошибка при получении задач' });
+    }
+};
+
+export const getUserTasks = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = parseInt(req.params.userId);
+        if (isNaN(userId)) {
+            res.status(400).json({ message: 'Неверный ID пользователя' });
+            return;
+        }
+
+        const tasks = await prisma.task.findMany({
+            where: {
+                assignees: {
+                    some: {
+                        userId: userId
+                    }
+                }
+            },
+            include: TASK_INCLUDE_CONFIG,
+            orderBy: getTaskOrderBy()
+        });
+
+        res.json(tasks);
+    } catch (error) {
+        console.error('Ошибка при получении задач пользователя:', error);
+        res.status(500).json({ message: 'Ошибка при получении задач пользователя' });
     }
 };
 
@@ -367,14 +414,45 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             include: TASK_INCLUDE_CONFIG
         });
 
+        // Получаем старых исполнителей для сравнения
+        const oldAssignees = await prisma.taskAssignee.findMany({
+            where: { taskId },
+            select: { userId: true }
+        });
+        const oldAssigneeIds = oldAssignees.map(a => a.userId);
+
         await manageTaskAssignees(taskId, assigneeIds);
         const taskWithAssignees = await getTaskWithAssignees(taskId);
+        
+        const newAssigneeIds = taskWithAssignees?.assignees?.map(a => a.userId) || [];
+        
+        // Определяем изменения в назначениях
+        const addedAssignees = newAssigneeIds.filter(id => !oldAssigneeIds.includes(id));
+        const removedAssignees = oldAssigneeIds.filter(id => !newAssigneeIds.includes(id));
 
         // WebSocket уведомления
-        sendTaskWebSocketEvent('task_updated', {
+        const eventData = {
             task: taskWithAssignees,
-            projectId: currentTask.projectId!
-        });
+            projectId: currentTask.projectId!,
+            userId: req.user?.id,
+            assigneeIds: newAssigneeIds,
+            oldStatus: currentTask.status,
+            newStatus: status || currentTask.status
+        };
+
+        // Если изменились исполнители, отправляем специальное событие
+        if (addedAssignees.length > 0 || removedAssignees.length > 0) {
+            const wsServer = getWebSocketServer();
+            if (wsServer) {
+                wsServer.sendTaskAssignmentEvent({
+                    ...eventData,
+                    assigneeIds: addedAssignees,
+                    unassignedUserIds: removedAssignees
+                });
+            }
+        }
+
+        sendTaskWebSocketEvent('task_updated', eventData);
 
         if (status !== undefined && status !== currentTask.status) {
             const statusText = STATUS_DISPLAY_TEXT[status] || status;
@@ -414,8 +492,10 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
         // WebSocket уведомления
         sendTaskWebSocketEvent('task_deleted', {
             taskId,
-            projectId: taskToDelete.projectId!
-        });
+            projectId: taskToDelete.projectId!,
+            userId: req.user?.id,
+            assigneeIds: taskToDelete.assignees?.map(a => a.userId) || []
+        }, true); // немедленная отправка для удаления
 
         await sendTaskNotificationToProject(
             taskToDelete.projectId!,

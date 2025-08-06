@@ -13,6 +13,7 @@ import { CommentViewIndicator } from '@/components/ui/CommentViewIndicator';
 import { ArrowPathIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 import { X, Send, MessageCircle, Edit } from 'lucide-react';
+import { RTKQueryHelpers, useDebouncedRefetch } from '@/utils/rtk-query-helpers';
 
 
 interface TaskDetailsModalProps {
@@ -30,14 +31,24 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
 
-  const { data: comments = [], refetch: refetchComments, isLoading: commentsLoading } = useGetCommentsByTaskQuery(
+  const { 
+    data: comments = [], 
+    refetch: refetchComments, 
+    isLoading: commentsLoading 
+  } = useGetCommentsByTaskQuery(
     task?.id ? parseInt(task.id) : 0,
     { 
       skip: !task?.id || !visible,
-      pollingInterval: 8000, // Увеличиваем интервал до 8 секунд для стабильности
+      pollingInterval: visible ? 8000 : 0, // Увеличиваем интервал до 8 секунд для стабильности
       refetchOnMountOrArgChange: true
     }
   );
+
+  // Безопасная функция refetch с использованием утилиты
+  const safeRefetchComments = RTKQueryHelpers.createCommentRefetch(refetchComments, task?.id, visible);
+  
+  // Отложенный refetch для стабильности
+  const debouncedRefetchComments = useDebouncedRefetch(safeRefetchComments, 500);
   
   const [createComment] = useCreateCommentMutation();
   const [updateComment] = useUpdateCommentMutation();
@@ -149,10 +160,8 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       setNewComment('');
       setSelectedFile(null);
       
-      // Обновляем комментарии с задержкой для стабильности
-      setTimeout(() => {
-        refetchComments();
-      }, 500);
+      // Обновляем комментарии с отложенным refetch
+      debouncedRefetchComments();
       
       // Обновляем статистику просмотров после создания комментария с большей задержкой
       setTimeout(() => {
@@ -175,7 +184,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       
       setEditingCommentId(null);
       setEditingCommentText('');
-      refetchComments();
+      safeRefetchComments();
       
     } catch (error) {
       console.error('Ошибка при обновлении комментария:', error);
@@ -188,7 +197,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
 
     try {
       await deleteComment(commentId).unwrap();
-      refetchComments();
+      safeRefetchComments();
       
     } catch (error) {
       console.error('Ошибка при удалении комментария:', error);
@@ -410,6 +419,19 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                 </div>
               </div>
 
+              {/* Проект */}
+              {task.project && (
+                <div>
+                  <span className="text-gray-400 text-xs uppercase tracking-wide">Проект</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-medium text-blue-400">{task.project.title}</span>
+                    {task.project.description && (
+                      <span className="text-gray-500 text-xs">— {task.project.description}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
 
 
               {/* Assignees */}
@@ -451,7 +473,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                   <h3 className="text-lg font-semibold text-white">Комментарии</h3>
                 </div>
                 <button
-                  onClick={() => refetchComments()}
+                  onClick={() => safeRefetchComments()}
                   disabled={commentsLoading}
                   className="px-2 text-gray-400 hover:text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-lg"
                   title="Обновить комментарии"

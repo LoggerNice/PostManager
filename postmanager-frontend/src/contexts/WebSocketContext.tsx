@@ -5,46 +5,90 @@ import { io, Socket } from 'socket.io-client';
 import { useAuth } from '@/hooks/useAuth';
 import { NotificationData } from '@/components/ui/NotificationToast';
 import { Task } from '@/types/task.types';
+import { getWebSocketUrl } from '@/utils/networkConfig';
+
+// Расширенные типы для оптимизированной системы
+export interface ExtendedNotificationData extends NotificationData {
+  priority?: 'low' | 'medium' | 'high';
+  sound?: boolean;
+  projectId?: number;
+  userId?: number;
+}
+
+export interface TaskEventData {
+  task?: Task;
+  taskId?: number;
+  projectId: number;
+  userId?: number;
+  oldStatus?: string;
+  newStatus?: string;
+  assigneeIds?: number[];
+  unassignedUserIds?: number[];
+}
 
 interface WebSocketContextType {
   isConnected: boolean;
-  notifications: NotificationData[];
-  addNotification: (notification: NotificationData) => void;
+  notifications: ExtendedNotificationData[];
+  addNotification: (notification: ExtendedNotificationData) => void;
   removeNotification: (index: number) => void;
   subscribeToTaskEvents: (callbacks: TaskEventCallbacks) => () => void;
+  subscribeToUserTaskEvents: (callbacks: UserTaskEventCallbacks) => () => void;
+  joinProject: (projectId: number) => void;
+  leaveProject: (projectId: number) => void;
+  currentProjectId: number | null;
 }
 
 interface TaskEventCallbacks {
-  onTaskUpdate?: (task: Task) => void;
-  onTaskCreate?: (task: Task) => void;
-  onTaskDelete?: (taskId: number) => void;
-  onTaskMove?: (taskId: number, newStatus: string) => void;
+  onTaskUpdate?: (data: TaskEventData) => void;
+  onTaskCreate?: (data: TaskEventData) => void;
+  onTaskDelete?: (data: TaskEventData) => void;
+  onTaskAssignmentChanged?: (data: TaskEventData) => void;
+}
+
+interface UserTaskEventCallbacks {
+  onUserTaskUpdate?: (data: TaskEventData) => void;
+  onUserTaskCreate?: (data: TaskEventData) => void;
+  onUserTaskDelete?: (data: TaskEventData) => void;
+  onTaskAssigned?: (data: TaskEventData) => void;
+  onTaskUnassigned?: (data: TaskEventData) => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | null>(null);
+
+
 
 export function WebSocketProvider({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuth();
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationData[]>([]);
-  const subscribersRef = useRef<Set<TaskEventCallbacks>>(new Set());
+  const [notifications, setNotifications] = useState<ExtendedNotificationData[]>([]);
+  const [currentProjectId, setCurrentProjectId] = useState<number | null>(null);
+  const taskSubscribersRef = useRef<Set<TaskEventCallbacks>>(new Set());
+  const userTaskSubscribersRef = useRef<Set<UserTaskEventCallbacks>>(new Set());
+  
+  // Debouncing для уведомлений
+  const notificationTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   useEffect(() => {
     if (!user || !token) {
       return;
     }
 
+    // Определяем URL WebSocket сервера
+    const wsUrl = getWebSocketUrl();
+    
     // Создаем подключение к WebSocket серверу
-    const socket = io(process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3045', {
+    const socket = io(wsUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
       timeout: 20000,
       forceNew: true,
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      upgrade: true,
+      rememberUpgrade: true
     });
 
     socketRef.current = socket;
@@ -68,43 +112,84 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Обработка уведомлений
-    socket.on('notification', (notification: NotificationData) => {
-      addNotification(notification);
+    socket.on('notification', (notification: ExtendedNotificationData) => {
+      addNotificationWithDebounce(notification);
     });
 
-    socket.on('project_notification', (notification: NotificationData & { projectId: number }) => {
-      addNotification(notification);
+    socket.on('project_notification', (notification: ExtendedNotificationData) => {
+      addNotificationWithDebounce(notification);
     });
 
-    // Обработка событий задач
-    socket.on('task_created', (data: { task: Task; projectId: number }) => {
-      subscribersRef.current.forEach(callbacks => {
+    // Обработка событий задач проекта
+    socket.on('task_created', (data: TaskEventData) => {
+      taskSubscribersRef.current.forEach(callbacks => {
         if (callbacks.onTaskCreate) {
-          callbacks.onTaskCreate(data.task);
+          callbacks.onTaskCreate(data);
         }
       });
     });
 
-    socket.on('task_updated', (data: { task: Task; projectId: number }) => {
-      subscribersRef.current.forEach(callbacks => {
+    socket.on('task_updated', (data: TaskEventData) => {
+      taskSubscribersRef.current.forEach(callbacks => {
         if (callbacks.onTaskUpdate) {
-          callbacks.onTaskUpdate(data.task);
+          callbacks.onTaskUpdate(data);
         }
       });
     });
 
-    socket.on('task_deleted', (data: { taskId: number; projectId: number }) => {
-      subscribersRef.current.forEach(callbacks => {
+    socket.on('task_deleted', (data: TaskEventData) => {
+      taskSubscribersRef.current.forEach(callbacks => {
         if (callbacks.onTaskDelete) {
-          callbacks.onTaskDelete(data.taskId);
+          callbacks.onTaskDelete(data);
         }
       });
     });
 
-    socket.on('task_moved', (data: { taskId: number; newStatus: string }) => {
-      subscribersRef.current.forEach(callbacks => {
-        if (callbacks.onTaskMove) {
-          callbacks.onTaskMove(data.taskId, data.newStatus);
+    socket.on('task_assignment_changed', (data: TaskEventData) => {
+      taskSubscribersRef.current.forEach(callbacks => {
+        if (callbacks.onTaskAssignmentChanged) {
+          callbacks.onTaskAssignmentChanged(data);
+        }
+      });
+    });
+
+    // Обработка пользовательских событий задач
+    socket.on('user_task_created', (data: TaskEventData) => {
+      userTaskSubscribersRef.current.forEach(callbacks => {
+        if (callbacks.onUserTaskCreate) {
+          callbacks.onUserTaskCreate(data);
+        }
+      });
+    });
+
+    socket.on('user_task_updated', (data: TaskEventData) => {
+      userTaskSubscribersRef.current.forEach(callbacks => {
+        if (callbacks.onUserTaskUpdate) {
+          callbacks.onUserTaskUpdate(data);
+        }
+      });
+    });
+
+    socket.on('user_task_deleted', (data: TaskEventData) => {
+      userTaskSubscribersRef.current.forEach(callbacks => {
+        if (callbacks.onUserTaskDelete) {
+          callbacks.onUserTaskDelete(data);
+        }
+      });
+    });
+
+    socket.on('task_assigned', (data: TaskEventData) => {
+      userTaskSubscribersRef.current.forEach(callbacks => {
+        if (callbacks.onTaskAssigned) {
+          callbacks.onTaskAssigned(data);
+        }
+      });
+    });
+
+    socket.on('task_unassigned', (data: TaskEventData) => {
+      userTaskSubscribersRef.current.forEach(callbacks => {
+        if (callbacks.onTaskUnassigned) {
+          callbacks.onTaskUnassigned(data);
         }
       });
     });
@@ -133,7 +218,26 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, token]);
 
-  const addNotification = useCallback((notification: NotificationData) => {
+  // Добавление уведомления с debouncing
+  const addNotificationWithDebounce = useCallback((notification: ExtendedNotificationData) => {
+    const debounceKey = `${notification.type}_${notification.taskId}_${notification.projectId}`;
+    
+    // Очищаем предыдущий таймер
+    const existingTimeout = notificationTimeouts.current.get(debounceKey);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+    
+    // Устанавливаем новый таймер
+    const timeout = setTimeout(() => {
+      addNotification(notification);
+      notificationTimeouts.current.delete(debounceKey);
+    }, 500); // 500ms debounce
+    
+    notificationTimeouts.current.set(debounceKey, timeout);
+  }, []);
+
+  const addNotification = useCallback((notification: ExtendedNotificationData) => {
     setNotifications(prev => {
       // Добавляем уникальный ID к уведомлению если его нет и устанавливаем статус "не прочитано"
       const notificationWithId = {
@@ -150,11 +254,47 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  // Подписка на события задач проекта
   const subscribeToTaskEvents = useCallback((callbacks: TaskEventCallbacks) => {
-    subscribersRef.current.add(callbacks);
+    taskSubscribersRef.current.add(callbacks);
     
     return () => {
-      subscribersRef.current.delete(callbacks);
+      taskSubscribersRef.current.delete(callbacks);
+    };
+  }, []);
+
+  // Подписка на пользовательские события задач
+  const subscribeToUserTaskEvents = useCallback((callbacks: UserTaskEventCallbacks) => {
+    userTaskSubscribersRef.current.add(callbacks);
+    
+    return () => {
+      userTaskSubscribersRef.current.delete(callbacks);
+    };
+  }, []);
+
+  // Присоединение к проекту
+  const joinProject = useCallback((projectId: number) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('join_project', projectId);
+      setCurrentProjectId(projectId);
+    }
+  }, [isConnected]);
+
+  // Выход из проекта
+  const leaveProject = useCallback((projectId: number) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit('leave_project', projectId);
+      if (currentProjectId === projectId) {
+        setCurrentProjectId(null);
+      }
+    }
+  }, [isConnected, currentProjectId]);
+
+  // Очистка таймеров при размонтировании
+  useEffect(() => {
+    return () => {
+      notificationTimeouts.current.forEach(timeout => clearTimeout(timeout));
+      notificationTimeouts.current.clear();
     };
   }, []);
 
@@ -164,7 +304,11 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
       notifications,
       addNotification,
       removeNotification,
-      subscribeToTaskEvents
+      subscribeToTaskEvents,
+      subscribeToUserTaskEvents,
+      joinProject,
+      leaveProject,
+      currentProjectId
     }}>
       {children}
     </WebSocketContext.Provider>

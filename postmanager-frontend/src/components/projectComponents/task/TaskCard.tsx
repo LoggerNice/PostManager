@@ -227,6 +227,13 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         </div>
       </div>
 
+      {/* Название проекта */}
+      {item.project && (
+        <div className="text-xs text-blue-400 font-medium">
+          {item.project.title}
+        </div>
+      )}
+
       {showEditModal && (
         <TaskModal
           visible={showEditModal}

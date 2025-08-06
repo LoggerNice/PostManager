@@ -11,6 +11,10 @@ export const taskApi = api.injectEndpoints({
             query: (projectId) => `projects/${projectId}/tasks`,
             providesTags: ['Task']
         }),
+        getUserTasks: build.query<Task[], number>({
+            query: (userId) => `tasks/user/${userId}`,
+            providesTags: ['Task']
+        }),
         getTaskById: build.query<Task, string>({
             query: (taskId) => `tasks/${taskId}`,
             providesTags: (result, error, taskId) => [{ type: 'Task', id: taskId }]
@@ -112,6 +116,7 @@ export const {
     useDeleteTaskMutation,
     useGetTaskCommentsQuery,
     useGetProjectTasksQuery,
+    useGetUserTasksQuery,
     useUpdateTasksOrderMutation,
     // Хуки для работы с исполнителями
     useGetTaskAssigneesQuery,

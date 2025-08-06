@@ -1,10 +1,11 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getCookie } from '@/utils/cookie';
+import { getApiUrl } from '@/utils/networkConfig';
 
 export const api = createApi({
     reducerPath: 'api',
     baseQuery: fetchBaseQuery({
-        baseUrl: 'http://localhost:3045/',
+        baseUrl: getApiUrl() + '/',
         prepareHeaders: (headers) => {
             const token = getCookie('accessToken');
             if (token) {

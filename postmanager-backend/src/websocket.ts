@@ -1,46 +1,87 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
+import prisma from './utils/prisma.js';
 
 export interface NotificationData {
-  type: 'task_created' | 'task_updated' | 'comment_added';
+  type: 'task_created' | 'task_updated' | 'task_deleted' | 'task_assigned' | 'task_unassigned' | 'comment_added';
   title: string;
   message: string;
   taskId?: number;
   projectId?: number;
   userId?: number;
   timestamp: string;
+  priority?: 'low' | 'medium' | 'high';
+  sound?: boolean;
 }
 
 export interface TaskEventData {
   task?: any;
   taskId?: number;
   projectId: number;
+  userId?: number;
+  oldStatus?: string;
+  newStatus?: string;
+  assigneeIds?: number[];
+  unassignedUserIds?: number[];
 }
 
 export class WebSocketServer {
   private io: SocketIOServer;
   private userSockets: Map<number, string> = new Map();
+  private userProjects: Map<number, Set<number>> = new Map(); // userId -> Set of projectIds
+  private projectRooms: Map<number, Set<string>> = new Map(); // projectId -> Set of socketIds
+  private pendingUpdates: Map<string, NodeJS.Timeout> = new Map(); // debouncing map
 
   constructor(server: HTTPServer) {
+    // Определяем разрешенные origins в зависимости от окружения
+    const allowedOrigins = this.getAllowedOrigins();
+    
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: ["http://localhost:3000", "http://localhost:3001"],
-        methods: ["GET", "POST"],
-        credentials: true
+        origin: allowedOrigins,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        credentials: true,
+        allowedHeaders: ["Content-Type", "Authorization"]
       },
       transports: ['websocket', 'polling'],
-      allowEIO3: true
+      allowEIO3: true,
+      pingTimeout: 60000,
+      pingInterval: 25000
     });
 
     this.setupSocketHandlers();
+  }
+
+  private getAllowedOrigins(): string[] | boolean {
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    const serverIP = process.env.SERVER_IP || '172.17.118.89';
+    const frontendPort = process.env.FRONTEND_PORT || '3000';
+    
+    if (nodeEnv === 'development') {
+      // В режиме разработки разрешаем localhost и сетевой IP
+      return [
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        `http://${serverIP}:${frontendPort}`,
+        `http://${serverIP}:3001`
+      ];
+    } else {
+      // В продакшене разрешаем только сетевой IP
+      return [
+        `http://${serverIP}:${frontendPort}`,
+        `https://${serverIP}:${frontendPort}` // на случай HTTPS
+      ];
+    }
   }
 
   private setupSocketHandlers() {
     this.io.on('connection', (socket) => {
 
       // Аутентификация через токен
-      socket.on('authenticate', (token: string) => {
+      socket.on('authenticate', async (token: string) => {
         try {
           const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as any;
           const userId = decoded.userId;
@@ -49,6 +90,9 @@ export class WebSocketServer {
           this.userSockets.set(userId, socket.id);
           socket.data.userId = userId;
           
+          // Получаем проекты пользователя и подключаем к комнатам
+          await this.joinUserToProjectRooms(userId, socket);
+          
           socket.emit('authenticated', { success: true });
         } catch (error) {
           console.error('Ошибка аутентификации WebSocket:', error);
@@ -56,13 +100,100 @@ export class WebSocketServer {
         }
       });
 
+      // Подписка на конкретный проект
+      socket.on('join_project', async (projectId: number) => {
+        if (socket.data.userId) {
+          await this.joinProjectRoom(socket.data.userId, projectId, socket);
+        }
+      });
+
+      // Отписка от проекта
+      socket.on('leave_project', (projectId: number) => {
+        if (socket.data.userId) {
+          this.leaveProjectRoom(socket.data.userId, projectId, socket);
+        }
+      });
+
       socket.on('disconnect', () => {
         // Удаляем связь пользователя с сокетом
         if (socket.data.userId) {
-          this.userSockets.delete(socket.data.userId);
+          this.cleanupUserConnection(socket.data.userId, socket.id);
         }
       });
     });
+  }
+
+  // Методы управления комнатами проектов
+  private async joinUserToProjectRooms(userId: number, socket: any) {
+    try {
+      const userProjects = await prisma.projectUser.findMany({
+        where: { userId },
+        select: { projectId: true }
+      });
+
+      const projectIds = userProjects.map((up:any) => up.projectId);
+      this.userProjects.set(userId, new Set(projectIds));
+
+      // Подключаем к комнатам проектов
+      for (const projectId of projectIds) {
+        await this.joinProjectRoom(userId, projectId, socket);
+      }
+    } catch (error) {
+      console.error('Ошибка при подключении пользователя к комнатам проектов:', error);
+    }
+  }
+
+  private async joinProjectRoom(userId: number, projectId: number, socket: any) {
+    const roomName = `project_${projectId}`;
+    socket.join(roomName);
+
+    // Добавляем сокет в комнату проекта
+    if (!this.projectRooms.has(projectId)) {
+      this.projectRooms.set(projectId, new Set());
+    }
+    this.projectRooms.get(projectId)!.add(socket.id);
+
+    // Добавляем проект к пользователю
+    if (!this.userProjects.has(userId)) {
+      this.userProjects.set(userId, new Set());
+    }
+    this.userProjects.get(userId)!.add(projectId);
+  }
+
+  private leaveProjectRoom(userId: number, projectId: number, socket: any) {
+    const roomName = `project_${projectId}`;
+    socket.leave(roomName);
+
+    // Удаляем сокет из комнаты проекта
+    const projectRoom = this.projectRooms.get(projectId);
+    if (projectRoom) {
+      projectRoom.delete(socket.id);
+      if (projectRoom.size === 0) {
+        this.projectRooms.delete(projectId);
+      }
+    }
+
+    // Удаляем проект у пользователя
+    const userProjectSet = this.userProjects.get(userId);
+    if (userProjectSet) {
+      userProjectSet.delete(projectId);
+      if (userProjectSet.size === 0) {
+        this.userProjects.delete(userId);
+      }
+    }
+  }
+
+  private cleanupUserConnection(userId: number, socketId: string) {
+    this.userSockets.delete(userId);
+    this.userProjects.delete(userId);
+
+    // Удаляем сокет из всех комнат проектов
+    for (const [projectId, sockets] of this.projectRooms.entries()) {
+      sockets.delete(socketId);
+      if (sockets.size === 0) {
+        this.projectRooms.delete(projectId);
+      }
+    }
   }
 
   // Отправка уведомления конкретному пользователю
@@ -73,12 +204,31 @@ export class WebSocketServer {
     }
   }
 
-  // Отправка уведомления всем пользователям в проекте
+  // Отправка уведомления всем пользователям в проекте (оптимизированная)
   public sendNotificationToProject(projectId: number, notification: NotificationData, excludeUserId?: number) {
-    this.io.emit('project_notification', {
+    const roomName = `project_${projectId}`;
+    const notificationData = {
       ...notification,
       projectId
-    });
+    };
+
+    if (excludeUserId) {
+      // Отправляем всем в комнате, кроме исключенного пользователя
+      const excludeSocketId = this.userSockets.get(excludeUserId);
+      const projectSockets = this.projectRooms.get(projectId);
+      
+      if (projectSockets && excludeSocketId) {
+        projectSockets.forEach(socketId => {
+          if (socketId !== excludeSocketId) {
+            this.io.to(socketId).emit('project_notification', notificationData);
+          }
+        });
+      } else if (projectSockets) {
+        this.io.to(roomName).emit('project_notification', notificationData);
+      }
+    } else {
+      this.io.to(roomName).emit('project_notification', notificationData);
+    }
   }
 
   // Отправка уведомления всем подключенным пользователям
@@ -86,14 +236,72 @@ export class WebSocketServer {
     this.io.emit('notification', notification);
   }
 
-  // Отправка событий задач всем подключенным пользователям
-  public sendTaskEvent(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData) {
-    this.io.emit(eventType, data);
+  // Оптимизированная отправка событий задач с debouncing
+  public sendTaskEventToProject(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData, debounceMs: number = 1000) {
+    const projectId = data.projectId;
+    const taskId = data.taskId || data.task?.id;
+    const debounceKey = `${eventType}_${projectId}_${taskId}`;
+
+    // Очищаем предыдущий таймер, если он есть
+    const existingTimer = this.pendingUpdates.get(debounceKey);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Устанавливаем новый таймер
+    const timer = setTimeout(() => {
+      this.sendTaskEventToProjectImmediate(eventType, data);
+      this.pendingUpdates.delete(debounceKey);
+    }, debounceMs);
+
+    this.pendingUpdates.set(debounceKey, timer);
   }
 
-  // Отправка событий задач пользователям конкретного проекта
-  public sendTaskEventToProject(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData) {
-    this.io.emit(`project_${eventType}`, data);
+  // Немедленная отправка событий задач (для критических операций)
+  public sendTaskEventToProjectImmediate(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData) {
+    const projectId = data.projectId;
+    const roomName = `project_${projectId}`;
+    
+    this.io.to(roomName).emit(eventType, data);
+
+    // Также отправляем всем пользователям, назначенным на задачу (для синхронизации "Мои задачи")
+    if (data.assigneeIds && data.assigneeIds.length > 0) {
+      data.assigneeIds.forEach(userId => {
+        const socketId = this.userSockets.get(userId);
+        if (socketId) {
+          this.io.to(socketId).emit(`user_${eventType}`, data);
+        }
+      });
+    }
+  }
+
+  // Отправка события смены назначения задачи
+  public sendTaskAssignmentEvent(data: TaskEventData) {
+    const projectId = data.projectId;
+    const roomName = `project_${projectId}`;
+    
+    // Уведомляем всех в проекте об изменении
+    this.io.to(roomName).emit('task_assignment_changed', data);
+
+    // Уведомляем новых назначенных пользователей
+    if (data.assigneeIds && data.assigneeIds.length > 0) {
+      data.assigneeIds.forEach(userId => {
+        const socketId = this.userSockets.get(userId);
+        if (socketId) {
+          this.io.to(socketId).emit('task_assigned', data);
+        }
+      });
+    }
+
+    // Уведомляем пользователей, которых сняли с задачи
+    if (data.unassignedUserIds && data.unassignedUserIds.length > 0) {
+      data.unassignedUserIds.forEach(userId => {
+        const socketId = this.userSockets.get(userId);
+        if (socketId) {
+          this.io.to(socketId).emit('task_unassigned', data);
+        }
+      });
+    }
   }
 
   // Получение количества подключенных пользователей
@@ -104,5 +312,33 @@ export class WebSocketServer {
   // Получение списка подключенных пользователей (для отладки)
   public getConnectedUsers(): number[] {
     return Array.from(this.userSockets.keys());
+  }
+
+  // Получение количества активных комнат проектов
+  public getActiveProjectRoomsCount(): number {
+    return this.projectRooms.size;
+  }
+
+  // Получение информации о проектах пользователя
+  public getUserProjects(userId: number): number[] {
+    const projects = this.userProjects.get(userId);
+    return projects ? Array.from(projects) : [];
+  }
+
+  // Очистка всех pending обновлений (для graceful shutdown)
+  public clearAllPendingUpdates(): void {
+    for (const timer of this.pendingUpdates.values()) {
+      clearTimeout(timer);
+    }
+    this.pendingUpdates.clear();
+  }
+
+  // Принудительная отправка всех pending обновлений
+  public flushAllPendingUpdates(): void {
+    for (const [key, timer] of this.pendingUpdates.entries()) {
+      clearTimeout(timer);
+      // Здесь можно добавить логику для немедленной отправки, если нужно
+    }
+    this.pendingUpdates.clear();
   }
 } 

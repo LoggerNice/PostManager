@@ -10,7 +10,7 @@ import {
     BeakerIcon,
     Bars3Icon,
 } from '@heroicons/react/24/solid';
-import { ChevronDownIcon, ChevronLeftIcon, BellIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronLeftIcon, BellIcon, ClipboardDocumentListIcon, PlusIcon } from '@heroicons/react/24/outline';
 import { useGetUserProjectsQuery } from '@/store/api/project.api';
 import { getCookie } from '@/utils/cookie';
 import { useAppDispatch } from '@/store/hooks';
@@ -71,32 +71,49 @@ export default function Sidebar() {
                 {/* Навигация */}
                 <nav className="mt-2 flex-1 min-w-0 flex flex-col gap-2">
                     <Link
-                        key={'Админ панель'}
-                        href={PAGE_URL.ADMIN}
-                        className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${isActive ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                        title={collapsed ? 'Админ панель' : undefined}
+                        key={'Мои задачи'}
+                        href={PAGE_URL.HOME}
+                        className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.HOME ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                        title={collapsed ? 'Мои задачи' : undefined}
                     >
-                        <BeakerIcon className="h-6 w-6" />
-                        {!collapsed && <span className="ml-3">Админ панель</span>}
+                        <ClipboardDocumentListIcon className="h-6 w-6" />
+                        {!collapsed && <span className="ml-3">Мои задачи</span>}
                     </Link>
 
                     {/* Проекты с выпадающим списком */}
                     <div className="mx-2">
-                        <button
-                            className={`flex items-center w-full p-2 rounded-lg transition-colors ${collapsed ? 'justify-center' : ''} ${pathname.startsWith(PAGE_URL.PROFILE) ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                            onClick={() => {
-                                if (collapsed) {
-                                    toggleSidebar();
-                                    setProjectsOpen(true);
-                                } else {
-                                    setProjectsOpen((v) => !v);
-                                }
-                            }}
-                            title={collapsed ? 'Проекты' : undefined}
-                        >
-                            <FolderIcon className="h-6 w-6" />
-                            {!collapsed && <><span className="ml-3 flex-1 text-left">Проекты</span><ChevronDownIcon className={`h-5 w-5 ml-auto transition-transform ${projectsOpen ? 'rotate-180' : ''}`} /></>}
-                        </button>
+                        <div className={`flex items-center w-full p-2 rounded-lg transition-colors ${collapsed ? 'justify-center' : ''} ${pathname.startsWith('/projects/') ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}>
+                            <button
+                                className={`${collapsed ? '' : 'flex items-center w-full'}`}
+                                onClick={() => {
+                                    if (collapsed) {
+                                        toggleSidebar();
+                                        setProjectsOpen(true);
+                                    } else {
+                                        setProjectsOpen((v) => !v);
+                                    }
+                                }}
+                                title={collapsed ? 'Проекты' : undefined}
+                            >
+                                <FolderIcon className="h-6 w-6" />
+                                {!collapsed && (
+                                    <div className="cursor-pointer flex items-center w-full">
+                                        <span className="ml-3 flex-1 text-left">Проекты</span>
+                                        <ChevronDownIcon className={`h-5 w-5 ml-auto transition-transform ${projectsOpen ? 'rotate-180' : ''}`} />
+                                    </div>
+                                )}
+                            </button>
+                            {!collapsed && (
+                                <button
+                                    onClick={() => router.push('/test')}
+                                    className="ml-2 p-1 rounded"
+                                    title="Добавить проект"
+                                    type="button"
+                                >
+                                    <PlusIcon className="h-5 w-5 text-gray-400 hover:text-blue-400" />
+                                </button>
+                            )}
+                        </div>
                         {projectsOpen && !collapsed && (
                             <div className="ml-8 mt-2 space-y-1">
                                 {projects.length === 0 && !projectsLoading && (
