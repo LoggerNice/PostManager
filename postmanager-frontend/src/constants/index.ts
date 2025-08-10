@@ -4,8 +4,8 @@ export { UserRole } from '@/types';
 
 export const TABS = [
   { key: 'tasks', label: 'Задачи', icon: ClipboardDocumentListIcon },
-  { key: 'timeline', label: 'Этапы', icon: ChartBarIcon },
-  { key: 'calendar', label: 'Календарь', icon: CalendarDaysIcon }
+  { key: 'calendar', label: 'Календарь', icon: CalendarDaysIcon },
+  { key: 'timeline', label: 'Этапы', icon: ChartBarIcon }
 ];
 
 export const USER_ROLE_LABELS = {

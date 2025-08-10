@@ -245,33 +245,29 @@ const sendTaskNotificationToProject = async (
     taskId: number,
     taskTitle: string,
     message: string,
-    type: NotificationType = 'task_updated'
+    type: NotificationType = 'task_updated',
+    excludeUserId?: number
 ): Promise<void> => {
     const wsServer = getWebSocketServer();
     if (!wsServer) return;
 
-    const projectWithUsers = await prisma.project.findUnique({
+    const project = await prisma.project.findUnique({
         where: { id: projectId },
-        select: {
-            title: true,
-            users: { select: { id: true } }
-        }
+        select: { title: true }
     });
 
-    if (!projectWithUsers?.users.length) return;
+    if (!project) return;
 
     const notification = {
         type,
-        title: projectWithUsers.title || 'Неизвестный проект',
+        title: project.title || 'Неизвестный проект',
         message,
         taskId,
         projectId,
         timestamp: new Date().toISOString()
     };
 
-    projectWithUsers.users.forEach(user => {
-        wsServer.sendNotificationToUser(user.id, notification);
-    });
+    wsServer.sendNotificationToProject(projectId, notification, excludeUserId);
 };
 
 // Основные контроллеры
@@ -313,7 +309,8 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             task.id,
             title,
             `Создана задача "${title}"`,
-            'task_created'
+            'task_created',
+            req.user?.id
         );
 
         res.status(201).json(taskWithAssignees);
@@ -460,7 +457,9 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
                 currentTask.projectId!,
                 taskId,
                 currentTask.title,
-                `Задача "${currentTask.title}" переведена в статус "${statusText}"`
+                `Задача "${currentTask.title}" переведена в статус "${statusText}"`,
+                'task_updated',
+                req.user?.id
             );
         }
 
@@ -501,7 +500,9 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
             taskToDelete.projectId!,
             taskId,
             taskToDelete.title,
-            `Задача "${taskToDelete.title}" была удалена`
+            `Задача "${taskToDelete.title}" была удалена`,
+            'task_deleted',
+            req.user?.id
         );
 
         res.status(200).json({ message: 'Задача удалена' });

@@ -60,8 +60,9 @@ export default function UserTasksBoard() {
     // Преобразуем приоритет в русский язык
     const taskWithRussianPriority = {
       ...task,
+      id: String(task.id),
       priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriorityDisplay
-    };
+    } as Task;
 
     // Обновляем локальное состояние
     setLocalColumns(prevColumns => {
@@ -70,7 +71,7 @@ export default function UserTasksBoard() {
 
       if (newColumns[columnId]) {
         // Проверяем, что задача еще не существует
-        const existingTaskIndex = newColumns[columnId].items.findIndex(t => t.id === task.id);
+        const existingTaskIndex = newColumns[columnId].items.findIndex(t => t.id === String(task.id));
         if (existingTaskIndex === -1) {
           newColumns[columnId].items.push(taskWithRussianPriority);
           newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
@@ -90,8 +91,9 @@ export default function UserTasksBoard() {
     // Преобразуем приоритет в русский язык
     const taskWithRussianPriority = {
       ...task,
+      id: String(task.id),
       priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriorityDisplay
-    };
+    } as Task;
 
     // Обновляем локальное состояние
     setLocalColumns(prevColumns => {
@@ -140,8 +142,9 @@ export default function UserTasksBoard() {
     const task = data.task;
     const taskWithRussianPriority = {
       ...task,
+      id: String(task.id),
       priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriorityDisplay
-    };
+    } as Task;
 
     // Добавляем задачу в соответствующую колонку
     setLocalColumns(prevColumns => {
@@ -150,7 +153,7 @@ export default function UserTasksBoard() {
 
       if (newColumns[columnId]) {
         // Проверяем, что задача еще не существует
-        const existingTaskIndex = newColumns[columnId].items.findIndex(t => t.id === task.id);
+        const existingTaskIndex = newColumns[columnId].items.findIndex(t => t.id === String(task.id));
         if (existingTaskIndex === -1) {
           newColumns[columnId].items.push(taskWithRussianPriority);
           newColumns[columnId].items = sortTasksByPriority(newColumns[columnId].items);
@@ -197,7 +200,7 @@ export default function UserTasksBoard() {
     error: tasksError
   } = useGetUserTasksQuery(userId || 0, {
     skip: !userId,
-    pollingInterval: isConnected ? 30000 : 5000,
+    pollingInterval: 5000,
     refetchOnFocus: true,
     refetchOnReconnect: true
   });
@@ -218,9 +221,10 @@ export default function UserTasksBoard() {
   // Формируем колонки из userTasks и синхронизируем с локальным состоянием
   const columns: Record<string, Column> = useMemo(() => {
     if (userTasks) {
-      // Преобразуем приоритеты в русский язык
+      // Преобразуем id в строку и приоритеты в русский язык
       const tasksWithRussianPriority = userTasks.map((task: Task) => ({
         ...task,
+        id: String(task.id),
         priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriority | TaskPriorityDisplay
       }));
 
@@ -250,6 +254,7 @@ export default function UserTasksBoard() {
       if (Object.keys(localColumns).length === 0 || timeSinceLastSync > 30000) {
         const tasksWithRussianPriority = userTasks.map((task: Task) => ({
           ...task,
+          id: String(task.id),
           priority: (priorityMapToRussian[task.priority as TaskPriority] || task.priority) as TaskPriority | TaskPriorityDisplay
         }));
 

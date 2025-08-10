@@ -291,7 +291,7 @@ export default function ProjectPage() {
     isLoading: isTasksLoading,
     error: tasksError
   } = useGetProjectTasksQuery(projectId, {
-    pollingInterval: isConnected ? 30000 : 5000, // Увеличиваем интервал при WebSocket подключении
+    pollingInterval: 5000,
     refetchOnFocus: true,
     refetchOnReconnect: true
   });
@@ -948,7 +948,14 @@ export default function ProjectPage() {
       return <TimelineTab users={users} />;
     }
     if (activeTab === 'calendar') {
-      return <CalendarTab />;
+      // Берем актуальные задачи из локального состояния, если оно есть, иначе из серверных колонок
+      const sourceColumns = Object.keys(localColumns).length > 0 ? localColumns : columns;
+      const calendarTasks = [
+        ...(sourceColumns.IN_PROGRESS?.items || []),
+        ...(sourceColumns.PROBLEM?.items || []),
+        ...(sourceColumns.COMPLETED?.items || []),
+      ];
+      return <CalendarTab projectId={projectId} tasks={calendarTasks} />;
     }
     return null;
   };

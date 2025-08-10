@@ -32,6 +32,7 @@ export class WebSocketServer {
   private userProjects: Map<number, Set<number>> = new Map(); // userId -> Set of projectIds
   private projectRooms: Map<number, Set<string>> = new Map(); // projectId -> Set of socketIds
   private pendingUpdates: Map<string, NodeJS.Timeout> = new Map(); // debouncing map
+  private pendingNotifications: Map<string, { notification: NotificationData; excludeUserId?: number }> = new Map();
 
   constructor(server: HTTPServer) {
     // Определяем разрешенные origins в зависимости от окружения
@@ -126,12 +127,16 @@ export class WebSocketServer {
   // Методы управления комнатами проектов
   private async joinUserToProjectRooms(userId: number, socket: any) {
     try {
-      const userProjects = await prisma.projectUser.findMany({
-        where: { userId },
-        select: { projectId: true }
+      // В Prisma используется implicit many-to-many между User и Project,
+      // поэтому получаем проекты через пользователя
+      const userWithProjects = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          projects: { select: { id: true } }
+        }
       });
 
-      const projectIds = userProjects.map((up:any) => up.projectId);
+      const projectIds = (userWithProjects?.projects || []).map((p: any) => p.id);
       this.userProjects.set(userId, new Set(projectIds));
 
       // Подключаем к комнатам проектов
@@ -236,8 +241,8 @@ export class WebSocketServer {
     this.io.emit('notification', notification);
   }
 
-  // Оптимизированная отправка событий задач с debouncing
-  public sendTaskEventToProject(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData, debounceMs: number = 1000) {
+  // Оптимизированная отправка событий задач с debouncing (по умолчанию 5 секунд)
+  public sendTaskEventToProject(eventType: 'task_created' | 'task_updated' | 'task_deleted', data: TaskEventData, debounceMs: number = 5000) {
     const projectId = data.projectId;
     const taskId = data.taskId || data.task?.id;
     const debounceKey = `${eventType}_${projectId}_${taskId}`;
@@ -250,7 +255,16 @@ export class WebSocketServer {
 
     // Устанавливаем новый таймер
     const timer = setTimeout(() => {
+      // Отправляем событие обновления данных
       this.sendTaskEventToProjectImmediate(eventType, data);
+
+      // Если есть отложенное уведомление для этого события — отправляем сейчас
+      const pending = this.pendingNotifications.get(debounceKey);
+      if (pending) {
+        this.sendNotificationToProject(projectId, pending.notification, pending.excludeUserId);
+        this.pendingNotifications.delete(debounceKey);
+      }
+
       this.pendingUpdates.delete(debounceKey);
     }, debounceMs);
 
@@ -264,6 +278,15 @@ export class WebSocketServer {
     
     this.io.to(roomName).emit(eventType, data);
 
+    // Если для этого события уже подготовлено уведомление — отправляем вместе
+    const taskId = data.taskId || data.task?.id;
+    const debounceKey = `${eventType}_${projectId}_${taskId}`;
+    const pending = this.pendingNotifications.get(debounceKey);
+    if (pending) {
+      this.sendNotificationToProject(projectId, pending.notification, pending.excludeUserId);
+      this.pendingNotifications.delete(debounceKey);
+    }
+
     // Также отправляем всем пользователям, назначенным на задачу (для синхронизации "Мои задачи")
     if (data.assigneeIds && data.assigneeIds.length > 0) {
       data.assigneeIds.forEach(userId => {
@@ -275,33 +298,97 @@ export class WebSocketServer {
     }
   }
 
+  // Поставить уведомление в очередь, чтобы отправить одновременно с событием данных
+  public queueNotificationForTaskEvent(
+    eventType: 'task_created' | 'task_updated' | 'task_deleted',
+    data: TaskEventData,
+    notification: NotificationData,
+    excludeUserId?: number
+  ) {
+    const projectId = data.projectId;
+    const taskId = data.taskId || data.task?.id;
+    const debounceKey = `${eventType}_${projectId}_${taskId}`;
+    this.pendingNotifications.set(debounceKey, { notification: { ...notification, projectId }, excludeUserId });
+  }
+
   // Отправка события смены назначения задачи
-  public sendTaskAssignmentEvent(data: TaskEventData) {
+  public async sendTaskAssignmentEvent(data: TaskEventData) {
     const projectId = data.projectId;
     const roomName = `project_${projectId}`;
-    
-    // Уведомляем всех в проекте об изменении
-    this.io.to(roomName).emit('task_assignment_changed', data);
 
-    // Уведомляем новых назначенных пользователей
-    if (data.assigneeIds && data.assigneeIds.length > 0) {
-      data.assigneeIds.forEach(userId => {
-        const socketId = this.userSockets.get(userId);
-        if (socketId) {
-          this.io.to(socketId).emit('task_assigned', data);
+    // Подготавливаем персональные уведомления, чтобы отправить их вместе с синхронизационными событиями
+    let notificationAssigned: NotificationData | null = null;
+    let notificationUnassigned: NotificationData | null = null;
+    try {
+      const taskId = data.task?.id ?? data.taskId;
+      if (taskId) {
+        const task = await prisma.task.findUnique({ where: { id: Number(taskId) }, include: { project: true } });
+        if (task) {
+          if (data.assigneeIds && data.assigneeIds.length > 0) {
+            notificationAssigned = {
+              type: 'task_assigned',
+              title: task.project?.title || 'Проект',
+              message: `Вам назначена задача "${task.title}"`,
+              taskId: task.id,
+              projectId: task.projectId ?? undefined,
+              timestamp: new Date().toISOString()
+            };
+          }
+          if (data.unassignedUserIds && data.unassignedUserIds.length > 0) {
+            notificationUnassigned = {
+              type: 'task_unassigned',
+              title: task.project?.title || 'Проект',
+              message: `Вы сняты с задачи "${task.title}"`,
+              taskId: task.id,
+              projectId: task.projectId ?? undefined,
+              timestamp: new Date().toISOString()
+            };
+          }
         }
-      });
+      }
+    } catch (e) {
+      console.error('Ошибка подготовки уведомлений о назначениях:', e);
     }
 
-    // Уведомляем пользователей, которых сняли с задачи
-    if (data.unassignedUserIds && data.unassignedUserIds.length > 0) {
-      data.unassignedUserIds.forEach(userId => {
-        const socketId = this.userSockets.get(userId);
-        if (socketId) {
-          this.io.to(socketId).emit('task_unassigned', data);
+    // Синхронизационные события с задержкой до 5 секунд
+    const taskKey = data.task?.id ?? data.taskId;
+    const debounceKey = `assign_${projectId}_${taskKey}`;
+    const existing = this.pendingUpdates.get(debounceKey);
+    if (existing) clearTimeout(existing);
+
+    const timer = setTimeout(() => {
+      // Уведомляем всех в проекте об изменении
+      this.io.to(roomName).emit('task_assignment_changed', data);
+      // Уведомляем новых назначенных пользователей
+      if (data.assigneeIds && data.assigneeIds.length > 0) {
+        data.assigneeIds.forEach(userId => {
+          const socketId = this.userSockets.get(userId);
+          if (socketId) this.io.to(socketId).emit('task_assigned', data);
+        });
+        if (notificationAssigned) {
+          data.assigneeIds.forEach(userId => {
+            const socketId = this.userSockets.get(userId);
+            if (socketId) this.io.to(socketId).emit('notification', notificationAssigned!);
+          });
         }
-      });
-    }
+      }
+      // Уведомляем пользователей, которых сняли с задачи
+      if (data.unassignedUserIds && data.unassignedUserIds.length > 0) {
+        data.unassignedUserIds.forEach(userId => {
+          const socketId = this.userSockets.get(userId);
+          if (socketId) this.io.to(socketId).emit('task_unassigned', data);
+        });
+        if (notificationUnassigned) {
+          data.unassignedUserIds.forEach(userId => {
+            const socketId = this.userSockets.get(userId);
+            if (socketId) this.io.to(socketId).emit('notification', notificationUnassigned!);
+          });
+        }
+      }
+      this.pendingUpdates.delete(debounceKey);
+    }, 5000);
+
+    this.pendingUpdates.set(debounceKey, timer);
   }
 
   // Получение количества подключенных пользователей
