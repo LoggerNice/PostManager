@@ -1,10 +1,6 @@
-import Link from 'next/link';
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Страница не найдена',
-  description: 'Запрашиваемая страница не существует',
-};
+import Link from 'next/link';
 
 export default function NotFound() {
   return (
