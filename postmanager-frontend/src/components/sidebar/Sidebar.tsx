@@ -10,7 +10,7 @@ import {
     BeakerIcon,
     Bars3Icon,
 } from '@heroicons/react/24/solid';
-import { ChevronDownIcon, ChevronLeftIcon, BellIcon, ClipboardDocumentListIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon, ChevronLeftIcon, BellIcon, ClipboardDocumentListIcon, PlusIcon, UsersIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { useGetUserProjectsQuery } from '@/store/api/project.api';
 import { getCookie } from '@/utils/cookie';
 import { useAppDispatch } from '@/store/hooks';
@@ -78,6 +78,26 @@ export default function Sidebar() {
                     >
                         <ClipboardDocumentListIcon className="h-6 w-6" />
                         {!collapsed && <span className="ml-3">Мои задачи</span>}
+                    </Link>
+
+                    <Link
+                        key={'Мой отдел'}
+                        href={PAGE_URL.MY_DEPARTMENT}
+                        className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.MY_DEPARTMENT ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                        title={collapsed ? 'Мой отдел' : undefined}
+                    >
+                        <UsersIcon className="h-6 w-6" />
+                        {!collapsed && <span className="ml-3">Мой отдел</span>}
+                    </Link>
+
+                    <Link
+                        key={'Анализ'}
+                        href={PAGE_URL.ANALYSIS}
+                        className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.ANALYSIS ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                        title={collapsed ? 'Анализ' : undefined}
+                    >
+                        <ChartBarIcon className="h-6 w-6" />
+                        {!collapsed && <span className="ml-3">Анализ</span>}
                     </Link>
 
                     {/* Проекты с выпадающим списком */}

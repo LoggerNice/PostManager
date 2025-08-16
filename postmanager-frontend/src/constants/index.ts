@@ -26,5 +26,7 @@ export const PAGE_URL = {
   PROFILE: '/profile',
   SETTINGS: '/settings',
   ADMIN: '/test',
-  MY_TASKS: '/my-tasks'
+  MY_TASKS: '/my-tasks',
+  MY_DEPARTMENT: '/my-department',
+  ANALYSIS: '/analysis'
 }

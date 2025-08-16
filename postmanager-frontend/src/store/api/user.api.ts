@@ -11,6 +11,10 @@ export const userApi = api.injectEndpoints({
             query: (id) => `users/${id}`,
             providesTags: (result, error, id) => [{ type: 'User', id }]
         }),
+        getUsersByDepartment: build.query<IUser[], number>({
+            query: (departmentId) => `users/department/${departmentId}`,
+            providesTags: ['User']
+        }),
         createUser: build.mutation<IUser, Partial<IUser>>({
             query: (user) => ({
                 url: 'users',
@@ -40,6 +44,7 @@ export const userApi = api.injectEndpoints({
 export const {
     useGetUsersQuery,
     useGetUserByIdQuery,
+    useGetUsersByDepartmentQuery,
     useCreateUserMutation,
     useUpdateUserMutation,
     useDeleteUserMutation
