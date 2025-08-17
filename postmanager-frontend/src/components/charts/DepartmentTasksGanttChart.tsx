@@ -2,9 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { useGetTasksQuery } from '@/store/api/task.api';
-import { useGetUsersQuery, useGetUserByIdQuery } from '@/store/api/user.api';
+import { useDepartmentTasks } from '@/hooks/useDepartmentTasks';
 import { Task } from '@/types/task.types';
 import { IUser } from '@/types/user.types';
 
@@ -31,41 +29,7 @@ interface TimelineData {
 
 export default function DepartmentTasksGanttChart() {
     const router = useRouter();
-    const { userId } = useAuth();
-    
-    // Получаем полную информацию о пользователе, включая departmentId
-    const { data: currentUser, isLoading: userLoading } = useGetUserByIdQuery(userId!, {
-        skip: !userId
-    });
-    
-    const departmentId = currentUser?.department?.id || currentUser?.departmentId;
-
-    const { data: allTasks = [], isLoading: tasksLoading, error: tasksError } = useGetTasksQuery();
-    const { data: allUsers = [], isLoading: usersLoading, error: usersError } = useGetUsersQuery();
-    
-    // Фильтруем пользователей отдела (исключаем начальника отдела)
-    const departmentUsers = allUsers.filter(user => 
-        (user.departmentId === departmentId || user.department?.id === departmentId) &&
-        user.role !== 'MANAGER' // Исключаем начальника отдела
-    );
-    
-    // Фильтруем задачи отдела
-    const departmentTasks = allTasks.filter(task => {
-        // Проверяем через assignees
-        if (task.assignees && task.assignees.length > 0) {
-            return task.assignees.some(assignee => 
-                departmentUsers.some(user => user.id === assignee.userId)
-            );
-        }
-        
-        // Проверяем через assigneeId
-        if (task.assigneeId) {
-            const assigneeId = typeof task.assigneeId === 'string' ? parseInt(task.assigneeId) : task.assigneeId;
-            return departmentUsers.some(user => user.id === assigneeId);
-        }
-        
-        return false;
-    });
+    const { currentUser, departmentId, departmentUsers, departmentTasks, isLoading } = useDepartmentTasks();
 
     // Вычисляем общий период для задач отдела - только рабочая неделя
     const timelineData = useMemo<TimelineData>(() => {
@@ -260,15 +224,9 @@ export default function DepartmentTasksGanttChart() {
         router.push(`/projects/${projectId}`);
     };
 
-    if (tasksLoading || usersLoading || userLoading) return (
+    if (isLoading) return (
         <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-    );
-
-    if (tasksError || usersError) return (
-        <div className="text-red-500 text-center p-4">
-            Ошибка при загрузке данных отдела
         </div>
     );
 
@@ -387,7 +345,7 @@ export default function DepartmentTasksGanttChart() {
                                         const startX = leftMargin + ((taskStartTime - weekStartTime) / weekDuration) * availableWidth;
                                         
                                         // Позиция окончания задачи - используем тот же алгоритм, что и для дней
-                                        const endX = leftMargin + ((taskEndTime - weekStartTime) / weekDuration) * (availableWidth / 1.5) + 15;
+                                        const endX = leftMargin + ((taskEndTime - weekStartTime) / weekDuration) * (availableWidth) + 15;
                                         
                                         // Ограничиваем позиции в пределах графика
                                         const actualStartX = Math.max(startX, leftMargin);
