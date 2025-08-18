@@ -188,7 +188,7 @@ export default function UserTasksBoard() {
         order: destinationIndex
       };
 
-      // Если задача перемещается в 'Выполнено', сбрасываем приоритет
+      // Если задача перемещается в 'Выполнено', автоматически устанавливаем приоритет "Низкий"
       if (destinationColumnId === 'COMPLETED') {
         updateData.priority = 'LOW';
       }
@@ -228,6 +228,7 @@ export default function UserTasksBoard() {
         onAddTask={handleCreateTask}
         onUpdateColumnName={handleUpdateColumnName}
         onTaskMove={handleTaskMove}
+        showProjectTitle={true}
       />
     </div>
   );

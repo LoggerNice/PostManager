@@ -230,6 +230,25 @@ export const getProjectTasks = async (req: Request, res: Response): Promise<void
                             }
                         }
                     }
+                },
+                creator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
+                },
+                project: {
+                    select: {
+                        id: true,
+                        title: true,
+                        description: true
+                    }
                 }
             },
             orderBy: getTaskOrderBy()

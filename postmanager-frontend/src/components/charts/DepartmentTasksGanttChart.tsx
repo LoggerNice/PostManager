@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDepartmentTasks } from '@/hooks/useDepartmentTasks';
 import { Task } from '@/types/task.types';
 import { IUser } from '@/types/user.types';
+import TaskDetailsModal from '../projectComponents/task/TaskDetailsModal';
 
 interface GanttTask extends Task {
     startDate: Date;
@@ -30,6 +31,10 @@ interface TimelineData {
 export default function DepartmentTasksGanttChart() {
     const router = useRouter();
     const { currentUser, departmentId, departmentUsers, departmentTasks, isLoading } = useDepartmentTasks();
+    
+    // Состояние для модального окна
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Вычисляем общий период для задач отдела - только рабочая неделя
     const timelineData = useMemo<TimelineData>(() => {
@@ -220,8 +225,19 @@ export default function DepartmentTasksGanttChart() {
         }).filter(group => group.tasks.length > 0); // Показываем только пользователей с задачами
     }, [departmentTasks, departmentUsers, timelineData]);
 
-    const handleTaskClick = (projectId: number) => {
-        router.push(`/projects/${projectId}`);
+    const handleTaskClick = (task: GanttTask) => {
+        setSelectedTask(task);
+        setIsModalOpen(true);
+    };
+
+    const handleTaskUpdate = (taskId: string, updatedTask: Task) => {
+        // Обновляем задачу в локальном состоянии
+        // Здесь можно добавить логику обновления, если потребуется
+        console.log('Task updated:', updatedTask);
+        
+        // Закрываем модальное окно после обновления
+        setIsModalOpen(false);
+        setSelectedTask(null);
     };
 
     if (isLoading) return (
@@ -385,8 +401,8 @@ export default function DepartmentTasksGanttChart() {
                                                     strokeWidth={2}
                                                     opacity={0.8}
                                                     rx={4}
-                                                    className="cursor-pointer hover:opacity-100 transition-opacity"
-                                                    onClick={() => handleTaskClick(task.projectId)}
+                                                    className="cursor-pointer hover:opacity-100 transition-all duration-200"
+                                                    onClick={() => handleTaskClick(task)}
                                                 />
 
                                                 {/* Текст с названием задачи */}
@@ -432,6 +448,19 @@ export default function DepartmentTasksGanttChart() {
                     </div>
                 </div>
             </div>
+            
+            {/* Модальное окно с информацией о задаче */}
+            {selectedTask && (
+                <TaskDetailsModal
+                    task={selectedTask}
+                    visible={isModalOpen}
+                    onClose={() => {
+                        setIsModalOpen(false);
+                        setSelectedTask(null);
+                    }}
+                    onTaskUpdate={handleTaskUpdate}
+                />
+            )}
         </div>
     );
 }

@@ -16,20 +16,6 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
     label: `${user.name}${user.department ? ' (' + user.department.name + ')' : ''}`
   }));
 
-  // Автоматически добавляем текущего пользователя в список исполнителей
-  useEffect(() => {
-    if (visible && currentUser && currentUser.id) {
-      const currentAssigneeIds = newTask.assigneeIds || [];
-      if (!currentAssigneeIds.includes(currentUser.id)) {
-        setNewTask({
-          ...newTask,
-          assigneeIds: [...currentAssigneeIds, currentUser.id]
-        });
-      }
-    }
-  }, [visible, currentUser, newTask.assigneeIds, setNewTask]);
-
-
 
   if (!visible) return null;
   return (

@@ -39,7 +39,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
     task?.id ? parseInt(task.id) : 0,
     { 
       skip: !task?.id || !visible,
-      pollingInterval: visible ? 8000 : 0, // Увеличиваем интервал до 8 секунд для стабильности
+      pollingInterval: visible ? 5000 : 0, // Уменьшаем интервал для более частого обновления
       refetchOnMountOrArgChange: true
     }
   );
@@ -58,11 +58,12 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const [uploadFile] = useUploadFileMutation();
 
   // Получаем статистику просмотров для всех комментариев одним запросом
-  const { data: allViewStats = [], refetch: refetchViewStats } = useGetCommentViewStatsQuery(
+  // Статистика обновляется автоматически каждые 5 секунд через polling
+  const { data: allViewStats = [] } = useGetCommentViewStatsQuery(
     { commentIds: comments.map(comment => comment.id) },
     { 
       skip: !comments.length || !visible,
-      pollingInterval: 10000, // Увеличиваем интервал до 10 секунд для стабильности
+      pollingInterval: 5000, // Обновление каждые 5 секунд
       refetchOnMountOrArgChange: true
     }
   );
@@ -101,27 +102,15 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
             console.error('Ошибка при отметке комментария как просмотренного:', error);
           }
         }
-        // Обновляем статистику просмотров после отметки с задержкой
-        setTimeout(() => {
-          refetchViewStats();
-        }, 1000);
+        // Статистика просмотров обновится автоматически через polling
       };
       
       markCommentsAsViewed();
     }
-  }, [visible, user?.id, comments, markCommentAsViewed, refetchViewStats]);
+  }, [visible, user?.id, comments, markCommentAsViewed]);
 
   // Автоматическое обновление статистики при изменении комментариев
-  useEffect(() => {
-    if (visible && comments.length > 0) {
-      // Обновляем статистику просмотров при изменении списка комментариев с задержкой
-      const timer = setTimeout(() => {
-        refetchViewStats();
-      }, 2000); // Увеличиваем задержку до 2 секунд
-      
-      return () => clearTimeout(timer);
-    }
-  }, [comments.length, visible, refetchViewStats]);
+  // Убрано - статистика обновляется автоматически через polling
 
   const handleSubmitComment = async () => {
     if ((!newComment.trim() && !selectedFile) || !task?.id || !user?.id) return;
@@ -163,10 +152,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
       // Обновляем комментарии с отложенным refetch
       debouncedRefetchComments();
       
-      // Обновляем статистику просмотров после создания комментария с большей задержкой
-      setTimeout(() => {
-        refetchViewStats();
-      }, 1500);
+             // Статистика просмотров обновится автоматически через polling
       
     } catch (error) {
       console.error('Ошибка при создании комментария:', error);
@@ -209,6 +195,15 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const startEditingComment = (commentId: number, currentContent: string) => {
     setEditingCommentId(commentId);
     setEditingCommentText(currentContent);
+    
+    // Устанавливаем правильную высоту textarea после рендера
+    setTimeout(() => {
+      const textarea = document.querySelector(`textarea[data-comment-id="${commentId}"]`) as HTMLTextAreaElement;
+      if (textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+      }
+    }, 0);
   };
 
   const cancelEditingComment = () => {
@@ -290,12 +285,17 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
         'Высокий': 'HIGH'
       };
 
+      let newPriority = priorityMap[task.priority as keyof typeof priorityMap] || 'LOW';
+      if (newStatus === 'COMPLETED') {
+        newPriority = 'LOW';
+      }
+
       await updateTask({
         taskId: task.id,
         task: {
           title: task.title,
           description: task.description,
-          priority: priorityMap[task.priority as keyof typeof priorityMap] || 'LOW',
+          priority: newPriority,
           status: newStatus,
           projectId: Number(task.projectId),
           deadline: task.deadline ? format(new Date(task.deadline), 'yyyy-MM-dd HH:mm:ss') : undefined
@@ -304,7 +304,8 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
 
       onTaskUpdate(task.id, {
         ...task,
-        status: newStatus
+        status: newStatus,
+        priority: newPriority === 'LOW' ? 'Низкий' : task.priority
       });
 
       setIsEditingStatus(false);
@@ -357,7 +358,16 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
           <div className="p-6 border-b border-gray-700">
             {/* Task Information */}
             <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-6 text-sm">
+              <div className="grid grid-cols-5 gap-6 text-sm">
+                {/* Проект */}
+                {task.project && (
+                  <div>
+                    <span className="text-gray-400 text-xs uppercase tracking-wide">Проект</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="font-medium text-blue-400">{task.project.title}</span>
+                    </div>
+                  </div>
+                )}
                 <div>
                   <span className="text-gray-400 text-xs uppercase tracking-wide">Статус</span>
                   <div className="flex items-center gap-2 mt-1">
@@ -418,39 +428,36 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                   <p className="font-medium text-gray-200 mt-1">{format(new Date(task.createdAt), 'dd MMM yyyy', { locale: ru })}</p>
                 </div>
               </div>
-
-              {/* Проект */}
-              {task.project && (
+              <div className="flex flex-row gap-6 text-sm">
                 <div>
-                  <span className="text-gray-400 text-xs uppercase tracking-wide">Проект</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="font-medium text-blue-400">{task.project.title}</span>
-                    {task.project.description && (
-                      <span className="text-gray-500 text-xs">— {task.project.description}</span>
-                    )}
+                  <span className="text-gray-400 text-xs uppercase tracking-wide">Создатель</span>
+                  <div className="flex gap-2 mt-2">
+                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-medium my-auto">
+                      {task.creator.name.charAt(0)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-gray-200">
+                        {task.creator.name}
+                      </span>
+                      {task.creator.department && (
+                        <span className="text-gray-400 text-xs"> ({task.creator.department.name})</span>
+                      )}
+                    </div>
                   </div>
                 </div>
-              )}
-
-
-
-              {/* Assignees */}
-              <div>
-                <span className="text-gray-400 text-sm">Исполнители:</span>
-                <div className="flex gap-2 mt-2">
-                  {task.assignees && task.assignees.length > 0 ? (
-                    task.assignees.map((assignee) => (
-                      <div 
-                        key={assignee.id} 
-                        className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium"
-                        title={`${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`}
-                      >
-                        {assignee.user.name.charAt(0)}
-                      </div>
-                    ))
-                  ) : (
-                    <span className="text-gray-500 text-sm">Не назначены</span>
-                  )}
+                <div>
+                <span className="text-gray-400 text-xs uppercase tracking-wide">Исполнители</span>
+                  <div className="flex gap-2 mt-2">
+                    {task.assignees && task.assignees.length > 0 ? (
+                      task.assignees.map((assignee) => (
+                        <div key={assignee.id} className="mt-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                          {assignee.user.name.charAt(0)}
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-gray-500 text-sm">Не назначены</span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -543,34 +550,41 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                     )}
                                   </div>
                                 </div>
-                                {editingCommentId === comment.id ? (
-                                  <div className="space-y-2">
-                                    <textarea
-                                      value={editingCommentText}
-                                      onChange={(e) => setEditingCommentText(e.target.value)}
-                                      className="w-full p-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white resize-none"
-                                      rows={2}
-                                      autoFocus
-                                    />
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() => handleEditComment(comment.id, editingCommentText)}
-                                        className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                                      >
-                                        Сохранить
-                                      </button>
-                                      <button
-                                        onClick={cancelEditingComment}
-                                        className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
-                                      >
-                                        Отмена
-                                      </button>
-                                    </div>
-                                  </div>
-                                ) : (
+                                                                 {editingCommentId === comment.id ? (
+                                   <div className="space-y-2">
+                                     <textarea
+                                       value={editingCommentText}
+                                       onChange={(e) => {
+                                         setEditingCommentText(e.target.value);
+                                         // Автоматическое изменение высоты textarea
+                                         const textarea = e.target;
+                                         textarea.style.height = 'auto';
+                                         textarea.style.height = textarea.scrollHeight + 'px';
+                                       }}
+                                       className="w-full p-2 text-sm bg-gray-700 border border-gray-600 rounded-lg text-white resize-none overflow-hidden"
+                                       rows={1}
+                                       autoFocus
+                                       data-comment-id={comment.id}
+                                     />
+                                     <div className="flex gap-2">
+                                       <button
+                                         onClick={() => handleEditComment(comment.id, editingCommentText)}
+                                         className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                       >
+                                         Сохранить
+                                       </button>
+                                       <button
+                                         onClick={cancelEditingComment}
+                                         className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
+                                       >
+                                         Отмена
+                                       </button>
+                                     </div>
+                                   </div>
+                                 ) : (
                                   <div className="space-y-2">
                                     {comment.content && (
-                                      <p className="text-gray-300 text-sm">{comment.content}</p>
+                                      <p className="text-gray-300 text-sm whitespace-pre-wrap">{comment.content}</p>
                                     )}
                                     {comment.fileUrl && comment.fileName && (
                                       <CommentFile

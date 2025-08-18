@@ -25,8 +25,10 @@ export interface Task {
     status: TaskStatus;
     projectId: number;
     project: Project;
+    creatorId: number;
+    creator: IUser; // Создатель задачи
     assigneeId?: string;
-    assignee?: User;
+    assignee?: IUser;
     assignees?: TaskAssignee[]; // Множественные исполнители
     createdAt: Date;
     updatedAt: Date;
@@ -52,6 +54,7 @@ export interface TaskForm {
     deadline?: string | null;
     order?: number;
     assigneeIds?: number[]; // Новое поле для исполнителей
+    creatorId?: number; // ID создателя задачи
 } 
 
 export interface TaskCardProps {

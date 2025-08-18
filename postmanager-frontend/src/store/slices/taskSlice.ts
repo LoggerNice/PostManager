@@ -59,10 +59,22 @@ const taskSlice = createSlice({
       const { projectId, tasks } = action.payload;
       const normalizedTasks = tasks.map(normalizeTask);
       
-      // Удаляем старые задачи этого проекта
-      state.tasks = state.tasks.filter(task => task.projectId !== projectId);
-      // Добавляем новые задачи
-      state.tasks.push(...normalizedTasks);
+      // Удаляем старые задачи этого проекта (кроме временных)
+      state.tasks = state.tasks.filter(task => 
+        task.projectId !== projectId || task.id.startsWith('temp_')
+      );
+      
+      // Добавляем новые задачи, избегая дублирования с временными
+      const finalTasks = normalizedTasks.filter(newTask => {
+        const duplicateExists = state.tasks.some(existingTask => 
+          existingTask.id.startsWith('temp_') &&
+          existingTask.title === newTask.title && 
+          existingTask.projectId === newTask.projectId
+        );
+        return !duplicateExists;
+      });
+      
+      state.tasks.push(...finalTasks);
       state.lastSync = Date.now();
     },
 
@@ -73,7 +85,18 @@ const taskSlice = createSlice({
       // Объединяем с существующими задачами, избегая дублирования
       const existingTaskIds = new Set(state.tasks.map(task => task.id));
       const newTasks = normalizedTasks.filter(task => !existingTaskIds.has(task.id));
-      state.tasks.push(...newTasks);
+      
+      // Дополнительная проверка: не добавляем дубликаты по названию и проекту
+      const finalNewTasks = newTasks.filter(newTask => {
+        const duplicateExists = state.tasks.some(existingTask => 
+          existingTask.title === newTask.title && 
+          existingTask.projectId === newTask.projectId &&
+          !existingTask.id.startsWith('temp_')
+        );
+        return !duplicateExists;
+      });
+      
+      state.tasks.push(...finalNewTasks);
       state.lastSync = Date.now();
     },
 
@@ -84,10 +107,27 @@ const taskSlice = createSlice({
 
       const normalizedTask = normalizeTask(task);
       
-      // Проверяем, есть ли уже такая задача
-      const existingIndex = state.tasks.findIndex(t => t.id === normalizedTask.id);
-      if (existingIndex === -1) {
-        state.tasks.push(normalizedTask);
+      // Проверяем, есть ли уже такая задача (включая временные ID)
+      const existingIndex = state.tasks.findIndex(t => 
+        t.id === normalizedTask.id || 
+        (t.id.startsWith('temp_') && t.title === normalizedTask.title && t.projectId === normalizedTask.projectId)
+      );
+      
+      if (existingIndex !== -1) {
+        // Если задача уже существует, заменяем её на реальную
+        state.tasks[existingIndex] = normalizedTask;
+      } else {
+        // Дополнительная проверка: не добавляем дубликаты по названию и проекту
+        const duplicateIndex = state.tasks.findIndex(t => 
+          t.title === normalizedTask.title && 
+          t.projectId === normalizedTask.projectId &&
+          !t.id.startsWith('temp_')
+        );
+        
+        if (duplicateIndex === -1) {
+          // Если дубликатов нет, добавляем новую задачу
+          state.tasks.push(normalizedTask);
+        }
       }
     },
 
@@ -174,7 +214,20 @@ const taskSlice = createSlice({
       if (taskIndex !== -1) {
         state.tasks[taskIndex] = normalizedTask;
       } else {
-        state.tasks.push(normalizedTask);
+        // Проверяем, есть ли временная задача с таким же названием и проектом
+        const tempTaskIndex = state.tasks.findIndex(t => 
+          t.id.startsWith('temp_') && 
+          t.title === normalizedTask.title && 
+          t.projectId === normalizedTask.projectId
+        );
+        
+        if (tempTaskIndex !== -1) {
+          // Заменяем временную задачу на реальную
+          state.tasks[tempTaskIndex] = normalizedTask;
+        } else {
+          // Если ничего не найдено, добавляем новую задачу
+          state.tasks.push(normalizedTask);
+        }
       }
     },
 

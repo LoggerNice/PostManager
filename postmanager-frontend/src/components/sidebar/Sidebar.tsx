@@ -201,7 +201,7 @@ export default function Sidebar() {
                                     <span className="text-sm font-medium">Уведомления</span>
                                 </div>
                                 {unreadCount > 0 && (
-                                    <div className="bg-red-500 rounded-full h-2 w-2"></div>
+                                    <div className="bg-red-500 rounded-full h-2 w-2 mr-3"></div>
                                 )}
                             </button>
                             <div className="flex items-center justify-between rounded-lg p-2 hover:text-white hover:bg-gray-800">

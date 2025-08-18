@@ -43,6 +43,7 @@ model User {
   role       UserRole? @default(USER)
   name       String
   tasks      Task[]
+  createdTasks Task[] @relation("TaskCreator") // Связь с задачами, которые создал пользователь
   comments   Comment[]
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -60,6 +61,8 @@ model Task {
   deadline DateTime?
   project Project? @relation(fields: [projectId], references: [id])
   projectId Int?
+  creator User @relation("TaskCreator", fields: [creatorId], references: [id])
+  creatorId Int
   assignee User? @relation(fields: [assigneeId], references: [id])
   assigneeId Int?
   assignees TaskAssignee[] // Связь с исполнителями

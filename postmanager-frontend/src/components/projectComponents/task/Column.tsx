@@ -15,9 +15,10 @@ interface ColumnProps {
   onTaskUpdate: (taskId: string, updatedTask: Task) => void;
   onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, deadline?: string, assigneeIds?: number[]) => void;
   onUpdateColumnName: (columnId: string, newName: string) => void;
+  showProjectTitle?: boolean;
 }
 
-export default function Column({ columnId, column, handleDeleteTask, onTaskUpdate, onAddTask, onUpdateColumnName }: ColumnProps) {
+export default function Column({ columnId, column, handleDeleteTask, onTaskUpdate, onAddTask, onUpdateColumnName, showProjectTitle = false }: ColumnProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState(column.name);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -146,6 +147,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
                     onTaskUpdate={onTaskUpdate}
                     provided={provided}
                     snapshot={snapshot}
+                    showProjectTitle={showProjectTitle}
                   />
                 )}
               </Draggable>

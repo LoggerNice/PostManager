@@ -1,4 +1,5 @@
 import { Task } from "./task.types";
+import { IUser } from "./user.types";
 
 // Общие типы для приложения
 export interface User {
@@ -18,8 +19,8 @@ export interface Project {
   status: ProjectStatus;
   priority: Priority;
   ownerId: string;
-  owner: User;
-  members: User[];
+  owner: IUser;
+  members: IUser[];
   tasks: Task[];
   createdAt: Date;
   updatedAt: Date;

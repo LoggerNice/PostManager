@@ -178,7 +178,6 @@ export default function ProjectPage() {
         order: destinationIndex
       };
 
-      // Если задача перемещается в 'Выполнено', сбрасываем приоритет
       if (destinationColumnId === 'COMPLETED') {
         updateData.priority = 'LOW';
       }

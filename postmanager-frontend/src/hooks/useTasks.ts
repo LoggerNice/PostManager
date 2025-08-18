@@ -194,6 +194,12 @@ export function useTasks(options: UseTasksOptions = {}) {
     dispatch(addPendingOperation(operationId));
 
     try {
+      // Добавляем ID создателя задачи
+      const taskDataWithCreator = {
+        ...taskData,
+        creatorId: user?.id
+      };
+
       // Оптимистичное обновление
       const optimisticTask: Task = {
         id: `temp_${Date.now()}`,
@@ -202,6 +208,24 @@ export function useTasks(options: UseTasksOptions = {}) {
         status: taskData.status,
         priority: taskData.priority,
         projectId: taskData.projectId,
+        creatorId: user?.id || 0,
+        creator: user ? {
+          id: user.id,
+          name: user.name,
+          login: user.login || '',
+          role: user.role || 'USER',
+          department: user.department || null,
+          createdAt: user.createdAt || new Date().toISOString(),
+          updatedAt: user.updatedAt || new Date().toISOString()
+        } : {
+          id: 0,
+          name: '',
+          login: '',
+          role: 'USER',
+          department: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
         deadline: taskData.deadline,
         order: taskData.order || 0,
         assignees: [],
@@ -212,9 +236,9 @@ export function useTasks(options: UseTasksOptions = {}) {
       dispatch(createTaskLocally({ task: optimisticTask, projectId: taskData.projectId }));
 
       // Отправляем на сервер
-      const result = await createTaskMutation(taskData).unwrap();
+      const result = await createTaskMutation(taskDataWithCreator).unwrap();
       
-      // Обновляем с реальными данными
+      // Обновляем с реальными данными (заменяем временную задачу)
       dispatch(updateTaskLocally({ task: result, projectId: taskData.projectId }));
       
       return result;

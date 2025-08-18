@@ -26,6 +26,18 @@ interface TaskInclude {
             };
         };
     };
+    creator: {
+        select: {
+            id: true;
+            name: true;
+            department: {
+                select: {
+                    id: true;
+                    name: true;
+                };
+            };
+        };
+    };
     project: {
         select: {
             id: true;
@@ -44,6 +56,7 @@ interface CreateTaskData {
     deadline?: string;
     order?: number;
     assigneeIds?: number[];
+    creatorId?: number; // ID создателя задачи
 }
 
 interface UpdateTaskData {
@@ -70,6 +83,18 @@ const TASK_INCLUDE_CONFIG: TaskInclude = {
                             name: true
                         }
                     }
+                }
+            }
+        }
+    },
+    creator: {
+        select: {
+            id: true,
+            name: true,
+            department: {
+                select: {
+                    id: true,
+                    name: true
                 }
             }
         }
@@ -208,16 +233,23 @@ const handleOrderChange = async (task: any, newOrder: number): Promise<void> => 
 };
 
 // Утилиты для работы с исполнителями
-const manageTaskAssignees = async (taskId: number, assigneeIds?: number[]): Promise<void> => {
+const manageTaskAssignees = async (taskId: number, assigneeIds?: number[], creatorId?: number): Promise<void> => {
     if (!assigneeIds || !Array.isArray(assigneeIds)) return;
 
     await prisma.taskAssignee.deleteMany({ where: { taskId } });
 
     if (assigneeIds.length > 0) {
-        await prisma.taskAssignee.createMany({
-            data: assigneeIds.map(userId => ({ taskId, userId })),
-            skipDuplicates: true
-        });
+        // Фильтруем assigneeIds, исключая создателя задачи
+        const filteredAssigneeIds = creatorId 
+            ? assigneeIds.filter(userId => userId !== creatorId)
+            : assigneeIds;
+
+        if (filteredAssigneeIds.length > 0) {
+            await prisma.taskAssignee.createMany({
+                data: filteredAssigneeIds.map(userId => ({ taskId, userId })),
+                skipDuplicates: true
+            });
+        }
     }
 };
 
@@ -273,12 +305,32 @@ const sendTaskNotificationToProject = async (
 // Основные контроллеры
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { title, description, status, priority, projectId, deadline, order, assigneeIds }: CreateTaskData = req.body;
+        const { title, description, status, priority, projectId, deadline, order, assigneeIds, creatorId }: CreateTaskData = req.body;
 
         const projectIdNum = validateProjectId(projectId);
         const taskOrder = await calculateTaskOrder(projectIdNum, status, order);
 
         await adjustTaskOrderOnCreate(projectIdNum, status, taskOrder);
+
+        // Определяем создателя задачи
+        let taskCreatorId: number;
+        if (creatorId) {
+            // Если передан ID создателя, проверяем его существование
+            const creator = await prisma.user.findUnique({ where: { id: creatorId } });
+            if (!creator) {
+                res.status(400).json({ message: 'Пользователь-создатель не найден' });
+                return;
+            }
+            taskCreatorId = creatorId;
+        } else {
+            // Если ID создателя не передан, используем ID текущего пользователя из сессии
+            // В реальном приложении это должно приходить из middleware аутентификации
+            if (!req.user?.id) {
+                res.status(401).json({ message: 'Необходима аутентификация для создания задачи' });
+                return;
+            }
+            taskCreatorId = req.user.id;
+        }
 
         const task = await prisma.task.create({
             data: {
@@ -288,12 +340,13 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
                 priority,
                 order: taskOrder,
                 deadline: deadline ? new Date(deadline) : null,
-                project: { connect: { id: projectIdNum } }
+                project: { connect: { id: projectIdNum } },
+                creator: { connect: { id: taskCreatorId } }
             },
             include: TASK_INCLUDE_CONFIG
         });
 
-        await manageTaskAssignees(task.id, assigneeIds);
+        await manageTaskAssignees(task.id, assigneeIds, taskCreatorId);
         const taskWithAssignees = await getTaskWithAssignees(task.id);
 
         // WebSocket уведомления
@@ -418,7 +471,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
         });
         const oldAssigneeIds = oldAssignees.map(a => a.userId);
 
-        await manageTaskAssignees(taskId, assigneeIds);
+        await manageTaskAssignees(taskId, assigneeIds, currentTask.creatorId);
         const taskWithAssignees = await getTaskWithAssignees(taskId);
         
         const newAssigneeIds = taskWithAssignees?.assignees?.map(a => a.userId) || [];

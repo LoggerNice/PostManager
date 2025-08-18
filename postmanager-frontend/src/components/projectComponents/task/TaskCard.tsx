@@ -26,7 +26,7 @@ const getPriorityColor = (priority: string) => {
   }
 };
 
-export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdate, provided, snapshot }: TaskCardProps) {
+export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdate, provided, snapshot, showProjectTitle = false }: TaskCardProps & { showProjectTitle?: boolean }) {
   const [showMenu, setShowMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [menuDirection, setMenuDirection] = useState<'down' | 'up'>('down');
@@ -227,8 +227,8 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         </div>
       </div>
 
-      {/* Название проекта */}
-      {item.project && (
+      {/* Название проекта - отображается только на странице "мои задачи" */}
+      {showProjectTitle && item.project && (
         <div className="text-xs text-blue-400 font-medium">
           {item.project.title}
         </div>
