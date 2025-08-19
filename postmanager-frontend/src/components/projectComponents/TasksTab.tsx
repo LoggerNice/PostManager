@@ -69,9 +69,9 @@ export default function TasksTab({
   };
 
   return (
-    <div className="px-8 py-8">
+    <div className="px-8 py-8 h-full">
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="flex w-full gap-4 overflow-x-auto">
+        <div className="flex w-full gap-4 overflow-x-auto h-full custom-scrollbar">
           {Object.entries(columns).map(([columnId, column]) => (
             <Column
               key={columnId}

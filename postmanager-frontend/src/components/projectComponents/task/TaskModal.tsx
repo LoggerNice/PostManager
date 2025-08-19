@@ -4,7 +4,7 @@ import { ru } from 'date-fns/locale';
 import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useAuth } from '@/hooks/useAuth';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import DatePicker from '@/components/ui/DatePicker';
 
 export default function TaskModal({ visible, onClose, onCreate, newTask, setNewTask, columns, selectedColumn, setSelectedColumn }: TaskModalProps) {

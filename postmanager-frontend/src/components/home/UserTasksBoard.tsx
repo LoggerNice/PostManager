@@ -211,8 +211,8 @@ export default function UserTasksBoard() {
   if (!userId) return <div className="text-white">Пользователь не авторизован</div>;
 
   return (
-    <div className="">
-      <div className="ml-6 mb-6">
+    <div className="h-full flex flex-col">
+      <div className="ml-6 mb-6 flex-shrink-0">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           Мои задачи
         </h2>
@@ -221,15 +221,17 @@ export default function UserTasksBoard() {
         </p>
       </div>
       
-      <TasksTab
-        columns={columns}
-        handleDeleteTask={handleDeleteTask}
-        onTaskUpdate={handleTaskUpdate}
-        onAddTask={handleCreateTask}
-        onUpdateColumnName={handleUpdateColumnName}
-        onTaskMove={handleTaskMove}
-        showProjectTitle={true}
-      />
+              <div className="flex-1 overflow-hidden custom-scrollbar">
+        <TasksTab
+          columns={columns}
+          handleDeleteTask={handleDeleteTask}
+          onTaskUpdate={handleTaskUpdate}
+          onAddTask={handleCreateTask}
+          onUpdateColumnName={handleUpdateColumnName}
+          onTaskMove={handleTaskMove}
+          showProjectTitle={true}
+        />
+      </div>
     </div>
   );
 } 

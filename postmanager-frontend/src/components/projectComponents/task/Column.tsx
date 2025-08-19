@@ -98,8 +98,8 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
   };
 
   return (
-    <div className="bg-gray-800 rounded-xl p-4 flex-1 shadow-lg border border-zinc-800 min-h-[calc(100vh-300px)] flex flex-col">
-      <div className="flex justify-between items-center mb-4">
+    <div className="bg-gray-800 rounded-xl p-4 flex-1 shadow-lg border border-zinc-800 h-[calc(100vh-300px)] flex flex-col">
+      <div className="flex justify-between items-center mb-4 flex-shrink-0">
         {isEditingTitle ? (
           <input
             type="text"
@@ -133,7 +133,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
           <div
             {...provided.droppableProps}
             ref={provided.innerRef}
-            className={`space-y-2 flex-1 overflow-y-auto min-h-[200px] ${
+            className={`space-y-2 flex-1 overflow-y-auto custom-scrollbar ${
               snapshot.isDraggingOver ? 'bg-gray-700 bg-opacity-50 rounded-lg' : ''
             }`}
           >

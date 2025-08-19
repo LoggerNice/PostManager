@@ -1,6 +1,7 @@
 @import "tailwindcss/preflight" layer(base);
 @import "tailwindcss/utilities" layer(utilities);
 @import "tailwindcss";
+@import "../styles/scrollbar.css";
 
 :root {
     --select-bg: white;

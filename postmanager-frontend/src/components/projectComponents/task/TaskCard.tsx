@@ -3,8 +3,6 @@
 import { TaskPriority, TaskCardProps, Task } from '@/types/task.types';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { useUpdateTaskMutation, useCreateTaskMutation } from '@/store/api/task.api';
 import { useGetCommentsByTaskQuery } from '@/store/api/comment.api';

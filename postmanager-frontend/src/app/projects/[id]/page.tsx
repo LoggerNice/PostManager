@@ -224,7 +224,7 @@ export default function ProjectPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden flex flex-col">
       <ProjectHeader
         {...project}
         onEditClick={handleEditProject}
@@ -238,14 +238,16 @@ export default function ProjectPage() {
       />
 
       {activeTab === 'tasks' && (
-        <TasksTab
-          columns={columns}
-          handleDeleteTask={handleDeleteTask}
-          onTaskUpdate={handleTaskUpdate}
-          onAddTask={handleCreateTask}
-          onUpdateColumnName={handleUpdateColumnName}
-          onTaskMove={handleTaskMove}
-        />
+        <div className="flex-1 overflow-hidden custom-scrollbar">
+          <TasksTab
+            columns={columns}
+            handleDeleteTask={handleDeleteTask}
+            onTaskUpdate={handleTaskUpdate}
+            onAddTask={handleCreateTask}
+            onUpdateColumnName={handleUpdateColumnName}
+            onTaskMove={handleTaskMove}
+          />
+        </div>
       )}
 
       {activeTab === 'timeline' && (

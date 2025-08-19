@@ -7,7 +7,6 @@ import DepartmentUsersStats from '@/components/charts/DepartmentUsersStats';
 import DepartmentTasksExcelExport from '@/components/charts/DepartmentTasksExcelExport';
 
 export default function MyDepartmentBoard() {
-    const { user } = useAuth();
 
     return (
         <div className="">

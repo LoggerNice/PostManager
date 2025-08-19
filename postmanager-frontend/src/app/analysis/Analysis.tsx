@@ -6,7 +6,6 @@ import TasksStatusChart from '@/components/charts/TasksStatusChart';
 import DepartmentTasksStats from '@/components/charts/DepartmentTasksStats';
 
 export default function AnalysisBoard() {
-    const { user } = useAuth();
 
     return (
         <div className="">
