@@ -101,7 +101,7 @@ export default function ProjectsGanttChart() {
     const chartHeight = ganttProjects.length * 40 + 80;
     const chartWidth = Math.max(1000, typeof window !== 'undefined' ? window.innerWidth - 100 : 1000);
     const leftMargin = 50;
-    const monthWidth = (chartWidth - leftMargin - 50) / 6;
+    const monthWidth = (chartWidth - leftMargin - 50) / 14;
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg w-full">
@@ -200,7 +200,7 @@ export default function ProjectsGanttChart() {
                 </div>
                 <div className="flex items-center space-x-2">
                     <div className="w-4 h-4 bg-gray-500 rounded"></div>
-                    <span className="text-sm text-gray-600 dark:text-gray-300">До конца > 6 месяцев</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">До конца {'>'} 6 месяцев</span>
                 </div>
             </div>
         </div>

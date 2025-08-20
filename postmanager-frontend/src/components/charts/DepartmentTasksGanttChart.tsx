@@ -274,7 +274,7 @@ export default function DepartmentTasksGanttChart() {
                     {timelineData.dates.map((date, index) => {
                         // Динамический расчет позиции - равномерно распределяем 5 дней по доступной ширине
                         const availableWidth = chartWidth - leftMargin - 50;
-                        const daySpacing = availableWidth / 6; // 6 промежутков для 5 дней - более компактно
+                        const daySpacing = availableWidth / 12; // 6 промежутков для 5 дней - более компактно
                         const position = index * daySpacing;
                         const isToday = date.toDateString() === new Date().toDateString();
                         const isFriday = date.getDay() === 5;
@@ -347,29 +347,37 @@ export default function DepartmentTasksGanttChart() {
                                     {userGroup.tasks.map((task) => {
                                         const taskStartTime = task.startDate.getTime();
                                         const taskEndTime = task.endDate.getTime();
-                                        
-                                        // Расчет позиции на диаграмме для недельной сетки
+
+                                        // Начало и конец недели
                                         const weekStartTime = timelineData.timelineRange.start.getTime();
                                         const weekEndTime = timelineData.timelineRange.end.getTime();
-                                        const weekDuration = weekEndTime - weekStartTime;
-                                        
-                                        // Используем тот же алгоритм расчета, что и для дней недели
+
+                                        // Доступная ширина диаграммы
                                         const availableWidth = chartWidth - leftMargin - 50;
-                                        const daySpacing = availableWidth / 6; // 6 промежутков для 5 дней - более компактно
-                                        
-                                        // Позиция начала задачи - используем тот же алгоритм, что и для дней
-                                        const startX = leftMargin + ((taskStartTime - weekStartTime) / weekDuration) * availableWidth;
-                                        
-                                        // Позиция окончания задачи - используем тот же алгоритм, что и для дней
-                                        const endX = leftMargin + ((taskEndTime - weekStartTime) / weekDuration) * (availableWidth) + 15;
-                                        
+
+                                        // 5 рабочих дней => 6 промежутков (между 5 днями)
+                                        const daySpacing = availableWidth / 12; // один день = одна доля ширины
+
+                                        // Определяем, в какой день начинается и заканчивается задача
+                                        const startDayIndex = Math.floor((taskStartTime - weekStartTime) / (24 * 60 * 60 * 1000));
+                                        const endDayIndex = Math.floor((taskEndTime - weekStartTime) / (24 * 60 * 60 * 1000));
+
+                                        // Ограничиваем индексы дня в пределах 0–4 (понедельник–пятница)
+                                        const clampedStartDay = Math.max(0, Math.min(4, startDayIndex));
+                                        const clampedEndDay = Math.max(0, Math.min(4, endDayIndex));
+
+                                        // Позиция по X — начало и конец задачи в пикселях
+                                        const startX = leftMargin + clampedStartDay * daySpacing;
+                                        const endX = leftMargin + (clampedEndDay + 1) * daySpacing; // +1, чтобы задача покрывала весь день
+
                                         // Ограничиваем позиции в пределах графика
                                         const actualStartX = Math.max(startX, leftMargin);
                                         const actualEndX = Math.min(endX, chartWidth - 50);
-                                        
-                                        // Ширина задачи (минимальная 60px для видимости)
-                                        const barWidth = Math.max(actualEndX - actualStartX, 100) - 30;
-                                        
+
+                                        // Ширина задачи (минимум 60px)
+                                        const barWidth = Math.max(actualEndX - actualStartX, 60);
+
+                                        // Вертикальная позиция задачи
                                         const taskY = userY + 5 + task.level * 30;
 
                                         // Цвета для разных статусов

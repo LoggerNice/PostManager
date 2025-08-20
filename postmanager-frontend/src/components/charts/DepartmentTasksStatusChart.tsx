@@ -190,7 +190,7 @@ export default function DepartmentTasksStatusChart() {
                             <div className="w-4 h-4 bg-red-500 rounded"></div>
                             <span className="text-sm text-gray-700 dark:text-gray-200">Просрочено</span>
                         </div>
-                        <div className="text-right pr-2">
+                        <div className="text-right">
                             <span className="text-lg font-semibold text-gray-900 dark:text-white">
                                 {taskStats.overdue}
                             </span>

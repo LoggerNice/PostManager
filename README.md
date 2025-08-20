@@ -30,6 +30,7 @@
 cd postmanager-backend
 npm install
 npx prisma migrate dev --name init
+npx prisma migrate deploy
 npm run dev
 ```
 
