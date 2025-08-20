@@ -16,9 +16,10 @@ interface ColumnProps {
   onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, deadline?: string, assigneeIds?: number[]) => void;
   onUpdateColumnName: (columnId: string, newName: string) => void;
   showProjectTitle?: boolean;
+  showAddButton?: boolean;
 }
 
-export default function Column({ columnId, column, handleDeleteTask, onTaskUpdate, onAddTask, onUpdateColumnName, showProjectTitle = false }: ColumnProps) {
+export default function Column({ columnId, column, handleDeleteTask, onTaskUpdate, onAddTask, onUpdateColumnName, showProjectTitle = false, showAddButton = true }: ColumnProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState(column.name);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -119,7 +120,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
             {column.name} <span className="text-blue-500 pl-2">{column.items.length}</span>
           </h2>
         )}
-        {columnId !== 'COMPLETED' && columnId !== 'PROBLEM' && (
+        {columnId !== 'COMPLETED' && columnId !== 'PROBLEM' && showAddButton !== false && (
           <button
             className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 text-2xl"
             onClick={handleAddTaskClick}

@@ -14,6 +14,19 @@ export const api = createApi({
             return headers;
         },
     }),
-    tagTypes: ['Project', 'Department', 'User', 'Task', 'Comment', 'CommentViewStats'],
+    tagTypes: [
+        'Project', 
+        'Department', 
+        'User', 
+        'Task', 
+        'Comment', 
+        'CommentViewStats',
+        'AdminStats',
+        'UserActivity',
+        'ProjectAnalytics',
+        'DepartmentStats',
+        'SystemSettings',
+        'SystemLogs'
+    ],
     endpoints: () => ({}),
 }); 

@@ -1,5 +1,5 @@
 import prisma from '../utils/prisma.js';
-import { getTaskOrderBy } from '../utils/taskUtils';
+import { getTaskOrderBy } from '../utils/taskUtils.js';
 export const createDepartment = async (req, res) => {
     try {
         const { name } = req.body;

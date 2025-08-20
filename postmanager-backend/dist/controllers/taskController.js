@@ -1,53 +1,224 @@
 import prisma from '../utils/prisma.js';
-import { getTaskOrderBy } from '../utils/taskUtils';
-export const createTask = async (req, res) => {
-    try {
-        const { title, description, status, priority, projectId, deadline, order, assigneeIds } = req.body;
-        console.log('createTask called with:');
-        console.log('body:', req.body);
-        if (!projectId) {
-            res.status(400).json({ message: 'ID проекта обязателен' });
-            return;
-        }
-        let taskOrder = order;
-        if (taskOrder === undefined || taskOrder === null) {
-            const maxOrderTask = await prisma.task.findFirst({
-                where: {
-                    projectId: parseInt(projectId),
-                    status: status
-                },
-                orderBy: {
-                    order: 'desc'
-                }
-            });
-            taskOrder = (maxOrderTask && maxOrderTask.order !== null) ? (maxOrderTask.order + 1) : 0;
-        }
-        else {
-            const existingTask = await prisma.task.findFirst({
-                where: {
-                    projectId: parseInt(projectId),
-                    status: status,
-                    order: taskOrder
-                }
-            });
-            if (existingTask) {
-                await prisma.task.updateMany({
-                    where: {
-                        projectId: parseInt(projectId),
-                        status: status,
-                        order: {
-                            gte: taskOrder
-                        }
-                    },
-                    data: {
-                        order: {
-                            increment: 1
+import { getTaskOrderBy } from '../utils/taskUtils.js';
+import { getWebSocketServer } from '../websocketServer.js';
+const TASK_INCLUDE_CONFIG = {
+    assignees: {
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    department: {
+                        select: {
+                            id: true,
+                            name: true
                         }
                     }
-                });
+                }
             }
         }
-        console.log('Calculated order:', taskOrder);
+    },
+    creator: {
+        select: {
+            id: true,
+            name: true,
+            department: {
+                select: {
+                    id: true,
+                    name: true
+                }
+            }
+        }
+    },
+    project: {
+        select: {
+            id: true,
+            title: true,
+            description: true
+        }
+    }
+};
+const STATUS_DISPLAY_TEXT = {
+    TODO: 'К выполнению',
+    IN_PROGRESS: 'В работе',
+    PROBLEM: 'Согласование',
+    COMPLETED: 'Выполнено',
+    CANCELLED: 'Отменено'
+};
+const validateTaskId = (taskId) => {
+    const id = parseInt(taskId);
+    if (isNaN(id)) {
+        throw new Error('Неверный ID задачи');
+    }
+    return id;
+};
+const validateProjectId = (projectId) => {
+    const id = parseInt(projectId);
+    if (isNaN(id) || !projectId) {
+        throw new Error('ID проекта обязателен');
+    }
+    return id;
+};
+const validateUserIds = (userIds) => {
+    if (!Array.isArray(userIds)) {
+        throw new Error('Список ID пользователей должен быть массивом');
+    }
+    return userIds.map(id => {
+        const numId = parseInt(id.toString());
+        if (isNaN(numId)) {
+            throw new Error('Неверный ID пользователя');
+        }
+        return numId;
+    });
+};
+const calculateTaskOrder = async (projectId, status, order) => {
+    if (order === undefined || order === null) {
+        const maxOrderTask = await prisma.task.findFirst({
+            where: { projectId, status },
+            orderBy: { order: 'desc' }
+        });
+        return (maxOrderTask?.order ?? -1) + 1;
+    }
+    return order;
+};
+const adjustTaskOrderOnCreate = async (projectId, status, order) => {
+    const existingTask = await prisma.task.findFirst({
+        where: { projectId, status, order }
+    });
+    if (existingTask) {
+        await prisma.task.updateMany({
+            where: {
+                projectId,
+                status,
+                order: { gte: order }
+            },
+            data: { order: { increment: 1 } }
+        });
+    }
+};
+const adjustTaskOrderOnDelete = async (projectId, status, deletedOrder) => {
+    await prisma.task.updateMany({
+        where: {
+            projectId,
+            status,
+            order: { gt: deletedOrder }
+        },
+        data: { order: { decrement: 1 } }
+    });
+};
+const handleStatusChange = async (task, newStatus) => {
+    await prisma.task.updateMany({
+        where: {
+            projectId: task.projectId,
+            status: task.status,
+            order: { gt: task.order || 0 }
+        },
+        data: { order: { decrement: 1 } }
+    });
+    const maxOrderTask = await prisma.task.findFirst({
+        where: { projectId: task.projectId, status: newStatus },
+        orderBy: { order: 'desc' }
+    });
+    return (maxOrderTask?.order ?? -1) + 1;
+};
+const handleOrderChange = async (task, newOrder) => {
+    const currentOrder = task.order || 0;
+    if (newOrder > currentOrder) {
+        await prisma.task.updateMany({
+            where: {
+                projectId: task.projectId,
+                status: task.status,
+                order: { gt: currentOrder, lte: newOrder }
+            },
+            data: { order: { decrement: 1 } }
+        });
+    }
+    else {
+        await prisma.task.updateMany({
+            where: {
+                projectId: task.projectId,
+                status: task.status,
+                order: { gte: newOrder, lt: currentOrder }
+            },
+            data: { order: { increment: 1 } }
+        });
+    }
+};
+const manageTaskAssignees = async (taskId, assigneeIds, creatorId) => {
+    if (!assigneeIds || !Array.isArray(assigneeIds))
+        return;
+    await prisma.taskAssignee.deleteMany({ where: { taskId } });
+    if (assigneeIds.length > 0) {
+        const filteredAssigneeIds = creatorId
+            ? assigneeIds.filter(userId => userId !== creatorId)
+            : assigneeIds;
+        if (filteredAssigneeIds.length > 0) {
+            await prisma.taskAssignee.createMany({
+                data: filteredAssigneeIds.map(userId => ({ taskId, userId })),
+                skipDuplicates: true
+            });
+        }
+    }
+};
+const getTaskWithAssignees = async (taskId) => {
+    return prisma.task.findUnique({
+        where: { id: taskId },
+        include: TASK_INCLUDE_CONFIG
+    });
+};
+const sendTaskWebSocketEvent = (eventType, data, immediate = false) => {
+    const wsServer = getWebSocketServer();
+    if (wsServer) {
+        if (immediate) {
+            wsServer.sendTaskEventToProjectImmediate(eventType, data);
+        }
+        else {
+            wsServer.sendTaskEventToProject(eventType, data);
+        }
+    }
+};
+const sendTaskNotificationToProject = async (projectId, taskId, taskTitle, message, type = 'task_updated', excludeUserId) => {
+    const wsServer = getWebSocketServer();
+    if (!wsServer)
+        return;
+    const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { title: true }
+    });
+    if (!project)
+        return;
+    const notification = {
+        type,
+        title: project.title || 'Неизвестный проект',
+        message,
+        taskId,
+        projectId,
+        timestamp: new Date().toISOString()
+    };
+    wsServer.sendNotificationToProject(projectId, notification, excludeUserId);
+};
+export const createTask = async (req, res) => {
+    try {
+        const { title, description, status, priority, projectId, deadline, order, assigneeIds, creatorId } = req.body;
+        const projectIdNum = validateProjectId(projectId);
+        const taskOrder = await calculateTaskOrder(projectIdNum, status, order);
+        await adjustTaskOrderOnCreate(projectIdNum, status, taskOrder);
+        let taskCreatorId;
+        if (creatorId) {
+            const creator = await prisma.user.findUnique({ where: { id: creatorId } });
+            if (!creator) {
+                res.status(400).json({ message: 'Пользователь-создатель не найден' });
+                return;
+            }
+            taskCreatorId = creatorId;
+        }
+        else {
+            if (!req.user?.id) {
+                res.status(401).json({ message: 'Необходима аутентификация для создания задачи' });
+                return;
+            }
+            taskCreatorId = req.user.id;
+        }
         const task = await prisma.task.create({
             data: {
                 title,
@@ -56,93 +227,34 @@ export const createTask = async (req, res) => {
                 priority,
                 order: taskOrder,
                 deadline: deadline ? new Date(deadline) : null,
-                project: {
-                    connect: { id: parseInt(projectId) }
-                }
+                project: { connect: { id: projectIdNum } },
+                creator: { connect: { id: taskCreatorId } }
             },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            include: TASK_INCLUDE_CONFIG
         });
-        console.log('Created task:', task);
-        if (assigneeIds && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
-            await prisma.taskAssignee.createMany({
-                data: assigneeIds.map((userId) => ({
-                    taskId: task.id,
-                    userId: Number(userId)
-                })),
-                skipDuplicates: true
-            });
-        }
-        const taskWithAssignees = await prisma.task.findUnique({
-            where: { id: task.id },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        await manageTaskAssignees(task.id, assigneeIds, taskCreatorId);
+        const taskWithAssignees = await getTaskWithAssignees(task.id);
+        sendTaskWebSocketEvent('task_created', {
+            task: taskWithAssignees,
+            projectId: projectIdNum,
+            userId: req.user?.id,
+            assigneeIds: taskWithAssignees?.assignees?.map(a => a.userId) || []
+        }, true);
+        await sendTaskNotificationToProject(projectIdNum, task.id, title, `Создана задача "${title}"`, 'task_created', req.user?.id);
         res.status(201).json(taskWithAssignees);
     }
     catch (error) {
         console.error('Ошибка при создании задачи:', error);
-        res.status(500).json({ message: 'Ошибка при создании задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при создании задачи';
+        res.status(400).json({ message });
     }
 };
 export const getTasks = async (req, res) => {
     try {
-        console.log('Getting tasks with orderBy:', getTaskOrderBy());
         const tasks = await prisma.task.findMany({
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
+            include: TASK_INCLUDE_CONFIG,
             orderBy: getTaskOrderBy()
         });
-        console.log('Tasks retrieved:', tasks.length, 'tasks');
-        console.log('First few tasks priorities:', tasks.slice(0, 3).map(t => ({ id: t.id, title: t.title, priority: t.priority })));
         res.json(tasks);
     }
     catch (error) {
@@ -150,30 +262,35 @@ export const getTasks = async (req, res) => {
         res.status(500).json({ message: 'Ошибка при получении задач' });
     }
 };
-export const getTaskById = async (req, res) => {
+export const getUserTasks = async (req, res) => {
     try {
-        const { taskId } = req.params;
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
+        const userId = parseInt(req.params.userId);
+        if (isNaN(userId)) {
+            res.status(400).json({ message: 'Неверный ID пользователя' });
+            return;
+        }
+        const tasks = await prisma.task.findMany({
+            where: {
                 assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
+                    some: {
+                        userId: userId
                     }
                 }
-            }
+            },
+            include: TASK_INCLUDE_CONFIG,
+            orderBy: getTaskOrderBy()
         });
+        res.json(tasks);
+    }
+    catch (error) {
+        console.error('Ошибка при получении задач пользователя:', error);
+        res.status(500).json({ message: 'Ошибка при получении задач пользователя' });
+    }
+};
+export const getTaskById = async (req, res) => {
+    try {
+        const taskId = validateTaskId(req.params.taskId);
+        const task = await getTaskWithAssignees(taskId);
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
@@ -182,21 +299,15 @@ export const getTaskById = async (req, res) => {
     }
     catch (error) {
         console.error('Ошибка при получении задачи:', error);
-        res.status(500).json({ message: 'Ошибка при получении задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при получении задачи';
+        res.status(400).json({ message });
     }
 };
 export const updateTask = async (req, res) => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const { title, description, status, priority, deadline, order, assigneeIds } = req.body;
-        const taskIdNum = parseInt(taskId);
-        if (isNaN(taskIdNum)) {
-            res.status(400).json({ message: 'Неверный ID задачи' });
-            return;
-        }
-        const currentTask = await prisma.task.findUnique({
-            where: { id: taskIdNum }
-        });
+        const currentTask = await prisma.task.findUnique({ where: { id: taskId } });
         if (!currentTask) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
@@ -208,353 +319,180 @@ export const updateTask = async (req, res) => {
             updateData.description = description;
         if (priority !== undefined)
             updateData.priority = priority;
-        if (deadline !== undefined) {
+        if (deadline !== undefined)
             updateData.deadline = deadline ? new Date(deadline) : null;
-        }
-        const newStatus = status !== undefined ? status : currentTask.status;
-        const newOrder = order !== undefined ? order : currentTask.order;
         if (status !== undefined && status !== currentTask.status) {
-            await prisma.task.updateMany({
-                where: {
-                    projectId: currentTask.projectId,
-                    status: currentTask.status,
-                    order: {
-                        gt: currentTask.order || 0
-                    }
-                },
-                data: {
-                    order: {
-                        decrement: 1
-                    }
-                }
-            });
-            const maxOrderTask = await prisma.task.findFirst({
-                where: {
-                    projectId: currentTask.projectId,
-                    status: newStatus
-                },
-                orderBy: {
-                    order: 'desc'
-                }
-            });
-            updateData.order = (maxOrderTask && maxOrderTask.order !== null) ? (maxOrderTask.order + 1) : 0;
-            updateData.status = newStatus;
+            updateData.status = status;
+            updateData.order = await handleStatusChange(currentTask, status);
         }
         else if (order !== undefined && order !== currentTask.order) {
-            const existingTask = await prisma.task.findFirst({
-                where: {
-                    projectId: currentTask.projectId,
-                    status: newStatus,
-                    order: newOrder,
-                    id: {
-                        not: taskIdNum
-                    }
-                }
-            });
-            if (existingTask) {
-                if (newOrder > (currentTask.order || 0)) {
-                    await prisma.task.updateMany({
-                        where: {
-                            projectId: currentTask.projectId,
-                            status: newStatus,
-                            order: {
-                                gt: currentTask.order || 0,
-                                lte: newOrder
-                            }
-                        },
-                        data: {
-                            order: {
-                                decrement: 1
-                            }
-                        }
-                    });
-                }
-                else {
-                    await prisma.task.updateMany({
-                        where: {
-                            projectId: currentTask.projectId,
-                            status: newStatus,
-                            order: {
-                                gte: newOrder,
-                                lt: currentTask.order || 0
-                            }
-                        },
-                        data: {
-                            order: {
-                                increment: 1
-                            }
-                        }
-                    });
-                }
-            }
-            updateData.order = newOrder;
+            await handleOrderChange(currentTask, order);
+            updateData.order = order;
         }
-        console.log('updateData:', updateData);
         const updatedTask = await prisma.task.update({
-            where: { id: taskIdNum },
+            where: { id: taskId },
             data: updateData,
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            include: TASK_INCLUDE_CONFIG
         });
-        if (assigneeIds && Array.isArray(assigneeIds)) {
-            await prisma.taskAssignee.deleteMany({ where: { taskId: taskIdNum } });
-            if (assigneeIds.length > 0) {
-                await prisma.taskAssignee.createMany({
-                    data: assigneeIds.map((userId) => ({
-                        taskId: taskIdNum,
-                        userId: Number(userId)
-                    })),
-                    skipDuplicates: true
+        const oldAssignees = await prisma.taskAssignee.findMany({
+            where: { taskId },
+            select: { userId: true }
+        });
+        const oldAssigneeIds = oldAssignees.map(a => a.userId);
+        await manageTaskAssignees(taskId, assigneeIds, currentTask.creatorId);
+        const taskWithAssignees = await getTaskWithAssignees(taskId);
+        const newAssigneeIds = taskWithAssignees?.assignees?.map(a => a.userId) || [];
+        const addedAssignees = newAssigneeIds.filter(id => !oldAssigneeIds.includes(id));
+        const removedAssignees = oldAssigneeIds.filter(id => !newAssigneeIds.includes(id));
+        const eventData = {
+            task: taskWithAssignees,
+            projectId: currentTask.projectId,
+            userId: req.user?.id,
+            assigneeIds: newAssigneeIds,
+            oldStatus: currentTask.status,
+            newStatus: status || currentTask.status
+        };
+        if (addedAssignees.length > 0 || removedAssignees.length > 0) {
+            const wsServer = getWebSocketServer();
+            if (wsServer) {
+                wsServer.sendTaskAssignmentEvent({
+                    ...eventData,
+                    assigneeIds: addedAssignees,
+                    unassignedUserIds: removedAssignees
                 });
             }
         }
-        const taskWithAssignees = await prisma.task.findUnique({
-            where: { id: taskIdNum },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        sendTaskWebSocketEvent('task_updated', eventData);
+        if (status !== undefined && status !== currentTask.status) {
+            const statusText = STATUS_DISPLAY_TEXT[status] || status;
+            await sendTaskNotificationToProject(currentTask.projectId, taskId, currentTask.title, `Задача "${currentTask.title}" переведена в статус "${statusText}"`, 'task_updated', req.user?.id);
+        }
         res.json(taskWithAssignees);
     }
     catch (error) {
         console.error('Ошибка при обновлении задачи:', error);
-        res.status(500).json({ message: 'Ошибка при обновлении задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при обновлении задачи';
+        res.status(400).json({ message });
     }
 };
 export const deleteTask = async (req, res) => {
     try {
-        const { taskId } = req.params;
-        const taskIdNum = parseInt(taskId);
-        if (isNaN(taskIdNum)) {
-            res.status(400).json({ message: 'Неверный ID задачи' });
-            return;
-        }
-        const taskToDelete = await prisma.task.findUnique({
-            where: { id: taskIdNum }
-        });
+        const taskId = validateTaskId(req.params.taskId);
+        const taskToDelete = await getTaskWithAssignees(taskId);
         if (!taskToDelete) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
-        await prisma.task.delete({ where: { id: taskIdNum } });
-        await prisma.task.updateMany({
-            where: {
-                projectId: taskToDelete.projectId,
-                status: taskToDelete.status,
-                order: {
-                    gt: taskToDelete.order || 0
-                }
-            },
-            data: {
-                order: {
-                    decrement: 1
-                }
-            }
-        });
-        console.log(`Task ${taskIdNum} deleted, order adjusted for remaining tasks`);
+        await prisma.task.delete({ where: { id: taskId } });
+        if (taskToDelete.projectId) {
+            await adjustTaskOrderOnDelete(taskToDelete.projectId, taskToDelete.status, taskToDelete.order || 0);
+        }
+        sendTaskWebSocketEvent('task_deleted', {
+            taskId,
+            projectId: taskToDelete.projectId,
+            userId: req.user?.id,
+            assigneeIds: taskToDelete.assignees?.map(a => a.userId) || []
+        }, true);
+        await sendTaskNotificationToProject(taskToDelete.projectId, taskId, taskToDelete.title, `Задача "${taskToDelete.title}" была удалена`, 'task_deleted', req.user?.id);
         res.status(200).json({ message: 'Задача удалена' });
     }
     catch (error) {
         console.error('Ошибка при удалении задачи:', error);
-        res.status(500).json({ message: 'Ошибка при удалении задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при удалении задачи';
+        res.status(400).json({ message });
     }
 };
 export const getTaskComments = async (req, res) => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const comments = await prisma.comment.findMany({
-            where: { taskId: parseInt(taskId) },
+            where: { taskId },
             include: {
                 author: {
                     select: {
                         id: true,
                         name: true,
-                        department: {
-                            select: {
-                                name: true
-                            }
-                        }
+                        department: { select: { name: true } }
                     }
                 }
             },
-            orderBy: {
-                createdAt: 'asc'
-            }
+            orderBy: { createdAt: 'asc' }
         });
         res.status(200).json(comments);
     }
     catch (error) {
         console.error('Ошибка при получении комментариев задачи:', error);
-        res.status(500).json({ message: 'Ошибка при получении комментариев задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при получении комментариев задачи';
+        res.status(400).json({ message });
     }
 };
 export const addTaskAssignees = async (req, res) => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const { userIds } = req.body;
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
             res.status(400).json({ message: 'Список ID пользователей обязателен' });
             return;
         }
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) }
-        });
+        const validUserIds = validateUserIds(userIds);
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
         const users = await prisma.user.findMany({
-            where: {
-                id: {
-                    in: userIds.map((id) => parseInt(id.toString()))
-                }
-            }
+            where: { id: { in: validUserIds } }
         });
-        if (users.length !== userIds.length) {
+        if (users.length !== validUserIds.length) {
             res.status(400).json({ message: 'Некоторые пользователи не найдены' });
             return;
         }
-        const assignees = await prisma.taskAssignee.createMany({
-            data: userIds.map((userId) => ({
-                taskId: parseInt(taskId),
-                userId: parseInt(userId.toString())
-            })),
+        await prisma.taskAssignee.createMany({
+            data: validUserIds.map(userId => ({ taskId, userId })),
             skipDuplicates: true
         });
-        const updatedTask = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        const updatedTask = await getTaskWithAssignees(taskId);
         res.status(200).json(updatedTask);
     }
     catch (error) {
         console.error('Ошибка при добавлении исполнителей:', error);
-        res.status(500).json({ message: 'Ошибка при добавлении исполнителей' });
+        const message = error instanceof Error ? error.message : 'Ошибка при добавлении исполнителей';
+        res.status(400).json({ message });
     }
 };
 export const removeTaskAssignees = async (req, res) => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const { userIds } = req.body;
         if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
             res.status(400).json({ message: 'Список ID пользователей обязателен' });
             return;
         }
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) }
-        });
+        const validUserIds = validateUserIds(userIds);
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
         await prisma.taskAssignee.deleteMany({
             where: {
-                taskId: parseInt(taskId),
-                userId: {
-                    in: userIds.map((id) => parseInt(id.toString()))
-                }
+                taskId,
+                userId: { in: validUserIds }
             }
         });
-        const updatedTask = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        const updatedTask = await getTaskWithAssignees(taskId);
         res.status(200).json(updatedTask);
     }
     catch (error) {
         console.error('Ошибка при удалении исполнителей:', error);
-        res.status(500).json({ message: 'Ошибка при удалении исполнителей' });
+        const message = error instanceof Error ? error.message : 'Ошибка при удалении исполнителей';
+        res.status(400).json({ message });
     }
 };
 export const getTaskAssignees = async (req, res) => {
     try {
-        const { taskId } = req.params;
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        const taskId = validateTaskId(req.params.taskId);
+        const task = await getTaskWithAssignees(taskId);
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
@@ -563,68 +501,50 @@ export const getTaskAssignees = async (req, res) => {
     }
     catch (error) {
         console.error('Ошибка при получении исполнителей задачи:', error);
-        res.status(500).json({ message: 'Ошибка при получении исполнителей задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при получении исполнителей задачи';
+        res.status(400).json({ message });
     }
 };
 export const updateTaskAssignees = async (req, res) => {
     try {
-        const { taskId } = req.params;
+        const taskId = validateTaskId(req.params.taskId);
         const { userIds } = req.body;
-        const task = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) }
-        });
+        const task = await prisma.task.findUnique({ where: { id: taskId } });
         if (!task) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
-        await prisma.taskAssignee.deleteMany({
-            where: { taskId: parseInt(taskId) }
-        });
+        await prisma.taskAssignee.deleteMany({ where: { taskId } });
         if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+            const validUserIds = validateUserIds(userIds);
             const users = await prisma.user.findMany({
-                where: {
-                    id: {
-                        in: userIds.map((id) => parseInt(id.toString()))
-                    }
-                }
+                where: { id: { in: validUserIds } }
             });
-            if (users.length !== userIds.length) {
+            if (users.length !== validUserIds.length) {
                 res.status(400).json({ message: 'Некоторые пользователи не найдены' });
                 return;
             }
             await prisma.taskAssignee.createMany({
-                data: userIds.map((userId) => ({
-                    taskId: parseInt(taskId),
-                    userId: parseInt(userId.toString())
-                }))
+                data: validUserIds.map(userId => ({ taskId, userId }))
             });
         }
-        const updatedTask = await prisma.task.findUnique({
-            where: { id: parseInt(taskId) },
-            include: {
-                assignees: {
-                    include: {
-                        user: {
-                            select: {
-                                id: true,
-                                name: true,
-                                department: {
-                                    select: {
-                                        id: true,
-                                        name: true
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        const updatedTask = await getTaskWithAssignees(taskId);
         res.status(200).json(updatedTask);
     }
     catch (error) {
         console.error('Ошибка при обновлении исполнителей задачи:', error);
-        res.status(500).json({ message: 'Ошибка при обновлении исполнителей задачи' });
+        const message = error instanceof Error ? error.message : 'Ошибка при обновлении исполнителей задачи';
+        res.status(400).json({ message });
+    }
+};
+export const updateTaskPriorities = async (req, res) => {
+    try {
+        await prisma.$executeRaw `SELECT update_existing_task_priorities()`;
+        res.status(200).json({ message: 'Приоритеты задач обновлены успешно' });
+    }
+    catch (error) {
+        console.error('Ошибка при обновлении приоритетов задач:', error);
+        res.status(500).json({ message: 'Ошибка при обновлении приоритетов задач' });
     }
 };
 //# sourceMappingURL=taskController.js.map

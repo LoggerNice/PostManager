@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 export declare const createTask: (req: Request, res: Response) => Promise<void>;
 export declare const getTasks: (req: Request, res: Response) => Promise<void>;
+export declare const getUserTasks: (req: Request, res: Response) => Promise<void>;
 export declare const getTaskById: (req: Request, res: Response) => Promise<void>;
 export declare const updateTask: (req: Request, res: Response) => Promise<void>;
 export declare const deleteTask: (req: Request, res: Response) => Promise<void>;
@@ -9,3 +10,4 @@ export declare const addTaskAssignees: (req: Request, res: Response) => Promise<
 export declare const removeTaskAssignees: (req: Request, res: Response) => Promise<void>;
 export declare const getTaskAssignees: (req: Request, res: Response) => Promise<void>;
 export declare const updateTaskAssignees: (req: Request, res: Response) => Promise<void>;
+export declare const updateTaskPriorities: (req: Request, res: Response) => Promise<void>;

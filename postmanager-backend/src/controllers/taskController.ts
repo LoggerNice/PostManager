@@ -6,7 +6,7 @@ import { getWebSocketServer } from '../websocketServer.js';
 
 // Типы для WebSocket событий
 type TaskEventType = 'task_created' | 'task_updated' | 'task_deleted';
-type NotificationType = 'task_created' | 'task_updated' | 'comment_added';
+type NotificationType = 'task_created' | 'task_updated' | 'task_deleted' | 'comment_added';
 
 // Типы и интерфейсы
 interface TaskInclude {
@@ -239,17 +239,11 @@ const manageTaskAssignees = async (taskId: number, assigneeIds?: number[], creat
     await prisma.taskAssignee.deleteMany({ where: { taskId } });
 
     if (assigneeIds.length > 0) {
-        // Фильтруем assigneeIds, исключая создателя задачи
-        const filteredAssigneeIds = creatorId 
-            ? assigneeIds.filter(userId => userId !== creatorId)
-            : assigneeIds;
-
-        if (filteredAssigneeIds.length > 0) {
-            await prisma.taskAssignee.createMany({
-                data: filteredAssigneeIds.map(userId => ({ taskId, userId })),
-                skipDuplicates: true
-            });
-        }
+        // Создаем исполнителей включая создателя задачи, если он указан в списке
+        await prisma.taskAssignee.createMany({
+            data: assigneeIds.map(userId => ({ taskId, userId })),
+            skipDuplicates: true
+        });
     }
 };
 
@@ -443,46 +437,110 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
-        const updateData: any = {};
-        if (title !== undefined) updateData.title = title;
-        if (description !== undefined) updateData.description = description;
-        if (priority !== undefined) updateData.priority = priority;
-        if (deadline !== undefined) updateData.deadline = deadline ? new Date(deadline) : null;
-
-        // Обработка изменения статуса
-        if (status !== undefined && status !== currentTask.status) {
-            updateData.status = status;
-            updateData.order = await handleStatusChange(currentTask, status);
-        } else if (order !== undefined && order !== currentTask.order) {
-            await handleOrderChange(currentTask, order);
-            updateData.order = order;
+        // Валидация входных данных
+        if (title !== undefined && !title.trim()) {
+            res.status(400).json({ message: 'Название задачи не может быть пустым' });
+            return;
         }
 
-        const updatedTask = await prisma.task.update({
-            where: { id: taskId },
-            data: updateData,
-            include: TASK_INCLUDE_CONFIG
+        if (priority !== undefined && !['LOW', 'MEDIUM', 'HIGH'].includes(priority)) {
+            res.status(400).json({ message: 'Неверный приоритет задачи' });
+            return;
+        }
+
+        if (status !== undefined && !['TODO', 'IN_PROGRESS', 'PROBLEM', 'COMPLETED', 'CANCELLED'].includes(status)) {
+            res.status(400).json({ message: 'Неверный статус задачи' });
+            return;
+        }
+
+        // Валидация и обработка даты
+        let parsedDeadline: Date | null = null;
+        if (deadline !== undefined) {
+            if (deadline) {
+                parsedDeadline = new Date(deadline);
+                if (isNaN(parsedDeadline.getTime())) {
+                    res.status(400).json({ message: 'Неверный формат даты' });
+                    return;
+                }
+            }
+        }
+
+        // Валидация исполнителей
+        if (assigneeIds !== undefined && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+            const validUserIds = validateUserIds(assigneeIds);
+            const users = await prisma.user.findMany({
+                where: { id: { in: validUserIds } }
+            });
+            if (users.length !== validUserIds.length) {
+                res.status(400).json({ message: 'Некоторые указанные исполнители не найдены' });
+                return;
+            }
+        }
+
+        // Выполняем все операции в транзакции
+        const result = await prisma.$transaction(async (tx) => {
+            const updateData: any = {};
+            if (title !== undefined) updateData.title = title.trim();
+            if (description !== undefined) updateData.description = description;
+            if (priority !== undefined) updateData.priority = priority;
+            if (deadline !== undefined) updateData.deadline = parsedDeadline;
+
+            // Обработка изменения статуса
+            if (status !== undefined && status !== currentTask.status) {
+                updateData.status = status;
+                updateData.order = await handleStatusChange(currentTask, status);
+            } else if (order !== undefined && order !== currentTask.order) {
+                await handleOrderChange(currentTask, order);
+                updateData.order = order;
+            }
+
+            const updatedTask = await tx.task.update({
+                where: { id: taskId },
+                data: updateData,
+                include: TASK_INCLUDE_CONFIG
+            });
+
+            // Получаем старых исполнителей для сравнения
+            const oldAssignees = await tx.taskAssignee.findMany({
+                where: { taskId },
+                select: { userId: true }
+            });
+            const oldAssigneeIds = oldAssignees.map(a => a.userId);
+
+            // Обновляем исполнителей если они переданы
+            if (assigneeIds !== undefined) {
+                await tx.taskAssignee.deleteMany({ where: { taskId } });
+
+                if (Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+                    await tx.taskAssignee.createMany({
+                        data: assigneeIds.map(userId => ({ taskId, userId })),
+                        skipDuplicates: true
+                    });
+                }
+            }
+
+            const taskWithAssignees = await tx.task.findUnique({
+                where: { id: taskId },
+                include: TASK_INCLUDE_CONFIG
+            });
+
+            return { updatedTask, taskWithAssignees, oldAssigneeIds };
         });
 
-        // Получаем старых исполнителей для сравнения
-        const oldAssignees = await prisma.taskAssignee.findMany({
-            where: { taskId },
-            select: { userId: true }
-        });
-        const oldAssigneeIds = oldAssignees.map(a => a.userId);
-
-        await manageTaskAssignees(taskId, assigneeIds, currentTask.creatorId);
-        const taskWithAssignees = await getTaskWithAssignees(taskId);
+        if (!result.taskWithAssignees) {
+            res.status(500).json({ message: 'Ошибка при получении обновленной задачи' });
+            return;
+        }
         
-        const newAssigneeIds = taskWithAssignees?.assignees?.map(a => a.userId) || [];
+        const newAssigneeIds = result.taskWithAssignees.assignees?.map(a => a.userId) || [];
         
         // Определяем изменения в назначениях
-        const addedAssignees = newAssigneeIds.filter(id => !oldAssigneeIds.includes(id));
-        const removedAssignees = oldAssigneeIds.filter(id => !newAssigneeIds.includes(id));
+        const addedAssignees = newAssigneeIds.filter(id => !result.oldAssigneeIds.includes(id));
+        const removedAssignees = result.oldAssigneeIds.filter(id => !newAssigneeIds.includes(id));
 
         // WebSocket уведомления
         const eventData = {
-            task: taskWithAssignees,
+            task: result.taskWithAssignees,
             projectId: currentTask.projectId!,
             userId: req.user?.id,
             assigneeIds: newAssigneeIds,
@@ -516,7 +574,7 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             );
         }
 
-        res.json(taskWithAssignees);
+        res.json(result.taskWithAssignees);
     } catch (error) {
         console.error('Ошибка при обновлении задачи:', error);
         const message = error instanceof Error ? error.message : 'Ошибка при обновлении задачи';

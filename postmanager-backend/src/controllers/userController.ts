@@ -58,8 +58,28 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             throw new Error('JWT_SECRET не настроен');
         }
 
-        const accessToken = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
-        res.status(200).json({ token: accessToken, user });
+        const tokenPayload = {
+            userId: user.id,
+            login: user.login,
+            name: user.name,
+            role: user.role,
+            departmentId: user.departmentId
+        };
+        
+        const accessToken = jwt.sign(tokenPayload, process.env.JWT_SECRET);
+        
+        res.status(200).json({ 
+            token: accessToken, 
+            user: {
+                id: user.id,
+                name: user.name,
+                login: user.login,
+                role: user.role,
+                departmentId: user.departmentId,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            }
+        });
     } catch (error) {
         console.error('Ошибка при входе:', error);
         res.status(500).json({ message: 'Ошибка при входе' });

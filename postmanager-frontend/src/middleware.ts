@@ -4,7 +4,9 @@ import type { NextRequest } from 'next/server';
 export function middleware(request: NextRequest) {
     const { url, cookies } = request;
     const token = cookies.get('accessToken')?.value;
+    const userRole = cookies.get('userRole')?.value;
     const isAuthPage = url.includes('/auth');
+    const isAdminPage = url.includes('/admin');
 
     // Если нет токена и не на странице авторизации - редирект на авторизацию
     if (!token && !isAuthPage) {
@@ -13,6 +15,11 @@ export function middleware(request: NextRequest) {
 
     // Если есть токен и на странице авторизации - редирект на главную
     if (token && isAuthPage) {
+        return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // Проверка доступа к админ панели - для администраторов и начальников отделов
+    if (isAdminPage && userRole !== 'ADMIN' && userRole !== 'MANAGER') {
         return NextResponse.redirect(new URL('/', request.url));
     }
 

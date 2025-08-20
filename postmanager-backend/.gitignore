@@ -1,2 +1,27 @@
 node_modules
-# Keep environment variables out of version controlы
+# Keep environment variables out of version control
+.env
+.env.local
+.env.production
+
+# Backup files
+backups/
+*.sql
+*.dump
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Build directory
+dist/
+build/

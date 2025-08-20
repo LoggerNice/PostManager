@@ -14,8 +14,9 @@ export default function TasksTab({
   onAddTask,
   onUpdateColumnName,
   onTaskMove,
-  showProjectTitle = false
-}: TasksTabProps & { showProjectTitle?: boolean }) {
+  showProjectTitle = false,
+  showAddButton = true
+}: TasksTabProps & { showProjectTitle?: boolean; showAddButton?: boolean }) {
   const { user } = useAuth();
 
   const handleDragEnd = (result: DropResult) => {
@@ -82,6 +83,7 @@ export default function TasksTab({
               onAddTask={onAddTask}
               onUpdateColumnName={onUpdateColumnName}
               showProjectTitle={showProjectTitle}
+              showAddButton={showAddButton}
             />
           ))}
         </div>

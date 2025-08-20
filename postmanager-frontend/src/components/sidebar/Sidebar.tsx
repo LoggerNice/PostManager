@@ -10,12 +10,21 @@ import {
     BeakerIcon,
     Bars3Icon,
 } from '@heroicons/react/24/solid';
-import { ChevronDownIcon, ChevronLeftIcon, BellIcon, ClipboardDocumentListIcon, PlusIcon, UsersIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { 
+    ChevronDownIcon, 
+    ChevronLeftIcon, 
+    BellIcon, 
+    ClipboardDocumentListIcon, 
+    PlusIcon, 
+    UsersIcon, 
+    ChartBarIcon,
+    CogIcon
+} from '@heroicons/react/24/outline';
 import { useGetUserProjectsQuery } from '@/store/api/project.api';
 import { getCookie } from '@/utils/cookie';
 import { useAppDispatch } from '@/store/hooks';
 import { logout } from '@/store/slices/authSlice';
-import { PAGE_URL } from '@/constants';
+import { PAGE_URL, UserRole } from '@/constants';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import NotificationHistory from '@/components/ui/NotificationHistory';
@@ -32,11 +41,13 @@ export default function Sidebar() {
     const [projectsOpen, setProjectsOpen] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
+    const [userRole, setUserRole] = useState<string | null>(null);
     const [notificationHistoryOpen, setNotificationHistoryOpen] = useState(false);
 
     useEffect(() => {
         setUserId(getCookie('userId'));
         setUserName(getCookie('userName'));
+        setUserRole(getCookie('userRole'));
     }, []);
 
     const { data: projects = [], isLoading: projectsLoading } = useGetUserProjectsQuery(parseInt(userId || '0'), {
@@ -50,8 +61,6 @@ export default function Sidebar() {
         dispatch(logout());
         router.push(PAGE_URL.AUTH);
     };
-
-    const isActive = pathname === PAGE_URL.ADMIN;
 
     return (
         <>
@@ -100,6 +109,19 @@ export default function Sidebar() {
                         {!collapsed && <span className="ml-3">Анализ</span>}
                     </Link>
 
+                    {/* Админ панель - для администраторов и начальников отделов */}
+                    {(userRole === UserRole.ADMIN || userRole === UserRole.MANAGER) && (
+                        <Link
+                            key={'Админ панель'}
+                            href={PAGE_URL.ADMIN}
+                            className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.ADMIN ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                            title={collapsed ? 'Админ панель' : undefined}
+                        >
+                            <CogIcon className="h-6 w-6" />
+                            {!collapsed && <span className="ml-3">Админ панель</span>}
+                        </Link>
+                    )}
+
                     {/* Проекты с выпадающим списком */}
                     <div className="mx-2">
                         <div className={`flex items-center w-full p-2 rounded-lg transition-colors ${collapsed ? 'justify-center' : ''} ${pathname.startsWith('/projects/') ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}>
@@ -125,7 +147,7 @@ export default function Sidebar() {
                             </button>
                             {!collapsed && (
                                 <button
-                                    onClick={() => router.push('/test')}
+                                    onClick={() => router.push(PAGE_URL.TEST)}
                                     className="ml-2 p-1 rounded"
                                     title="Добавить проект"
                                     type="button"

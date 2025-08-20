@@ -9,8 +9,10 @@ import * as taskController from './controllers/taskController.js';
 import * as projectController from './controllers/projectController.js';
 import * as commentController from './controllers/commentController.js';
 import * as fileController from './controllers/fileController.js';
+import * as adminController from './controllers/adminController.js';
 import { WebSocketServer } from './websocket.js';
 import { setWebSocketServer } from './websocketServer.js';
+import { authenticateToken } from './middleware/auth.js';
 
 dotenv.config();
 
@@ -24,7 +26,7 @@ setWebSocketServer(wsServer);
 app.use(cors({
   origin: ["http://localhost:3000", "http://localhost:3001", "http://172.17.118.38:3000", "http://172.17.118.38:3001"],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
@@ -87,6 +89,31 @@ app.delete('/upload/file/:filename', fileController.deleteFile);
 // Статические файлы
 app.use('/uploads', express.static('uploads'));
 
+// Админские роуты (требуют аутентификации и проверки прав)
+app.get('/admin/stats', authenticateToken, adminController.requireAdminAccess, adminController.getAdminStats);
+app.get('/admin/user-activity', authenticateToken, adminController.requireAdminAccess, adminController.getUserActivity);
+app.get('/admin/project-analytics', authenticateToken, adminController.requireAdminAccess, adminController.getProjectAnalytics);
+app.get('/admin/department-stats', authenticateToken, adminController.requireAdminAccess, adminController.getDepartmentStats);
+
+// Управление пользователями (админ)
+app.get('/admin/users', authenticateToken, adminController.requireAdminAccess, adminController.getAllUsersAdmin);
+app.post('/admin/users', authenticateToken, adminController.requireAdminAccess, adminController.createUserAdmin);
+app.patch('/admin/users/:id', authenticateToken, adminController.requireAdminAccess, adminController.updateUserAdmin);
+app.delete('/admin/users/:id', authenticateToken, adminController.requireAdminAccess, adminController.deleteUserAdmin);
+
+// Управление отделами (админ)
+app.get('/admin/departments', authenticateToken, adminController.requireAdminAccess, adminController.getAllDepartmentsAdmin);
+app.post('/admin/departments', authenticateToken, adminController.requireAdminAccess, adminController.createDepartmentAdmin);
+app.patch('/admin/departments/:id', authenticateToken, adminController.requireAdminAccess, adminController.updateDepartmentAdmin);
+app.delete('/admin/departments/:id', authenticateToken, adminController.requireAdminAccess, adminController.deleteDepartmentAdmin);
+
+// Системные настройки и утилиты (админ)
+app.get('/admin/settings', authenticateToken, adminController.requireAdminAccess, adminController.getSystemSettings);
+app.patch('/admin/settings', authenticateToken, adminController.requireAdminAccess, adminController.updateSystemSettings);
+app.get('/admin/logs', authenticateToken, adminController.requireAdminAccess, adminController.getSystemLogs);
+app.post('/admin/backup', authenticateToken, adminController.requireAdminAccess, adminController.createBackup);
+app.get('/admin/backup/:backupId/download', authenticateToken, adminController.requireAdminAccess, adminController.downloadBackup);
+app.post('/admin/cache/clear', authenticateToken, adminController.requireAdminAccess, adminController.clearCache);
 
 app.get('/', (req: Request, res: Response) => {
     res.json({ message: 'API работает' });

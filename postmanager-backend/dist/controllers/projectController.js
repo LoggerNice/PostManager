@@ -1,5 +1,5 @@
 import prisma from '../utils/prisma.js';
-import { getTaskOrderBy } from '../utils/taskUtils';
+import { getTaskOrderBy } from '../utils/taskUtils.js';
 export const createProject = async (req, res) => {
     try {
         const { title, description, startDate, endDate, client, departmentIds, userIds } = req.body;
@@ -189,8 +189,6 @@ export const deleteProject = async (req, res) => {
 export const getProjectTasks = async (req, res) => {
     try {
         const { projectId } = req.params;
-        console.log('Getting project tasks for projectId:', projectId);
-        console.log('OrderBy:', getTaskOrderBy());
         const tasks = await prisma.task.findMany({
             where: { projectId: parseInt(projectId) },
             include: {
@@ -209,12 +207,29 @@ export const getProjectTasks = async (req, res) => {
                             }
                         }
                     }
+                },
+                creator: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
+                },
+                project: {
+                    select: {
+                        id: true,
+                        title: true,
+                        description: true
+                    }
                 }
             },
             orderBy: getTaskOrderBy()
         });
-        console.log('Project tasks retrieved:', tasks.length, 'tasks');
-        console.log('First few tasks priorities:', tasks.slice(0, 3).map(t => ({ id: t.id, title: t.title, priority: t.priority })));
         res.status(200).json(tasks);
     }
     catch (error) {

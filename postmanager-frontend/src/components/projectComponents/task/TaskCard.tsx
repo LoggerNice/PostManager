@@ -136,34 +136,6 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     }
   };
 
-  const handleEditSubmit = async (data: { title: string; description: string; priority: TaskPriority; deadline?: string }) => {
-    try {
-      await updateTask({
-        taskId: item.id,
-        task: {
-          title: data.title,
-          description: data.description,
-          priority: data.priority,
-          status: item.status,
-          projectId: Number(item.projectId),
-          deadline: data.deadline
-        }
-      }).unwrap();
-
-      onTaskUpdate(item.id, {
-        ...item,
-        title: data.title,
-        description: data.description,
-        priority: data.priority,
-        deadline: data.deadline ? new Date(data.deadline) : undefined
-      });
-
-      setShowEditModal(false);
-    } catch (error) {
-      console.error('Failed to update task:', error);
-    }
-  };
-
   const handleEditCancel = () => {
     setShowEditModal(false);
   };

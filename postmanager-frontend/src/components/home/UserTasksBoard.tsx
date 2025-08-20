@@ -6,6 +6,7 @@ import { Column } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
 import { soundManager } from '@/utils/soundUtils';
+import { format } from 'date-fns';
 
 import TasksTab from '../projectComponents/TasksTab';
 
@@ -152,7 +153,7 @@ export default function UserTasksBoard() {
          priority: priorityMapToEnglish[updatedTask.priority as keyof typeof priorityMapToEnglish] || 'LOW',
          status: updatedTask.status,
          projectId: updatedTask.projectId,
-         deadline: updatedTask.deadline ? new Date(updatedTask.deadline).toISOString().split('T')[0] : undefined,
+         deadline: updatedTask.deadline ? format(new Date(updatedTask.deadline), 'yyyy-MM-dd HH:mm:ss') : undefined,
          order: updatedTask.order
        };
 
@@ -230,6 +231,7 @@ export default function UserTasksBoard() {
           onUpdateColumnName={handleUpdateColumnName}
           onTaskMove={handleTaskMove}
           showProjectTitle={true}
+          showAddButton={false}
         />
       </div>
     </div>
