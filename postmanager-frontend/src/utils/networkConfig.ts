@@ -24,7 +24,7 @@ export function isLocalhost(): boolean {
  * Получает текущую конфигурацию сети
  */
 export function getNetworkConfig(): NetworkConfig {
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '172.17.118.89';
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '172.17.118.38';
   const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https:' : 'http:';
   const isLocal = isLocalhost();
   
