@@ -14,6 +14,11 @@ interface ExcelTask {
     'Статус задачи': string;
 }
 
+export const formatName = (fullName: string) => {
+    const [last, first, middle] = fullName.split(' ');
+    return `${last} ${first?.charAt(0) || ''}.${middle?.charAt(0) || ''}.`;
+};
+
 export default function DepartmentTasksExcelExport() {
     const { currentUser, departmentId, departmentUsers, departmentTasks, isLoading } = useDepartmentTasks();
     const { data: allProjects = [], isLoading: projectsLoading } = useGetProjectsQuery();

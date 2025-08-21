@@ -6,6 +6,7 @@ import { useDepartmentTasks } from '@/hooks/useDepartmentTasks';
 import { Task } from '@/types/task.types';
 import { IUser } from '@/types/user.types';
 import TaskDetailsModal from '../projectComponents/task/TaskDetailsModal';
+import { formatName } from './DepartmentTasksExcelExport';
 
 interface GanttTask extends Task {
     startDate: Date;
@@ -263,7 +264,7 @@ export default function DepartmentTasksGanttChart() {
         return height + Math.max(40, (group.maxLevel + 1) * 30) + 20;
     }, 120); // Увеличиваем высоту для заголовка
     const chartWidth = Math.max(1000, typeof window !== 'undefined' ? window.innerWidth - 100 : 1000);
-    const leftMargin = 100; // Увеличиваем левый отступ для имен пользователей
+    const leftMargin = 120; // Увеличиваем левый отступ для имен пользователей
     const dayWidth = (chartWidth - leftMargin - 50) / timelineData.timelineRange.totalDays;
 
     return (
@@ -340,7 +341,7 @@ export default function DepartmentTasksGanttChart() {
                                         textAnchor="end"
                                         className="text-sm fill-gray-700 dark:fill-gray-200 font-medium"
                                     >
-                                        {userGroup.user.name}
+                                        {formatName(userGroup.user.name)}
                                     </text>
                                     
                                     {/* Задачи пользователя */}
