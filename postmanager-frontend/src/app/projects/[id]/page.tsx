@@ -3,9 +3,13 @@
 import { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useGetProjectByIdQuery, useDeleteProjectMutation } from '@/store/api/project.api';
+import { useGetUsersQuery } from '@/store/api/user.api';
+import { useGetDepartmentsQuery } from '@/store/api/department.api';
 import { TaskStatus, TaskPriority, TaskForm, Task } from '@/types/task.types';
+import { TasksFilterConfig } from '@/types/filter.types';
 import { Column } from '@/types';
 import { useTasks } from '@/hooks/useTasks';
+import { filterTasks } from '@/utils/taskFiltering';
 import { soundManager } from '@/utils/soundUtils';
 import { format } from 'date-fns';
 
@@ -15,6 +19,7 @@ import TasksTab from '../../../components/projectComponents/TasksTab';
 import TimelineTab from '../../../components/projectComponents/TimelineTab';
 import CalendarTab from '../../../components/projectComponents/CalendarTab';
 import ProjectEditModal from '../../../components/projectComponents/ProjectEditModal';
+import TasksFilter from '../../../components/filters/TasksFilter';
 
 const initialColumns: Record<string, Column> = {
   IN_PROGRESS: {
@@ -40,6 +45,18 @@ export default function ProjectPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showProjectEditModal, setShowProjectEditModal] = useState(false);
 
+  // Состояние фильтров
+  const [filters, setFilters] = useState<TasksFilterConfig>({
+    searchQuery: '',
+    departments: [],
+    priorities: [],
+    assignees: [],
+    dateRange: {
+      startDate: null,
+      endDate: null
+    }
+  });
+
   // Утилиты для работы с приоритетами
   const priorityMapToEnglish: Record<string, TaskPriority> = {
     'Низкий': 'LOW',
@@ -63,30 +80,53 @@ export default function ProjectPage() {
   const { data: project, isLoading: projectLoading, error: projectError } = useGetProjectByIdQuery(projectId);
   const [deleteProject] = useDeleteProjectMutation();
 
-  // Формируем колонки из сгруппированных задач проекта
-  const columns: Record<string, Column> = useMemo(() => {
-    if (groupedProjectTasks && Object.keys(groupedProjectTasks).length > 0) {
-      return {
-        IN_PROGRESS: { 
-          name: 'В процессе', 
-          items: groupedProjectTasks.IN_PROGRESS || [] 
-        },
-        PROBLEM: { 
-          name: 'Согласование', 
-          items: groupedProjectTasks.PROBLEM || [] 
-        },
-        COMPLETED: { 
-          name: 'Выполнено', 
-          items: groupedProjectTasks.COMPLETED || [] 
-        }
-      };
-    }
+  // Загружаем данные для фильтров
+  const { data: allUsers = [], isLoading: usersLoading } = useGetUsersQuery();
+  const { data: allDepartments = [], isLoading: departmentsLoading } = useGetDepartmentsQuery();
 
-    return initialColumns;
-  }, [groupedProjectTasks]);
+  // Применяем фильтрацию к задачам проекта
+  const filteredTasks = useMemo(() => {
+    if (!projectTasks || projectTasks.length === 0) return [];
+    return filterTasks(projectTasks, filters).filteredTasks;
+  }, [projectTasks, filters]);
+
+  // Группируем отфильтрованные задачи по статусам
+  const groupedFilteredTasks = useMemo(() => {
+    const grouped: Record<string, Task[]> = {
+      IN_PROGRESS: [],
+      PROBLEM: [],
+      COMPLETED: []
+    };
+    
+    filteredTasks.forEach(task => {
+      if (grouped[task.status]) {
+        grouped[task.status].push(task);
+      }
+    });
+    
+    return grouped;
+  }, [filteredTasks]);
+
+  // Формируем колонки из отфильтрованных и сгруппированных задач
+  const columns: Record<string, Column> = useMemo(() => {
+    return {
+      IN_PROGRESS: { 
+        name: 'В процессе', 
+        items: groupedFilteredTasks.IN_PROGRESS || [] 
+      },
+      PROBLEM: { 
+        name: 'Согласование', 
+        items: groupedFilteredTasks.PROBLEM || [] 
+      },
+      COMPLETED: { 
+        name: 'Выполнено', 
+        items: groupedFilteredTasks.COMPLETED || [] 
+      }
+    };
+  }, [groupedFilteredTasks]);
 
   // Обработка ошибок загрузки
-  if (projectLoading) return <div className="text-white">Загрузка проекта...</div>;
+  if (projectLoading || usersLoading || departmentsLoading) return <div className="text-white">Загрузка проекта...</div>;
   if (projectError) return <div className="text-white">Ошибка при загрузке проекта</div>;
   if (isLoading) return <div className="text-white">Загрузка задач...</div>;
   if (error) return <div className="text-white">Ошибка при загрузке задач: {error}</div>;
@@ -239,15 +279,34 @@ export default function ProjectPage() {
       />
 
       {activeTab === 'tasks' && (
-        <div className="flex-1 overflow-hidden custom-scrollbar">
-          <TasksTab
-            columns={columns}
-            handleDeleteTask={handleDeleteTask}
-            onTaskUpdate={handleTaskUpdate}
-            onAddTask={handleCreateTask}
-            onUpdateColumnName={handleUpdateColumnName}
-            onTaskMove={handleTaskMove}
-          />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Фильтры задач */}
+          <div className="px-6 mt-4 mx-2 flex-shrink-0">
+            <TasksFilter
+              tasks={projectTasks || []}
+              filters={filters}
+              onFiltersChange={setFilters}
+              availableDepartments={allDepartments}
+              availableUsers={allUsers}
+              searchPlaceholder="Поиск задач проекта..."
+              showDepartmentFilter={true}
+              showAssigneeFilter={true}
+              showDateFilter={true}
+              showPriorityFilter={true}
+            />
+          </div>
+
+          {/* Доски задач */}
+          <div className="flex-1 overflow-hidden custom-scrollbar">
+            <TasksTab
+              columns={columns}
+              handleDeleteTask={handleDeleteTask}
+              onTaskUpdate={handleTaskUpdate}
+              onAddTask={handleCreateTask}
+              onUpdateColumnName={handleUpdateColumnName}
+              onTaskMove={handleTaskMove}
+            />
+          </div>
         </div>
       )}
 

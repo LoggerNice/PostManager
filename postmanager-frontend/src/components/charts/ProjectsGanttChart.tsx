@@ -7,7 +7,7 @@ import { useGetTasksQuery } from '@/store/api/task.api';
 import { useGetDepartmentsQuery } from '@/store/api/department.api';
 import { IProject } from '@/types/project.types';
 
-interface GanttProject extends IProject {
+interface GanttProject extends Omit<IProject, 'startDate' | 'endDate'> {
     startDate: Date;
     endDate: Date;
     color: 'red' | 'yellow' | 'white';

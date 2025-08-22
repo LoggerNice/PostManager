@@ -107,7 +107,7 @@ export default function UserManagement() {
     setEditValue('name', user.name || '');
     setEditValue('login', user.login || '');
     setEditValue('role', user.role || '');
-    setEditValue('departmentId', user.departmentId || '');
+    setEditValue('departmentId', user.departmentId || 0);
   };
 
   const togglePasswordVisibility = (userId: number) => {

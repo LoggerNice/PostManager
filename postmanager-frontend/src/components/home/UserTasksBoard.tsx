@@ -1,14 +1,19 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { TaskStatus, TaskPriority, TaskForm, Task } from '@/types/task.types';
+import { TasksFilterConfig } from '@/types/filter.types';
 import { Column } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useTasks } from '@/hooks/useTasks';
+import { useGetUsersQuery } from '@/store/api/user.api';
+import { useGetDepartmentsQuery } from '@/store/api/department.api';
+import { filterTasks } from '@/utils/taskFiltering';
 import { soundManager } from '@/utils/soundUtils';
 import { format } from 'date-fns';
 
 import TasksTab from '../projectComponents/TasksTab';
+import TasksFilter from '../filters/TasksFilter';
 
 const initialColumns: Record<string, Column> = {
   IN_PROGRESS: {
@@ -29,6 +34,18 @@ export default function UserTasksBoard() {
   const { user } = useAuth();
   const userId = user?.id;
 
+  // Состояние фильтров
+  const [filters, setFilters] = useState<TasksFilterConfig>({
+    searchQuery: '',
+    departments: [],
+    priorities: [],
+    assignees: [],
+    dateRange: {
+      startDate: null,
+      endDate: null
+    }
+  });
+
   // Утилиты для работы с приоритетами
   const priorityMapToEnglish: Record<string, TaskPriority> = {
     'Низкий': 'LOW',
@@ -48,27 +65,50 @@ export default function UserTasksBoard() {
     sortTasksByPriority
   } = useTasks({ enableSounds: true, autoSync: true });
 
-  // Формируем колонки из сгруппированных задач пользователя
-  const columns: Record<string, Column> = useMemo(() => {
-    if (groupedUserTasks && Object.keys(groupedUserTasks).length > 0) {
-      return {
-        IN_PROGRESS: { 
-          name: 'В процессе', 
-          items: groupedUserTasks.IN_PROGRESS || [] 
-        },
-        PROBLEM: { 
-          name: 'Согласование', 
-          items: groupedUserTasks.PROBLEM || [] 
-        },
-        COMPLETED: { 
-          name: 'Выполнено', 
-          items: groupedUserTasks.COMPLETED || [] 
-        }
-      };
-    }
+  // Загружаем данные для фильтров
+  const { data: allUsers = [], isLoading: usersLoading } = useGetUsersQuery();
+  const { data: allDepartments = [], isLoading: departmentsLoading } = useGetDepartmentsQuery();
 
-    return initialColumns;
-  }, [groupedUserTasks]);
+  // Применяем фильтрацию к пользовательским задачам
+  const filteredTasks = useMemo(() => {
+    if (!userTasks || userTasks.length === 0) return [];
+    return filterTasks(userTasks, filters).filteredTasks;
+  }, [userTasks, filters]);
+
+  // Группируем отфильтрованные задачи по статусам
+  const groupedFilteredTasks = useMemo(() => {
+    const grouped: Record<string, Task[]> = {
+      IN_PROGRESS: [],
+      PROBLEM: [],
+      COMPLETED: []
+    };
+    
+    filteredTasks.forEach(task => {
+      if (grouped[task.status]) {
+        grouped[task.status].push(task);
+      }
+    });
+    
+    return grouped;
+  }, [filteredTasks]);
+
+  // Формируем колонки из отфильтрованных и сгруппированных задач
+  const columns: Record<string, Column> = useMemo(() => {
+    return {
+      IN_PROGRESS: { 
+        name: 'В процессе', 
+        items: groupedFilteredTasks.IN_PROGRESS || [] 
+      },
+      PROBLEM: { 
+        name: 'Согласование', 
+        items: groupedFilteredTasks.PROBLEM || [] 
+      },
+      COMPLETED: { 
+        name: 'Выполнено', 
+        items: groupedFilteredTasks.COMPLETED || [] 
+      }
+    };
+  }, [groupedFilteredTasks]);
 
   const handleCreateTask = async (
     columnId: string,
@@ -207,7 +247,7 @@ export default function UserTasksBoard() {
     }
   };
 
-  if (isLoading) return <div className="text-white">Загрузка задач...</div>;
+  if (isLoading || usersLoading || departmentsLoading) return <div className="text-white">Загрузка задач...</div>;
   if (error) return <div className="text-white">Ошибка при загрузке задач: {error}</div>;
   if (!userId) return <div className="text-white">Пользователь не авторизован</div>;
 
@@ -221,8 +261,24 @@ export default function UserTasksBoard() {
           Задачи по всем проектам, где вы являетесь исполнителем
         </p>
       </div>
+
+      {/* Фильтры задач */}
+      <div className="mx-8 flex-shrink-0">
+        <TasksFilter
+          tasks={userTasks || []}
+          filters={filters}
+          onFiltersChange={setFilters}
+          availableDepartments={allDepartments}
+          availableUsers={allUsers}
+          searchPlaceholder="Поиск моих задач..."
+          showDepartmentFilter={true}
+          showAssigneeFilter={true}
+          showDateFilter={true}
+          showPriorityFilter={true}
+        />
+      </div>
       
-              <div className="flex-1 overflow-hidden custom-scrollbar">
+      <div className="flex-1 overflow-hidden custom-scrollbar">
         <TasksTab
           columns={columns}
           handleDeleteTask={handleDeleteTask}
