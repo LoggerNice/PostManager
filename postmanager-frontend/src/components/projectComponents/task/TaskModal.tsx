@@ -44,7 +44,6 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             value={newTask.description}
             onChange={e => setNewTask({ ...newTask, description: e.target.value })}
             rows={3}
-            maxLength={500}
           />
         </div>
         <div className="mb-3">

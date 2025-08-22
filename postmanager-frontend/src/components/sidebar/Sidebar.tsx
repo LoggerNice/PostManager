@@ -178,31 +178,57 @@ export default function Sidebar() {
                             {!collapsed && <span className="ml-3">Админ панель</span>}
                         </Link>
                     )}
-                    {collapsed ? (
-                        // Свернутое состояние: уведомления сверху, профиль посередине, выход снизу
-                        <>
-                            <button
-                                onClick={() => setNotificationHistoryOpen(true)}
-                                className="flex items-center justify-center rounded-lg p-2 text-gray-400 hover:text-white hover:bg-gray-800 relative"
-                                title="История уведомлений"
-                            >
+                      <div className={collapsed ? "flex flex-col items-center py-2 space-y-4" : "space-y-2"}>
+                        {/* Уведомления */}
+                        <button
+                            onClick={() => setNotificationHistoryOpen(true)}
+                            className={`flex items-center ${collapsed ? 'justify-center p-2' : 'justify-between w-full p-2'} rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 relative`}
+                            title={collapsed ? "История уведомлений" : ""}
+                        >
+                            <div className="flex items-center space-x-3">
                                 <BellIcon className="h-6 w-6" />
-                                {unreadCount > 0 && (
-                                    <div className="absolute top-1 right-2 bg-red-500 rounded-full h-2 w-2"></div>
-                                )}
-                            </button>
-                            <Link href={PAGE_URL.PROFILE} className={`flex items-center justify-center rounded-lg p-2 ${pathname === PAGE_URL.PROFILE ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}>
+                                {!collapsed && <span className="font-medium">Уведомления</span>}
+                            </div>
+                            {unreadCount > 0 && (
+                                <div className={`bg-red-500 rounded-full h-2 w-2 ${collapsed ? 'absolute top-1 right-2' : 'mr-3'}`}></div>
+                            )}
+                        </button>
+
+                        {/* Профиль */}
+                        <div
+                            className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} rounded-lg p-2 hover:text-white hover:bg-gray-800`}
+                        >
+                            <Link
+                                href={PAGE_URL.PROFILE}
+                                className={`flex items-center ${collapsed ? '' : 'space-x-3'}`}
+                            >
                                 <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center">
-                                    <div className="absolute w-3 h-3 bg-green-500 rounded-full bottom-0 right-0 border-2 border-gray-900"></div>
-                                    <Image
-                                        src="/avatar.png"
-                                        alt="Аватар пользователя"
-                                        fill
-                                        className="object-cover"
-                                        sizes="32px"
-                                    />
+                                <div className="absolute w-3 h-3 bg-green-500 rounded-full bottom-0 right-0 border-2 border-gray-900"></div>
+                                <Image
+                                    src="/avatar.png"
+                                    alt="Аватар пользователя"
+                                    fill
+                                    className="object-cover"
+                                    sizes="32px"
+                                />
                                 </div>
+                                {!collapsed && <span className="text-sm font-medium">{userName || 'Загрузка...'}</span>}
                             </Link>
+
+                            {/* Кнопка выхода */}
+                            {!collapsed && (
+                                <button
+                                    onClick={handleLogout}
+                                    className="p-2 text-red-400 hover:text-red-300 hover:bg-gray-800 rounded"
+                                    title="Выйти"
+                                >
+                                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Кнопка выхода (только в свернутом состоянии) */}
+                        {collapsed && (
                             <button
                                 onClick={handleLogout}
                                 className="flex items-center justify-center p-2 mb-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-gray-800"
@@ -210,47 +236,8 @@ export default function Sidebar() {
                             >
                                 <ArrowRightOnRectangleIcon className="h-6 w-6" />
                             </button>
-                        </>
-                    ) : (
-                        // Развернутое состояние: уведомления сверху, профиль снизу
-                        <div className="space-y-2">
-                            <button
-                                onClick={() => setNotificationHistoryOpen(true)}
-                                className="flex items-center justify-between w-full p-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 relative"
-                                title="История уведомлений"
-                            >
-                                <div className="flex items-center space-x-3">
-                                    <BellIcon className="h-6 w-6" />
-                                    <span className="text-sm font-medium">Уведомления</span>
-                                </div>
-                                {unreadCount > 0 && (
-                                    <div className="bg-red-500 rounded-full h-2 w-2 mr-3"></div>
-                                )}
-                            </button>
-                            <div className="flex items-center justify-between rounded-lg p-2 hover:text-white hover:bg-gray-800">
-                                <Link href={PAGE_URL.PROFILE} className="flex items-center space-x-3 ">
-                                    <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center ">
-                                        <div className="absolute w-3 h-3 bg-green-500 rounded-full bottom-0 right-0 border-2 border-gray-900"></div>
-                                        <Image
-                                            src="/avatar.png"
-                                            alt="Аватар пользователя"
-                                            fill
-                                            className="object-cover"
-                                            sizes="32px"
-                                        />
-                                    </div>
-                                    <span className="text-sm font-medium">{userName || 'Загрузка...'}</span>
-                                </Link>
-                                <button
-                                    onClick={handleLogout}
-                                    className="p-2 text-red-400 hover:text-red-300 hover:bg-gray-800 rounded"
-                                    title="Выйти"
-                                >
-                                    <ArrowRightOnRectangleIcon className="h-5 w-5" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
+                        )}
+                    </div>
                 </div>
             </div>
             

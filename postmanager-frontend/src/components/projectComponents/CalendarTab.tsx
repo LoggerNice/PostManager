@@ -10,6 +10,7 @@ import type { EventMountArg, EventContentArg } from '@fullcalendar/core';
 import { useGetProjectTasksQuery } from '@/store/api/task.api';
 import type { Task, TaskAssignee } from '@/types/task.types';
 import type { IUser } from '@/types/user.types';
+import { formatName } from '../charts/DepartmentTasksExcelExport';
 
 type CalendarTabProps = {
   projectId: number;
@@ -128,7 +129,7 @@ export default function CalendarTab({ projectId, tasks }: CalendarTabProps) {
                 // Формируем список ответственных
                 let assigneesHtml = '';
                 if (assignees && assignees.length > 0) {
-                  const assigneeNames = assignees.map(a => a.user?.name || 'Неизвестно').slice(0, 2); // Показываем максимум 2
+                  const assigneeNames = assignees.map(a => formatName(a.user?.name) || 'Неизвестно').slice(0, 2); // Показываем максимум 2
                   assigneesHtml = `<div class="text-xs text-gray-300 mt-1">👥 ${assigneeNames.join(', ')}${assignees.length > 2 ? '...' : ''}</div>`;
                 } else if (assignee) {
                   assigneesHtml = `<div class="text-xs text-gray-300 mt-1">👤 ${assignee.name || 'Неизвестно'}</div>`;

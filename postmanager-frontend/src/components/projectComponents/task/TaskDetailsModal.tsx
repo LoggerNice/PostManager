@@ -14,6 +14,7 @@ import { ArrowPathIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outlin
 
 import { X, Send, MessageCircle, Edit } from 'lucide-react';
 import { RTKQueryHelpers, useDebouncedRefetch } from '@/utils/rtk-query-helpers';
+import { formatName } from '@/components/charts/DepartmentTasksExcelExport';
 
 
 interface TaskDetailsModalProps {
@@ -437,7 +438,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                     </div>
                     <div className="flex flex-col">
                       <span className="font-medium text-gray-200">
-                        {task.creator.name}
+                        {formatName(task.creator.name)}
                       </span>
                       {task.creator.department && (
                         <span className="text-gray-400 text-xs"> ({task.creator.department.name})</span>

@@ -44,7 +44,7 @@ export default function Auth() {
     const password = watch('password');
 
     const validationRules = {
-        name: { required: 'Имя обязательно' },
+        name: { required: 'ФИО обязательно' },
         login: {
             required: 'Логин обязателен',
             minLength: {
@@ -114,9 +114,9 @@ export default function Auth() {
                 <div className="space-y-4">
                     {!isLoginForm && (
                         <Input
-                            label="Имя"
+                            label="ФИО"
                             type="text"
-                            placeholder="Введите имя"
+                            placeholder="Введите ФИО"
                             {...registerForm('name', validationRules.name)}
                             error={errors.name?.message}
                         />

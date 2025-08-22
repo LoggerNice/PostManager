@@ -212,9 +212,9 @@ export default function Profile({ userId: propUserId }: { userId?: number } = {}
             <form onSubmit={handleSubmit(onSubmit)} className="border-t border-gray-200 dark:border-gray-700 p-6 space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
                     <Input
-                        label="Имя"
+                        label="ФИО"
                         {...register('name', {
-                            required: 'Имя обязательно'
+                            required: 'ФИО обязательно'
                         })}
                         error={errors.name?.message}
                     />
