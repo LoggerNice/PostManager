@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDepartmentTasks } from '@/hooks/useDepartmentTasks';
 import { Task } from '@/types/task.types';
@@ -33,9 +33,36 @@ export default function DepartmentTasksGanttChart() {
     const router = useRouter();
     const { currentUser, departmentId, departmentUsers, departmentTasks, isLoading } = useDepartmentTasks();
     
+    // Состояния для размеров
+    const [containerWidth, setContainerWidth] = useState(0);
+    const [chartHeight, setChartHeight] = useState(400);
+    
     // Состояние для модального окна
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // Константы
+    const leftMargin = 120;
+    const rightMargin = 100;
+    const rowHeight = 30;
+    const headerHeight = 80;
+
+    // Получаем ссылку на контейнер для измерения ширины
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Измеряем ширину контейнера при монтировании и изменении размера окна
+    useEffect(() => {
+        const updateWidth = () => {
+            if (containerRef.current) {
+                setContainerWidth(containerRef.current.offsetWidth);
+            }
+        };
+
+        updateWidth();
+        window.addEventListener('resize', updateWidth);
+        
+        return () => window.removeEventListener('resize', updateWidth);
+    }, []);
 
     // Вычисляем общий период для задач отдела - только рабочая неделя
     const timelineData = useMemo<TimelineData>(() => {
@@ -226,6 +253,36 @@ export default function DepartmentTasksGanttChart() {
         }).filter(group => group.tasks.length > 0); // Показываем только пользователей с задачами
     }, [departmentTasks, departmentUsers, timelineData]);
 
+    // Вычисляем динамические размеры
+    const { chartWidth, daySpacing, availableWidth } = useMemo(() => {
+        const width = containerWidth || 800;
+        const chartWidth = width - 32; // Убираем отступы контейнера
+        
+        const datesCount = timelineData.dates.length;
+        const availableWidth = chartWidth - leftMargin - rightMargin;
+        const daySpacing = datesCount > 1 
+            ? availableWidth / Math.max(datesCount - 1, 1)
+            : availableWidth / 5;
+
+        return {
+            chartWidth,
+            daySpacing,
+            availableWidth
+        };
+    }, [containerWidth, timelineData, leftMargin, rightMargin]);
+
+    // Вычисляем высоту диаграммы динамически
+    useEffect(() => {
+        const totalUsers = userTasksGroups.length;
+        
+        const maxLevels = userTasksGroups.length > 0 
+            ? Math.max(...userTasksGroups.map(group => group.maxLevel + 1), 1)
+            : 1;
+            
+        const calculatedHeight = headerHeight + (totalUsers * (maxLevels * rowHeight + 40)) + 80;
+        setChartHeight(Math.max(calculatedHeight, 400));
+    }, [userTasksGroups, headerHeight, rowHeight]);
+
     const handleTaskClick = (task: GanttTask) => {
         setSelectedTask(task);
         setIsModalOpen(true);
@@ -259,23 +316,22 @@ export default function DepartmentTasksGanttChart() {
         </div>
     );
 
-    // Высота адаптируется под количество уровней задач каждого пользователя
-    const chartHeight = userTasksGroups.reduce((height, group) => {
-        return height + Math.max(40, (group.maxLevel + 1) * 30) + 20;
-    }, 120); // Увеличиваем высоту для заголовка
-    const chartWidth = Math.max(1000, typeof window !== 'undefined' ? window.innerWidth - 100 : 1000);
-    const leftMargin = 120; // Увеличиваем левый отступ для имен пользователей
-    const dayWidth = (chartWidth - leftMargin - 50) / timelineData.timelineRange.totalDays;
+
 
     return (
-        <div className="bg-white dark:bg-gray-800 rounded-lg px-6 pb-6 shadow-lg w-full">
-            <div className="w-full overflow-x-auto">
-                <svg width={chartWidth} height={chartHeight} className="w-full">
+        <div 
+            ref={containerRef}
+            className="bg-white dark:bg-gray-800 rounded-lg px-6 pb-6 shadow-lg w-full"
+        >
+            <div className="w-full">
+                <svg 
+                    width={chartWidth} 
+                    height={chartHeight} 
+                    className="w-full min-w-full"
+                    style={{ minWidth: `${chartWidth}px` }}
+                >
                     {/* Заголовки дней */}
                     {timelineData.dates.map((date, index) => {
-                        // Динамический расчет позиции - равномерно распределяем 5 дней по доступной ширине
-                        const availableWidth = chartWidth - leftMargin - 50;
-                        const daySpacing = availableWidth / 12; // 6 промежутков для 5 дней - более компактно
                         const position = index * daySpacing;
                         const isToday = date.toDateString() === new Date().toDateString();
                         const isFriday = date.getDay() === 5;
@@ -349,34 +405,20 @@ export default function DepartmentTasksGanttChart() {
                                         const taskStartTime = task.startDate.getTime();
                                         const taskEndTime = task.endDate.getTime();
 
-                                        // Начало и конец недели
+                                        // Начало недели для расчетов
                                         const weekStartTime = timelineData.timelineRange.start.getTime();
-                                        const weekEndTime = timelineData.timelineRange.end.getTime();
 
-                                        // Доступная ширина диаграммы
-                                        const availableWidth = chartWidth - leftMargin - 50;
-
-                                        // 5 рабочих дней => 6 промежутков (между 5 днями)
-                                        const daySpacing = availableWidth / 12; // один день = одна доля ширины
-
-                                        // Определяем, в какой день начинается и заканчивается задача
-                                        const startDayIndex = Math.floor((taskStartTime - weekStartTime) / (24 * 60 * 60 * 1000));
-                                        const endDayIndex = Math.floor((taskEndTime - weekStartTime) / (24 * 60 * 60 * 1000));
-
-                                        // Ограничиваем индексы дня в пределах 0–4 (понедельник–пятница)
-                                        const clampedStartDay = Math.max(0, Math.min(4, startDayIndex));
-                                        const clampedEndDay = Math.max(0, Math.min(4, endDayIndex));
-
-                                        // Позиция по X — начало и конец задачи в пикселях
-                                        const startX = leftMargin + clampedStartDay * daySpacing;
-                                        const endX = leftMargin + (clampedEndDay + 1) * daySpacing; // +1, чтобы задача покрывала весь день
-
-                                        // Ограничиваем позиции в пределах графика
+                                        // Рассчитываем позиции задачи
+                                        const startOffsetDays = (taskStartTime - weekStartTime) / (24 * 60 * 60 * 1000);
+                                        const durationDays = Math.max((taskEndTime - taskStartTime) / (24 * 60 * 60 * 1000), 1);
+                                        
+                                        const startX = leftMargin + startOffsetDays * daySpacing;
+                                        const barWidth = Math.max(durationDays * daySpacing, 60);
+                                        
+                                        // Ограничиваем в пределах диаграммы
                                         const actualStartX = Math.max(startX, leftMargin);
-                                        const actualEndX = Math.min(endX, chartWidth - 50);
-
-                                        // Ширина задачи (минимум 60px)
-                                        const barWidth = Math.max(actualEndX - actualStartX, 60);
+                                        const actualEndX = Math.min(startX + barWidth, chartWidth - rightMargin);
+                                        const finalWidth = Math.max(actualEndX - actualStartX, 60);
 
                                         // Вертикальная позиция задачи
                                         const taskY = userY + 5 + task.level * 30;
@@ -403,7 +445,7 @@ export default function DepartmentTasksGanttChart() {
                                                 <rect
                                                     x={actualStartX}
                                                     y={taskY}
-                                                    width={barWidth}
+                                                    width={finalWidth}
                                                     height={24}
                                                     fill={colorMap[task.color]}
                                                     stroke={borderColorMap[task.color]}
@@ -419,11 +461,15 @@ export default function DepartmentTasksGanttChart() {
                                                     x={actualStartX + 8}
                                                     y={taskY + 16}
                                                     className="text-xs fill-white font-medium"
-                                                    style={{ pointerEvents: 'none' }}
+                                                    style={{ 
+                                                        pointerEvents: 'none',
+                                                        maxWidth: `${Math.max(finalWidth - 16, 0)}px`,
+                                                        overflow: 'hidden'
+                                                    }}
                                                 >
-                                                    {task.title.length > 25 
+                                                    {task.title?.length > 25 
                                                         ? `${task.title.substring(0, 25)}...` 
-                                                        : task.title
+                                                        : task.title || 'Без названия'
                                                     }
                                                 </text>
                                             </g>

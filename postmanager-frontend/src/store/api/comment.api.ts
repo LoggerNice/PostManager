@@ -20,7 +20,7 @@ export const commentApi = api.injectEndpoints({
                 : [{ type: 'Comment', id: `task-${taskId}` }],
             pollingInterval: 5000,
         }),
-        createComment: build.mutation<any, { content: string; taskId: number; authorId: number; fileUrl?: string; fileName?: string; fileSize?: number }>({
+        createComment: build.mutation<any, { content: string; taskId: number; authorId: number; fileUrl?: string; fileName?: string; fileSize?: number; isSolution?: boolean }>({
             query: (data) => ({
                 url: 'comments',
                 method: 'POST',
@@ -91,6 +91,21 @@ export const commentApi = api.injectEndpoints({
             }),
             providesTags: (result, error, { commentIds }) => 
                 commentIds.map(id => ({ type: 'CommentViewStats', id }))
+        }),
+        markCommentAsSolution: build.mutation<any, { commentId: number; isSolution: boolean }>({
+            query: ({ commentId, isSolution }) => ({
+                url: `comments/${commentId}/solution`,
+                method: 'PUT',
+                body: { isSolution }
+            }),
+            invalidatesTags: (result, error, { commentId }) => {
+                const comment = result;
+                return [
+                    { type: 'Comment', id: commentId },
+                    { type: 'Comment', id: 'LIST' },
+                    { type: 'Comment', id: `task-${comment?.taskId}` }
+                ];
+            }
         })
     })
 });
@@ -102,5 +117,6 @@ export const {
     useUpdateCommentMutation,
     useDeleteCommentMutation,
     useMarkCommentAsViewedMutation,
-    useGetCommentViewStatsQuery
+    useGetCommentViewStatsQuery,
+    useMarkCommentAsSolutionMutation
 } = commentApi; 

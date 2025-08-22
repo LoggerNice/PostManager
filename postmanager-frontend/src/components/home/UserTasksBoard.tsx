@@ -115,6 +115,7 @@ export default function UserTasksBoard() {
     title: string,
     description: string = '',
     priority: TaskPriority = 'LOW',
+    taskType: TaskType = 'OTHER',
     deadline?: string,
     assigneeIds?: number[]
   ) => {
@@ -141,6 +142,7 @@ export default function UserTasksBoard() {
       title: title.trim(),
       description: description.trim(),
       priority: priority,
+      taskType: taskType,
       status: columnId as TaskStatus,
       projectId: firstProject,
       deadline: deadline,

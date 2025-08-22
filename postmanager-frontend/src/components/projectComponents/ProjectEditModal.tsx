@@ -110,9 +110,9 @@ export default function ProjectEditModal({ isOpen, onClose, project }: ProjectEd
                     />
 
                     <Input
-                        label="Клиент"
+                        label="ГК"
                         {...register('client', {
-                            required: 'Клиент обязателен'
+                            required: 'ГК обязателен'
                         })}
                         error={errors.client?.message}
                     />

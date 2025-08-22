@@ -34,6 +34,14 @@ enum TaskPriority {
   HIGH
 }
 
+enum TaskType {
+  METHODOLOGIES
+  TESTING_PREPARATION
+  DEBUG_CHECK
+  MEETING
+  OTHER
+}
+
 model User {
   id         Int      @id @default(autoincrement())
   login      String   @unique
@@ -58,6 +66,7 @@ model Task {
   description String?
   priority TaskPriority @default(LOW)
   status TaskStatus @default(TODO)
+  taskType TaskType @default(OTHER)
   deadline DateTime?
   project Project? @relation(fields: [projectId], references: [id])
   projectId Int?
@@ -78,6 +87,7 @@ model Comment {
   fileUrl String? // URL загруженного файла
   fileName String? // Имя файла
   fileSize Int? // Размер файла в байтах
+  isSolution Boolean @default(false) // Помечен ли комментарий как решение задачи
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   task Task? @relation(fields: [taskId], references: [id])

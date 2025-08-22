@@ -6,6 +6,7 @@ export interface Comment {
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
+  isSolution?: boolean;
   createdAt: Date;
   updatedAt: Date;
   taskId: number;
@@ -20,8 +21,13 @@ export interface CreateCommentRequest {
   fileUrl?: string;
   fileName?: string;
   fileSize?: number;
+  isSolution?: boolean;
 }
 
 export interface UpdateCommentRequest {
   content: string;
+}
+
+export interface MarkCommentAsSolutionRequest {
+  isSolution: boolean;
 } 

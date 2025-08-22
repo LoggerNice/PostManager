@@ -4,13 +4,14 @@ import { getWebSocketServer } from '../websocketServer.js';
 
 export const createComment = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { content, taskId, authorId, fileUrl, fileName, fileSize } = req.body;
+        const { content, taskId, authorId, fileUrl, fileName, fileSize, isSolution } = req.body;
         const comment = await prisma.comment.create({
             data: {
                 content,
                 fileUrl: fileUrl || null,
                 fileName: fileName || null,
                 fileSize: fileSize ? parseInt(fileSize) : null,
+                isSolution: isSolution || false,
                 taskId: parseInt(taskId),
                 authorId: parseInt(authorId),
             },
@@ -332,5 +333,63 @@ export const getCommentViewStats = async (req: Request, res: Response): Promise<
     } catch (error) {
         console.error('Ошибка при получении статистики просмотров:', error);
         res.status(500).json({ message: 'Ошибка при получении статистики просмотров' });
+    }
+}
+
+// Пометить комментарий как решение задачи
+export const markCommentAsSolution = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { commentId } = req.params;
+        const { isSolution } = req.body;
+        
+        if (!commentId) {
+            res.status(400).json({ message: 'ID комментария не указан' });
+            return;
+        }
+        
+        // Сначала убираем пометку "решение" с других комментариев этой задачи
+        const comment = await prisma.comment.findUnique({
+            where: { id: parseInt(commentId) }
+        });
+        
+        if (!comment) {
+            res.status(404).json({ message: 'Комментарий не найден' });
+            return;
+        }
+        
+        if (isSolution && comment.taskId) {
+            // Убираем пометку "решение" с других комментариев этой задачи
+            await prisma.comment.updateMany({
+                where: { 
+                    taskId: comment.taskId,
+                    id: { not: parseInt(commentId) }
+                },
+                data: { isSolution: false }
+            });
+        }
+        
+        // Обновляем комментарий
+        const updatedComment = await prisma.comment.update({
+            where: { id: parseInt(commentId) },
+            data: { isSolution: isSolution || false },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        res.status(200).json(updatedComment);
+    } catch (error) {
+        console.error('Ошибка при пометке комментария как решения:', error);
+        res.status(500).json({ message: 'Ошибка при пометке комментария как решения' });
     }
 }
