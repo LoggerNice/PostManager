@@ -6,7 +6,16 @@ import bcrypt from 'bcrypt';
 
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
     try {
-        const users = await prisma.user.findMany();
+        const users = await prisma.user.findMany({
+            include: {
+                department: true
+            }
+        });
+
+
+
+
+
         res.json(users);
     } catch (error) {
         console.error('Ошибка при получении пользователей:', error);

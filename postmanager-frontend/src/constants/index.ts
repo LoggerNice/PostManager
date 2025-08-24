@@ -29,5 +29,6 @@ export const PAGE_URL = {
   TEST: '/test',
   MY_TASKS: '/my-tasks',
   MY_DEPARTMENT: '/my-department',
-  ANALYSIS: '/analysis'
+  ANALYSIS: '/analysis',
+  TRAINER: '/trainer'
 }
