@@ -7,8 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/app.js",
-    "dev": "nodemon",
-    "init:departments": "node dist/scripts/initDepartments.js"
+    "dev": "nodemon"
   },
   "keywords": [],
   "author": "",

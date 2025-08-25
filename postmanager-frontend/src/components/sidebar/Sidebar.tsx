@@ -109,6 +109,8 @@ export default function Sidebar() {
                         {!collapsed && <span className="ml-3">Анализ</span>}
                     </Link>
 
+                    
+
                     {/* Проекты с выпадающим списком */}
                     <div className="mx-2">
                         <div className={`flex items-center w-full p-2 rounded-lg transition-colors ${collapsed ? 'justify-center' : ''} ${pathname.startsWith('/projects/') ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}>
@@ -164,16 +166,6 @@ export default function Sidebar() {
 
                 {/* Профиль и выход */}
                 <div className="p-2 flex flex-col gap-2 mt-auto">
-                    <Link
-                        key={'Тренажер'}
-                        href={PAGE_URL.TRAINER}
-                        className={`flex items-center ${collapsed ? 'justify-center' : ''} p-2 rounded-lg transition-colors ${pathname === PAGE_URL.TRAINER ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                        title={collapsed ? 'Тренажер' : undefined}
-                    >
-                        <BeakerIcon className="h-6 w-6" />
-                        {!collapsed && <span className="ml-3">Тренажер</span>}
-                    </Link>
-
                     {/* Админ панель - для администраторов и начальников отделов */}
                     {(userRole === UserRole.ADMIN || userRole === UserRole.MANAGER) && (
                         <Link
@@ -186,8 +178,6 @@ export default function Sidebar() {
                             {!collapsed && <span className="ml-3">Админ панель</span>}
                         </Link>
                     )}
-
-
                       <div className={collapsed ? "flex flex-col items-center py-2 space-y-4" : "space-y-2"}>
                         {/* Уведомления */}
                         <button

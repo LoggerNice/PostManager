@@ -10,7 +10,6 @@ import * as projectController from './controllers/projectController.js';
 import * as commentController from './controllers/commentController.js';
 import * as fileController from './controllers/fileController.js';
 import * as adminController from './controllers/adminController.js';
-import * as trainingController from './controllers/trainingController.js';
 import { WebSocketServer } from './websocket.js';
 import { setWebSocketServer } from './websocketServer.js';
 import { authenticateToken } from './middleware/auth.js';
@@ -92,24 +91,6 @@ app.delete('/upload/file/:filename', fileController.deleteFile);
 
 // Статические файлы
 app.use('/uploads', express.static('uploads'));
-
-// Роуты для тренировок
-app.get('/task-groups', trainingController.getTaskGroups);
-app.get('/task-groups/:groupId', trainingController.getTaskGroupById);
-app.post('/task-groups', trainingController.createTaskGroup);
-app.put('/task-groups/:groupId', trainingController.updateTaskGroup);
-app.delete('/task-groups/:groupId', trainingController.deleteTaskGroup);
-
-app.get('/missions', trainingController.getMissions);
-app.get('/missions/:missionId', trainingController.getMissionById);
-app.post('/missions', trainingController.createMission);
-app.put('/missions/:missionId', trainingController.updateMission);
-app.delete('/missions/:missionId', trainingController.deleteMission);
-
-app.get('/training-results', trainingController.getTrainingResults);
-app.get('/training-results/user/:userId', trainingController.getUserTrainingResults);
-app.post('/training-results', trainingController.saveTrainingResult);
-app.get('/training-results/ratings', trainingController.getTrainingRatings);
 
 // Админские роуты (требуют аутентификации и проверки прав)
 app.get('/admin/stats', authenticateToken, adminController.requireAdminAccess, adminController.getAdminStats);
