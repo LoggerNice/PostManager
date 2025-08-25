@@ -83,9 +83,9 @@ export default function Test() {
                 />
 
                 <Input
-                    label="ГК"
+                    label="Клиент"
                     {...register('client', {
-                        required: 'ГК обязателен'
+                        required: 'Клиент обязателен'
                     })}
                     error={errors.client?.message}
                 />

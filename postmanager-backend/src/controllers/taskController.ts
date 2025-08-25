@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { TaskStatus, TaskPriority, TaskType } from '@prisma/client';
+import type { TaskStatus, TaskPriority } from '@prisma/client';
 import prisma from '../utils/prisma.js';
 import { getTaskOrderBy } from '../utils/taskUtils.js';
 import { getWebSocketServer } from '../websocketServer.js';
@@ -52,7 +52,6 @@ interface CreateTaskData {
     description?: string;
     status: TaskStatus;
     priority?: TaskPriority;
-    taskType?: TaskType;
     projectId: string;
     deadline?: string;
     order?: number;
@@ -65,7 +64,6 @@ interface UpdateTaskData {
     description?: string;
     status?: TaskStatus;
     priority?: TaskPriority;
-    taskType?: TaskType;
     deadline?: string;
     order?: number;
     assigneeIds?: number[];
@@ -301,7 +299,7 @@ const sendTaskNotificationToProject = async (
 // Основные контроллеры
 export const createTask = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { title, description, status, priority, taskType, projectId, deadline, order, assigneeIds, creatorId }: CreateTaskData = req.body;
+        const { title, description, status, priority, projectId, deadline, order, assigneeIds, creatorId }: CreateTaskData = req.body;
 
         const projectIdNum = validateProjectId(projectId);
         const taskOrder = await calculateTaskOrder(projectIdNum, status, order);
@@ -334,7 +332,6 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
                 description,
                 status,
                 priority,
-                taskType: taskType || 'OTHER',
                 order: taskOrder,
                 deadline: deadline ? new Date(deadline) : null,
                 project: { connect: { id: projectIdNum } },
@@ -432,7 +429,7 @@ export const getTaskById = async (req: Request, res: Response): Promise<void> =>
 export const updateTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const taskId = validateTaskId(req.params.taskId);
-        const { title, description, status, priority, taskType, deadline, order, assigneeIds }: UpdateTaskData = req.body;
+        const { title, description, status, priority, deadline, order, assigneeIds }: UpdateTaskData = req.body;
 
         const currentTask = await prisma.task.findUnique({ where: { id: taskId } });
         if (!currentTask) {
@@ -453,11 +450,6 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
 
         if (status !== undefined && !['TODO', 'IN_PROGRESS', 'PROBLEM', 'COMPLETED', 'CANCELLED'].includes(status)) {
             res.status(400).json({ message: 'Неверный статус задачи' });
-            return;
-        }
-
-        if (taskType !== undefined && !['METHODOLOGIES', 'TESTING_PREPARATION', 'DEBUG_CHECK', 'MEETING', 'OTHER'].includes(taskType)) {
-            res.status(400).json({ message: 'Неверный тип задачи' });
             return;
         }
 
@@ -491,7 +483,6 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             if (title !== undefined) updateData.title = title.trim();
             if (description !== undefined) updateData.description = description;
             if (priority !== undefined) updateData.priority = priority;
-            if (taskType !== undefined) updateData.taskType = taskType;
             if (deadline !== undefined) updateData.deadline = parsedDeadline;
 
             // Обработка изменения статуса

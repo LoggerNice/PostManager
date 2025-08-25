@@ -4,15 +4,13 @@ import { Task, TaskStatus } from '@/types/task.types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { useGetCommentsByTaskQuery, useCreateCommentMutation, useUpdateCommentMutation, useDeleteCommentMutation, useMarkCommentAsViewedMutation, useGetCommentViewStatsQuery, useMarkCommentAsSolutionMutation } from '@/store/api/comment.api';
+import { useGetCommentsByTaskQuery, useCreateCommentMutation, useUpdateCommentMutation, useDeleteCommentMutation, useMarkCommentAsViewedMutation, useGetCommentViewStatsQuery } from '@/store/api/comment.api';
 import { useUpdateTaskMutation } from '@/store/api/task.api';
 import { useUploadFileMutation } from '@/store/api/file.api';
 import { useAuth } from '@/hooks/useAuth';
 import { ChatInput, CommentFile } from '@/components/ui';
 import { CommentViewIndicator } from '@/components/ui/CommentViewIndicator';
-import { ArrowPathIcon, PencilIcon, TrashIcon, CheckIcon } from '@heroicons/react/24/outline';
-import { TaskType, getTaskTypeDisplay } from '@/types/task.types';
+import { ArrowPathIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 import { X, Send, MessageCircle, Edit } from 'lucide-react';
 import { RTKQueryHelpers, useDebouncedRefetch } from '@/utils/rtk-query-helpers';
@@ -57,7 +55,6 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const [updateComment] = useUpdateCommentMutation();
   const [deleteComment] = useDeleteCommentMutation();
   const [markCommentAsViewed] = useMarkCommentAsViewedMutation();
-  const [markCommentAsSolution] = useMarkCommentAsSolutionMutation();
   const [updateTask] = useUpdateTaskMutation();
   const [uploadFile] = useUploadFileMutation();
 
@@ -194,17 +191,6 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
     }
   };
 
-  const handleToggleSolution = async (commentId: number, isSolution: boolean) => {
-    try {
-      await markCommentAsSolution({
-        commentId,
-        isSolution: !isSolution
-      }).unwrap();
-    } catch (error) {
-      console.error('Ошибка при пометке комментария как решения:', error);
-    }
-  };
-
 
 
   const startEditingComment = (commentId: number, currentContent: string) => {
@@ -334,7 +320,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
     return null;
   }
 
-  return createPortal(
+  return (
     <div 
       className="fixed inset-0 flex items-start justify-end z-50 p-4 cursor-default"
       onClick={(e) => {
@@ -425,14 +411,6 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                   <div className="flex items-center gap-2 mt-1">
                     <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)}`}></div>
                     <span className="font-medium text-gray-200">{task.priority}</span>
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-400 text-xs uppercase tracking-wide">Тип задачи</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="font-medium text-gray-200">
-                      {getTaskTypeDisplay(task.taskType as TaskType)}
-                    </span>
                   </div>
                 </div>
                 {task.deadline ? (
@@ -529,7 +507,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                           const viewStats = allViewStats.find(stats => stats.commentId === comment.id);
 
                           return (
-                            <div key={comment.id} className={`flex gap-3 p-3 rounded-lg transition-colors ${comment.isSolution ? 'border-2 border-green-400 bg-green-400/5' : ''}`}>
+                            <div key={comment.id} className="flex gap-3">
                               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                                 {comment.author?.name?.charAt(0) || 'U'}
                               </div>
@@ -553,41 +531,24 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                        />
                                      )}
                                     {/* Кнопки редактирования */}
-                                    <div className="flex items-center gap-1">
-                                      {/* Кнопка пометки как решение для исполнителя задачи */}
-                                      {task?.assignees?.some(assignee => assignee.userId === user?.id) && (
+                                    {user?.id === comment.authorId && (
+                                      <div className="flex items-center gap-1">
                                         <button
-                                          onClick={() => handleToggleSolution(comment.id, comment.isSolution || false)}
-                                          className={`p-1 rounded transition-colors ${
-                                            comment.isSolution 
-                                              ? 'text-green-400 bg-green-400/10 hover:bg-green-400/20' 
-                                              : 'text-gray-400 hover:text-green-400 hover:bg-gray-700'
-                                          }`}
-                                          title={comment.isSolution ? "Убрать пометку решения" : "Пометить как решение"}
+                                          onClick={() => startEditingComment(comment.id, comment.content)}
+                                          className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
+                                          title="Редактировать комментарий"
                                         >
-                                          <CheckIcon className="w-3 h-3" />
+                                          <PencilIcon className="w-3 h-3" />
                                         </button>
-                                      )}
-                                      {/* Кнопки автора комментария */}
-                                      {user?.id === comment.authorId && (
-                                        <>
-                                          <button
-                                            onClick={() => startEditingComment(comment.id, comment.content)}
-                                            className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
-                                            title="Редактировать комментарий"
-                                          >
-                                            <PencilIcon className="w-3 h-3" />
-                                          </button>
-                                          <button
-                                            onClick={() => handleDeleteComment(comment.id)}
-                                            className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
-                                            title="Удалить комментарий"
-                                          >
-                                            <TrashIcon className="w-3 h-3" />
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
+                                        <button
+                                          onClick={() => handleDeleteComment(comment.id)}
+                                          className="p-1 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded transition-colors"
+                                          title="Удалить комментарий"
+                                        >
+                                          <TrashIcon className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                                                  {editingCommentId === comment.id ? (
@@ -673,7 +634,6 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
             </div>
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 } 

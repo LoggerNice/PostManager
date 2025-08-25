@@ -1,6 +1,5 @@
 import { getFileIcon, formatFileSize } from '@/utils/fileUtils';
 import { Download, ExternalLink } from 'lucide-react';
-import { getApiUrl } from '@/utils/networkConfig';
 
 interface CommentFileProps {
   fileName: string;
@@ -15,9 +14,8 @@ export default function CommentFile({ fileName, fileUrl, fileSize, fileType }: C
     if (url.startsWith('http')) {
       return url;
     }
-    
-    // Используем централизованную функцию для получения API URL
-    const baseUrl = getApiUrl();
+    // Используем переменную окружения или дефолтный URL
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3045';
     return `${baseUrl}${url}`;
   };
 
