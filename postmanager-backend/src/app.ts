@@ -82,9 +82,6 @@ app.delete('/comments/:commentId', commentController.deleteComment);
 // Маршруты для работы с просмотрами комментариев
 app.post('/comments/:commentId/view', commentController.markCommentAsViewed);
 
-// Маршрут для пометки комментария как решения
-app.put('/comments/:commentId/solution', commentController.markCommentAsSolution);
-
 // Маршруты для загрузки файлов
 app.post('/upload/file', fileController.upload.single('file'), fileController.uploadFile);
 app.delete('/upload/file/:filename', fileController.deleteFile);

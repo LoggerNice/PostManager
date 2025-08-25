@@ -3,7 +3,7 @@
 import { Droppable, Draggable, DroppableProvided, DroppableStateSnapshot, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
 import { Column as ColumnType } from '../../../types';
-import { Task, TaskPriority, TaskType } from '@/types/task.types';
+import { Task, TaskPriority } from '@/types/task.types';
 import { useState } from 'react';
 import { format } from 'date-fns';
 import TaskModal from './TaskModal';
@@ -13,7 +13,7 @@ interface ColumnProps {
   column: ColumnType;
   handleDeleteTask: (columnId: string, taskId: string) => void;
   onTaskUpdate: (taskId: string, updatedTask: Task) => void;
-  onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, taskType?: any, deadline?: string, assigneeIds?: number[]) => void;
+  onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, deadline?: string, assigneeIds?: number[]) => void;
   onUpdateColumnName: (columnId: string, newName: string) => void;
   showProjectTitle?: boolean;
   showAddButton?: boolean;
@@ -29,7 +29,6 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
     title: '',
     description: '',
     priority: 'Низкий' as 'Низкий' | 'Средний' | 'Высокий',
-    taskType: 'OTHER' as any,
     deadline: null as Date | null,
     assigneeIds: [] as number[]
   });
@@ -65,7 +64,6 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
       title: '',
       description: '',
       priority: 'Низкий',
-      taskType: 'OTHER' as any,
       deadline: null,
       assigneeIds: []
     });
@@ -79,14 +77,6 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
         'Высокий': 'HIGH'
       };
       
-      const taskTypeMap: Record<string, any> = {
-        'OTHER': 'OTHER',
-        'METHODOLOGIES': 'METHODOLOGIES',
-        'TESTING_PREPARATION': 'TESTING_PREPARATION',
-        'DEBUG_CHECK': 'DEBUG_CHECK',
-        'MEETING': 'MEETING'
-      };
-      
               const deadlineString = newTaskData.deadline ? format(newTaskData.deadline, 'yyyy-MM-dd HH:mm:ss') : undefined;
       
       onAddTask(
@@ -94,7 +84,6 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
         newTaskData.title.trim(),
         newTaskData.description.trim(),
         priorityMap[newTaskData.priority],
-        taskTypeMap[newTaskData.taskType] || 'OTHER',
         deadlineString,
         newTaskData.assigneeIds
       );
@@ -102,7 +91,6 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
         title: '',
         description: '',
         priority: 'Низкий',
-        taskType: 'OTHER' as any,
         deadline: null,
         assigneeIds: []
       });
@@ -179,7 +167,6 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
             title: task.title,
             description: task.description,
             priority: task.priority,
-            taskType: task.taskType,
             deadline: task.deadline || null,
             assigneeIds: task.assigneeIds || []
           });

@@ -1,4 +1,4 @@
-import { TaskModalProps, TaskType, TaskTypeDisplay, getAllTaskTypes, getTaskTypeDisplay, getTaskTypeFromDisplay } from '@/types/task.types';
+import { TaskModalProps } from '@/types/task.types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
@@ -58,20 +58,6 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             <option value="Низкий">Низкий</option>
             <option value="Средний">Средний</option>
             <option value="Высокий">Высокий</option>
-          </select>
-        </div>
-        <div className="mb-3">
-          <label className="block text-sm font-medium text-gray-300 mb-1">
-            Тип задачи
-          </label>
-          <select
-            className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
-            value={getTaskTypeDisplay(newTask.taskType || 'OTHER')}
-            onChange={e => setNewTask({ ...newTask, taskType: getTaskTypeFromDisplay(e.target.value as TaskTypeDisplay) })}
-          >
-            {getAllTaskTypes().map(type => (
-              <option key={type.value} value={type.label}>{type.label}</option>
-            ))}
           </select>
         </div>
         <div className="mb-4">

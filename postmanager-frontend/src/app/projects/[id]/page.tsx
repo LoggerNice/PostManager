@@ -139,7 +139,6 @@ export default function ProjectPage() {
     title: string,
     description: string = '',
     priority: TaskPriority = 'LOW',
-    taskType: TaskType = 'OTHER',
     deadline?: string,
     assigneeIds?: number[]
   ) => {
@@ -153,7 +152,6 @@ export default function ProjectPage() {
       title: title.trim(),
       description: description.trim(),
       priority: priority,
-      taskType: taskType,
       status: columnId as TaskStatus,
       projectId: projectId,
       deadline: deadline,
