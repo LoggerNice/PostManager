@@ -43,99 +43,138 @@ enum TaskType {
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  login      String   @unique
-  password   String
-  department Department? @relation(fields: [departmentId], references: [id])
-  departmentId Int?
-  role       UserRole? @default(USER)
-  name       String
-  tasks      Task[]
-  createdTasks Task[] @relation("TaskCreator") // Связь с задачами, которые создал пользователь
-  comments   Comment[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  projects Project[]
-  assignedTasks TaskAssignee[] // Связь с задачами, которые назначены пользователю
-  commentViews CommentView[] // Связь с просмотрами комментариев
+  id              Int              @id @default(autoincrement())
+  login           String           @unique
+  password        String
+  department      Department?      @relation(fields: [departmentId], references: [id])
+  departmentId    Int?
+  role            UserRole?        @default(USER)
+  name            String
+  tasks           Task[]
+  createdTasks    Task[]           @relation("TaskCreator") // Связь с задачами, которые создал пользователь
+  comments        Comment[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  projects        Project[]
+  assignedTasks   TaskAssignee[] // Связь с задачами, которые назначены пользователю
+  commentViews    CommentView[] // Связь с просмотрами комментариев
+  trainingResults TrainingResult[] // Связь с результатами тренировок
 }
 
 model Task {
-  id Int @id @default(autoincrement())
-  title String
+  id          Int            @id @default(autoincrement())
+  title       String
   description String?
-  priority TaskPriority @default(LOW)
-  status TaskStatus @default(TODO)
-  taskType TaskType @default(OTHER)
-  deadline DateTime?
-  project Project? @relation(fields: [projectId], references: [id])
-  projectId Int?
-  creator User @relation("TaskCreator", fields: [creatorId], references: [id])
-  creatorId Int
-  assignee User? @relation(fields: [assigneeId], references: [id])
-  assigneeId Int?
-  assignees TaskAssignee[] // Связь с исполнителями
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  comments Comment[]
-  order Int? // Позиция задачи в столбце
+  priority    TaskPriority   @default(LOW)
+  status      TaskStatus     @default(TODO)
+  taskType    TaskType       @default(OTHER)
+  deadline    DateTime?
+  project     Project?       @relation(fields: [projectId], references: [id])
+  projectId   Int?
+  creator     User           @relation("TaskCreator", fields: [creatorId], references: [id])
+  creatorId   Int
+  assignee    User?          @relation(fields: [assigneeId], references: [id])
+  assigneeId  Int?
+  assignees   TaskAssignee[] // Связь с исполнителями
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  comments    Comment[]
+  order       Int? // Позиция задачи в столбце
 }
 
 model Comment {
-  id Int @id @default(autoincrement())
-  content String
-  fileUrl String? // URL загруженного файла
-  fileName String? // Имя файла
-  fileSize Int? // Размер файла в байтах
-  isSolution Boolean @default(false) // Помечен ли комментарий как решение задачи
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  task Task? @relation(fields: [taskId], references: [id])
-  taskId Int?
-  author User? @relation(fields: [authorId], references: [id])
-  authorId Int?
-  views CommentView[] // Связь с просмотрами комментария
+  id         Int           @id @default(autoincrement())
+  content    String
+  fileUrl    String? // URL загруженного файла
+  fileName   String? // Имя файла
+  fileSize   Int? // Размер файла в байтах
+  isSolution Boolean       @default(false) // Помечен ли комментарий как решение задачи
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  task       Task?         @relation(fields: [taskId], references: [id])
+  taskId     Int?
+  author     User?         @relation(fields: [authorId], references: [id])
+  authorId   Int?
+  views      CommentView[] // Связь с просмотрами комментария
 }
 
 model Project {
-  id Int @id @default(autoincrement())
-  title String
+  id          Int          @id @default(autoincrement())
+  title       String
   description String?
-  startDate DateTime?
-  endDate DateTime?
-  client String
-  tasks Task[]
-  users User[]
-  department Department[]
+  startDate   DateTime?
+  endDate     DateTime?
+  client      String
+  tasks       Task[]
+  users       User[]
+  department  Department[]
 }
 
 model Department {
-  id Int @id @default(autoincrement())
-  name String
-  users User[]
+  id       Int       @id @default(autoincrement())
+  name     String
+  users    User[]
   projects Project[]
 }
 
 // Модель для связи многие-ко-многим между задачами и исполнителями
 model TaskAssignee {
-  id Int @id @default(autoincrement())
-  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  taskId Int
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId Int
+  id         Int      @id @default(autoincrement())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
   assignedAt DateTime @default(now())
-  
+
   @@unique([taskId, userId])
 }
 
 // Модель для отслеживания просмотров комментариев
 model CommentView {
-  id Int @id @default(autoincrement())
-  comment Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
   commentId Int
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId Int
-  viewedAt DateTime @default(now())
-  
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  viewedAt  DateTime @default(now())
+
   @@unique([commentId, userId])
+}
+
+// Модели для тренировок Linux/AstraLinux
+
+model TaskGroup {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  missions  Mission[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Mission {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String
+  command     String
+  hint        String
+  group       TaskGroup? @relation(fields: [groupId], references: [id])
+  groupId     Int?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([groupId])
+}
+
+model TrainingResult {
+  id               Int      @id @default(autoincrement())
+  user             User     @relation(fields: [userId], references: [id])
+  userId           Int
+  sessionId        String // Unique identifier for each training session
+  totalTasks       Int
+  correctAnswers   Int
+  incorrectAnswers Int
+  completedAt      DateTime @default(now())
+
+  @@index([userId])
+  @@index([sessionId])
 }
