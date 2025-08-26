@@ -58,6 +58,7 @@ app.get('/tasks/:taskId/comments', taskController.getTaskComments);
 
 // Маршрут для обновления приоритетов задач на основе дедлайнов
 app.post('/tasks/update-priorities', taskController.updateTaskPriorities);
+app.put('/comments/:commentId/solution', commentController.markCommentAsSolution);
 
 // Маршруты для работы с исполнителями задач
 app.get('/tasks/:taskId/assignees', taskController.getTaskAssignees);

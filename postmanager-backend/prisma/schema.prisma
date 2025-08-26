@@ -34,14 +34,6 @@ enum TaskPriority {
   HIGH
 }
 
-enum TaskType {
-  METHODOLOGIES
-  TESTING_PREPARATION
-  DEBUG_CHECK
-  MEETING
-  OTHER
-}
-
 model User {
   id              Int              @id @default(autoincrement())
   login           String           @unique
@@ -177,4 +169,12 @@ model TrainingResult {
 
   @@index([userId])
   @@index([sessionId])
+}
+
+enum TaskType {
+  METHODOLOGIES
+  TESTING_PREPARATION
+  DEBUG_CHECK
+  MEETING
+  OTHER
 }

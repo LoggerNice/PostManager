@@ -1,6 +1,6 @@
 'use client';
 
-import { TaskPriority, TaskCardProps, Task } from '@/types/task.types';
+import { TaskPriority, TaskCardProps, Task, TaskType, getTaskTypeFromDisplay, TaskTypeDisplay } from '@/types/task.types';
 import { useState, useRef, useEffect } from 'react';
 import { format } from 'date-fns';
 import "react-datepicker/dist/react-datepicker.css";
@@ -41,6 +41,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     title: item.title,
     description: item.description || '',
     priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
+    taskType: getTaskTypeFromDisplay(item.taskType as TaskTypeDisplay) || 'OTHER',
     deadline: item.deadline ? new Date(item.deadline) : null,
     assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
   });
@@ -61,10 +62,11 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       title: item.title,
       description: item.description || '',
       priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
+      taskType: getTaskTypeFromDisplay(item.taskType as TaskTypeDisplay) || 'OTHER',
       deadline: item.deadline ? new Date(item.deadline) : null,
       assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
     });
-  }, [item.title, item.description, item.priority, item.deadline]);
+  }, [item.title, item.description, item.priority, item.taskType, item.deadline]);
 
 
 
@@ -86,7 +88,8 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         status: item.status,
         projectId: Number(item.projectId),
         deadline: item.deadline ? format(new Date(item.deadline), 'yyyy-MM-dd HH:mm:ss') : undefined,
-        assigneeIds: assigneeIds
+        assigneeIds: assigneeIds,
+        taskType: item.taskType as TaskType || 'OTHER'
       }).unwrap();
       // Обновить задачи после дублирования
       onTaskUpdate(item.id, item); // Триггерим обновление списка задач
@@ -119,7 +122,8 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         task: {
           ...item,
           priority: priorityMap[item.priority as keyof typeof priorityMap],
-          deadline: deadlineValue
+          deadline: deadlineValue,
+          taskType: item.taskType as TaskType || 'OTHER'
         }
       }).unwrap();
 
@@ -146,9 +150,10 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       ref={provided.innerRef}
       {...provided.draggableProps}
       {...provided.dragHandleProps}
-      className={`bg-gray-900 rounded-lg px-4 pt-2 pb-4 shadow flex flex-col gap-2 border-2 ${getPriorityColor(item.priority)}
+      className={`bg-gray-900 rounded-lg px-4 pt-2 pb-4 shadow flex flex-col gap-2 border-2 ${columnId === 'COMPLETED' ? 'border-gray-900' : getPriorityColor(item.priority)}
         ${snapshot.isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
         ${columnId === 'COMPLETED' ? 'opacity-60 text-gray-400 pointer-events-auto' : ''}
+        ${columnId === 'COMPLETED' ? 'text-gray-400' : ''}
         cursor-pointer
       `}
       style={{
@@ -214,6 +219,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
               title: item.title,
               description: item.description || '',
               priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
+              taskType: getTaskTypeFromDisplay(item.taskType as TaskTypeDisplay) || 'OTHER',
               deadline: item.deadline ? new Date(item.deadline) : null,
               assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
             });
@@ -226,6 +232,14 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
                 'Высокий': 'HIGH'
               };
 
+              const taskTypeMap: Record<string, any> = {
+                'OTHER': 'OTHER',
+                'METHODOLOGIES': 'METHODOLOGIES',
+                'TESTING_PREPARATION': 'TESTING_PREPARATION',
+                'DEBUG_CHECK': 'DEBUG_CHECK',
+                'MEETING': 'MEETING'
+              };
+
               const deadlineValue = editTaskData.deadline ? format(editTaskData.deadline, 'yyyy-MM-dd HH:mm:ss') : null;
               console.log('Modal edit - sending deadline to API:', deadlineValue);
 
@@ -235,6 +249,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
                   title: editTaskData.title,
                   description: editTaskData.description,
                   priority: priorityMap[editTaskData.priority],
+                  taskType: taskTypeMap[editTaskData.taskType] || 'OTHER',
                   status: item.status,
                   projectId: Number(item.projectId),
                   deadline: deadlineValue,
@@ -248,6 +263,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
                 title: editTaskData.title,
                 description: editTaskData.description,
                 priority: editTaskData.priority,
+                taskType: editTaskData.taskType,
                 deadline: editTaskData.deadline || null
               };
               onTaskUpdate(item.id, updatedTask);
@@ -263,6 +279,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
               title: task.title,
               description: task.description,
               priority: task.priority,
+              taskType: task.taskType,
               deadline: task.deadline || null,
               assigneeIds: task.assigneeIds || []
             });

@@ -6,6 +6,53 @@ import { Column } from '@/types';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'PROBLEM' | 'COMPLETED' | 'CANCELLED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 export type TaskPriorityDisplay = 'Низкий' | 'Средний' | 'Высокий';
+export type TaskType = 'METHODOLOGIES' | 'TESTING_PREPARATION' | 'DEBUG_CHECK' | 'MEETING' | 'OTHER';
+export type TaskTypeDisplay = 'Методики' | 'Подготовка и проведение испытаний' | 'Отладка\\проверка' | 'Совещание' | 'Прочее';
+
+// Функции для преобразования типов задач
+export const getTaskTypeDisplay = (taskType: TaskType | null | undefined): TaskTypeDisplay => {
+    if (!taskType) return 'Прочее';
+    
+    switch (taskType) {
+        case 'METHODOLOGIES':
+            return 'Методики';
+        case 'TESTING_PREPARATION':
+            return 'Подготовка и проведение испытаний';
+        case 'DEBUG_CHECK':
+            return 'Отладка\\проверка';
+        case 'MEETING':
+            return 'Совещание';
+        case 'OTHER':
+        default:
+            return 'Прочее';
+    }
+};
+
+export const getTaskTypeFromDisplay = (display: TaskTypeDisplay | null | undefined): TaskType => {
+    if (!display) return 'OTHER';
+    
+    switch (display) {
+        case 'Методики':
+            return 'METHODOLOGIES';
+        case 'Подготовка и проведение испытаний':
+            return 'TESTING_PREPARATION';
+        case 'Отладка\\проверка':
+            return 'DEBUG_CHECK';
+        case 'Совещание':
+            return 'MEETING';
+        case 'Прочее':
+        default:
+            return 'OTHER';
+    }
+};
+
+export const getAllTaskTypes = (): { value: TaskType; label: TaskTypeDisplay }[] => [
+    { value: 'METHODOLOGIES', label: 'Методики' },
+    { value: 'TESTING_PREPARATION', label: 'Подготовка и проведение испытаний' },
+    { value: 'DEBUG_CHECK', label: 'Отладка\\проверка' },
+    { value: 'MEETING', label: 'Совещание' },
+    { value: 'OTHER', label: 'Прочее' }
+];
 
 import { IUser } from './user.types';
 
@@ -25,6 +72,7 @@ export interface Task {
     status: TaskStatus;
     projectId: number;
     project: Project;
+    taskType: TaskType | TaskTypeDisplay;
     creatorId: number;
     creator: IUser; // Создатель задачи
     assigneeId?: string;
@@ -40,7 +88,7 @@ export interface TasksTabProps {
     columns: Record<string, Column>;
     handleDeleteTask: (columnId: string, taskId: string) => void;
     onTaskUpdate: (taskId: string, updatedTask: Task) => void;
-    onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, deadline?: string, assigneeIds?: number[]) => void;
+    onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, taskType?: TaskType, deadline?: string, assigneeIds?: number[]) => void;
     onUpdateColumnName: (columnId: string, newName: string) => void;
     onTaskMove?: (taskId: string, sourceColumnId: string, destinationColumnId: string, sourceIndex: number, destinationIndex: number) => void;
   }
@@ -50,6 +98,7 @@ export interface TaskForm {
     description?: string;
     priority: TaskPriority;
     status: TaskStatus;
+    taskType: TaskType;
     projectId: number;
     deadline?: string | null;
     order?: number;
@@ -74,6 +123,7 @@ export interface TaskModalProps {
         title: string;
         description: string;
         priority: 'Низкий' | 'Средний' | 'Высокий';
+        taskType: TaskType;
         deadline?: Date | null;
         assigneeIds?: number[];
     };
@@ -81,6 +131,7 @@ export interface TaskModalProps {
         title: string;
         description: string;
         priority: 'Низкий' | 'Средний' | 'Высокий';
+        taskType: TaskType;
         deadline?: Date | null;
         assigneeIds?: number[];
     }) => void;
