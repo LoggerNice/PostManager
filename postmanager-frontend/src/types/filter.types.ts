@@ -32,6 +32,10 @@ export interface TasksFilterProps {
   availableDepartments: IDepartment[];
   availableUsers: IUser[];
   
+  // Контекст фильтрации
+  context?: 'project' | 'my-tasks' | 'department';
+  projectParticipants?: IUser[]; // Участники текущего проекта
+  
   // Опциональные настройки
   showDepartmentFilter?: boolean;
   showAssigneeFilter?: boolean;

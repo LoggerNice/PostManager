@@ -41,7 +41,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     title: item.title,
     description: item.description || '',
     priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
-    taskType: getTaskTypeFromDisplay(item.taskType as TaskTypeDisplay) || 'OTHER',
+    taskType: (item.taskType as TaskType) || 'OTHER',
     deadline: item.deadline ? new Date(item.deadline) : null,
     assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
   });
@@ -62,7 +62,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
       title: item.title,
       description: item.description || '',
       priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
-      taskType: getTaskTypeFromDisplay(item.taskType as TaskTypeDisplay) || 'OTHER',
+      taskType: (item.taskType as TaskType) || 'OTHER',
       deadline: item.deadline ? new Date(item.deadline) : null,
       assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
     });
@@ -70,33 +70,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
 
 
 
-  const handleDuplicate = async () => {
-    try {
-      const priorityMap: Record<string, TaskPriority> = {
-        'Низкий': 'LOW',
-        'Средний': 'MEDIUM',
-        'Высокий': 'HIGH'
-      };
 
-      // Получаем ID исполнителей из текущей задачи
-      const assigneeIds = item.assignees?.map(assignee => assignee.user.id) || [];
-
-      await createTask({
-        title: item.title + ' (копия)',
-        description: item.description || '',
-        priority: priorityMap[item.priority as keyof typeof priorityMap] || 'LOW',
-        status: item.status,
-        projectId: Number(item.projectId),
-        deadline: item.deadline ? format(new Date(item.deadline), 'yyyy-MM-dd HH:mm:ss') : undefined,
-        assigneeIds: assigneeIds,
-        taskType: item.taskType as TaskType || 'OTHER'
-      }).unwrap();
-      // Обновить задачи после дублирования
-      onTaskUpdate(item.id, item); // Триггерим обновление списка задач
-    } catch (error) {
-      console.error('Failed to duplicate task:', error);
-    }
-  };
 
 
 
@@ -123,7 +97,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           ...item,
           priority: priorityMap[item.priority as keyof typeof priorityMap],
           deadline: deadlineValue,
-          taskType: item.taskType as TaskType || 'OTHER'
+          taskType: (item.taskType as TaskType) || 'OTHER'
         }
       }).unwrap();
 
@@ -188,7 +162,6 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
               onEditPriority={() => setShowPriorityModal(true)}
               onAddDate={() => setShowTimePicker(true)}
               onDelete={() => handleDeleteTask(columnId, item.id)}
-              onDuplicate={handleDuplicate}
               onEdit={handleEdit}
               menuHeight={menuHeight}
               ellipsisRef={ellipsisRef as React.RefObject<HTMLButtonElement>}
@@ -219,7 +192,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
               title: item.title,
               description: item.description || '',
               priority: item.priority as 'Низкий' | 'Средний' | 'Высокий',
-              taskType: getTaskTypeFromDisplay(item.taskType as TaskTypeDisplay) || 'OTHER',
+              taskType: (item.taskType as TaskType) || 'OTHER',
               deadline: item.deadline ? new Date(item.deadline) : null,
               assigneeIds: item.assignees?.map(assignee => assignee.user.id) || []
             });
@@ -241,7 +214,6 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
               };
 
               const deadlineValue = editTaskData.deadline ? format(editTaskData.deadline, 'yyyy-MM-dd HH:mm:ss') : null;
-              console.log('Modal edit - sending deadline to API:', deadlineValue);
 
               await updateTask({
                 taskId: item.id,

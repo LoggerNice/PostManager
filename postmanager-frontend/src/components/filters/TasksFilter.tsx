@@ -8,7 +8,7 @@ import {
   FilterOption
 } from '@/types/filter.types';
 import { TaskPriority } from '@/types/task.types';
-import Input from '@/components/ui/Input';
+import { DateInput } from '@/components/ui';
 import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
 import { 
   MagnifyingGlassIcon,
@@ -28,6 +28,8 @@ export default function TasksFilter({
   onFiltersChange,
   availableDepartments = [],
   availableUsers = [],
+  context = 'project',
+  projectParticipants = [],
   showDepartmentFilter = true,
   showAssigneeFilter = true,
   showDateFilter = true,
@@ -46,12 +48,35 @@ export default function TasksFilter({
   );
 
   // Преобразуем пользователей в опции для MultiSelect
-  const userOptions = useMemo(() => 
-    availableUsers.map(user => ({
+  // Если это проект - показываем только участников проекта
+  // Если это "мои задачи" - показываем всех пользователей, но поле неактивно
+  const userOptions = useMemo(() => {
+    let users = availableUsers;
+    
+    if (context === 'project' && projectParticipants.length > 0) {
+      users = projectParticipants;
+    }
+    
+    return users.map(user => ({
       value: user.id,
       label: `${user.name}${user.department ? ` (${user.department.name})` : ''}`
-    })), [availableUsers]
-  );
+    }));
+  }, [availableUsers, context, projectParticipants]);
+
+  // Определяем, должно ли поле участников быть активным
+  const isAssigneeFilterActive = useMemo(() => {
+    return context !== 'my-tasks';
+  }, [context]);
+
+  // Очищаем фильтр участников, если он стал неактивным
+  React.useEffect(() => {
+    if (!isAssigneeFilterActive && filters.assignees.length > 0) {
+      onFiltersChange({
+        ...filters,
+        assignees: []
+      });
+    }
+  }, [isAssigneeFilterActive, filters.assignees.length, filters, onFiltersChange]);
 
   // Обработчики изменений
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -85,7 +110,7 @@ export default function TasksFilter({
   }, [filters, onFiltersChange, availableUsers]);
 
   const handleStartDateChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const date = event.target.value ? new Date(event.target.value) : null;
+    const date = event.target.value ? new Date(event.target.value + 'T00:00:00') : null;
     onFiltersChange({
       ...filters,
       dateRange: {
@@ -96,7 +121,7 @@ export default function TasksFilter({
   }, [filters, onFiltersChange]);
 
   const handleEndDateChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const date = event.target.value ? new Date(event.target.value) : null;
+    const date = event.target.value ? new Date(event.target.value + 'T23:59:59') : null;
     onFiltersChange({
       ...filters,
       dateRange: {
@@ -126,11 +151,11 @@ export default function TasksFilter({
       filters.searchQuery.length > 0 ||
       filters.departments.length > 0 ||
       filters.priorities.length > 0 ||
-      filters.assignees.length > 0 ||
+      (isAssigneeFilterActive && filters.assignees.length > 0) ||
       filters.dateRange.startDate !== null ||
       filters.dateRange.endDate !== null
     );
-  }, [filters]);
+  }, [filters, isAssigneeFilterActive]);
 
   return (
     <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${className}`}>
@@ -206,37 +231,43 @@ export default function TasksFilter({
           )}
 
           {/* Фильтр по участникам */}
-          {showAssigneeFilter && userOptions.length > 0 && (
+          {showAssigneeFilter && (
             <div>
               <MultiSelect
-                label="Участники"
+                label={'Участники'}
                 name="assignees"
                 options={userOptions}
                 value={filters.assignees.map(user => user.id)}
                 onChange={handleAssigneesChange}
-                placeholder="Выберите участников..."
+                placeholder={context === 'my-tasks' ? 'Недоступно' : 'Выберите участников...'}
+                disabled={!isAssigneeFilterActive}
               />
+              {context === 'my-tasks' && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Фильтр по участникам недоступен на этой странице
+                </p>
+              )}
             </div>
           )}
 
           {/* Фильтр по дате */}
           {showDateFilter && (
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Период задач
               </label>
               <div className="flex gap-2">
-                <Input
-                  type="date"
+                <DateInput
                   placeholder="От"
                   value={filters.dateRange.startDate ? format(filters.dateRange.startDate, 'yyyy-MM-dd') : ''}
                   onChange={handleStartDateChange}
+                  className="flex-1"
                 />
-                <Input
-                  type="date"
+                <DateInput
                   placeholder="До"
                   value={filters.dateRange.endDate ? format(filters.dateRange.endDate, 'yyyy-MM-dd') : ''}
                   onChange={handleEndDateChange}
+                  className="flex-1"
                 />
               </div>
             </div>
@@ -283,7 +314,8 @@ export default function TasksFilter({
             </div>
           ))}
           
-          {filters.assignees.map(user => (
+          {/* Теги участников - показываем только если фильтр активен */}
+          {isAssigneeFilterActive && filters.assignees.map(user => (
             <div key={user.id} className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
               {user.name}
               <button

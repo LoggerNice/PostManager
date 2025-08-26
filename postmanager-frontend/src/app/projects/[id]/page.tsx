@@ -17,7 +17,6 @@ import ProjectHeader from '../../../components/projectComponents/ProjectHeader';
 import ProjectTabs from '../../../components/projectComponents/ProjectTabs';
 import TasksTab from '../../../components/projectComponents/TasksTab';
 import TimelineTab from '../../../components/projectComponents/TimelineTab';
-import CalendarTab from '../../../components/projectComponents/CalendarTab';
 import ProjectEditModal from '../../../components/projectComponents/ProjectEditModal';
 import TasksFilter from '../../../components/filters/TasksFilter';
 
@@ -190,6 +189,7 @@ export default function ProjectPage() {
         title: updatedTask.title,
         description: updatedTask.description || '',
         priority: priorityMapToEnglish[updatedTask.priority as keyof typeof priorityMapToEnglish] || 'LOW',
+        taskType: updatedTask.taskType as TaskType,
         status: updatedTask.status,
         projectId: updatedTask.projectId,
         deadline: updatedTask.deadline ? format(new Date(updatedTask.deadline), 'yyyy-MM-dd HH:mm:ss') : undefined,
@@ -290,6 +290,8 @@ export default function ProjectPage() {
               onFiltersChange={setFilters}
               availableDepartments={allDepartments}
               availableUsers={allUsers}
+              context="project"
+              projectParticipants={users}
               searchPlaceholder="Поиск задач проекта..."
               showDepartmentFilter={true}
               showAssigneeFilter={true}
@@ -314,10 +316,6 @@ export default function ProjectPage() {
 
       {activeTab === 'timeline' && (
         <TimelineTab users={users} />
-      )}
-
-      {activeTab === 'calendar' && (
-        <CalendarTab projectId={projectId} />
       )}
 
       {showProjectEditModal && (

@@ -4,6 +4,8 @@ export type { ButtonProps } from './Button';
 export { default as Input } from './Input';
 export type { InputProps } from './Input';
 
+export { DateInput } from './date-input/DateInput';
+
 export { default as ChatInput } from './ChatInput';
 
 export { 
@@ -28,3 +30,5 @@ export { CommentViewIndicator } from './CommentViewIndicator';
 export type { CommentViewStats } from './CommentViewIndicator';
 
 export { default as CommentFile } from './CommentFile';
+
+export { default as WeekNavigation } from './WeekNavigation';

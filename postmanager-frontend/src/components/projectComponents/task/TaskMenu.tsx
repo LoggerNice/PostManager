@@ -12,7 +12,6 @@ interface TaskMenuProps {
   onEditPriority: () => void;
   onAddDate: () => void;
   onDelete: () => void;
-  onDuplicate: () => void;
   onEdit: () => void;
   menuHeight: number;
   ellipsisRef: React.RefObject<HTMLButtonElement>;
@@ -27,7 +26,6 @@ export default function TaskMenu({
   onEditPriority,
   onAddDate,
   onDelete,
-  onDuplicate,
   onEdit,
   menuHeight,
   ellipsisRef,
@@ -119,27 +117,16 @@ export default function TaskMenu({
             <ExclamationTriangleIcon className="w-4 h-4" />
             Изменить приоритет
           </button>
-          <button
+                    <button
             onClick={() => {
               onAddDate();
               setShowMenu(false);
               setMenuPosition(null);
             }}
-            className="w-full px-4 py-2 text-left text-[12px] text-gray-300 hover:bg-gray-700 flex items-center gap-2"
+            className="w-full px-4 py-2 pb-3 text-left text-[12px] text-gray-300 hover:bg-gray-700 rounded-b-lg flex items-center gap-2"
           >
             <CalendarIcon className="w-4 h-4" />
             Указать срок
-          </button>
-          <button
-            onClick={() => {
-              onDuplicate();
-              setShowMenu(false);
-              setMenuPosition(null);
-            }}
-            className="w-full px-4 py-2 text-left text-[12px] text-gray-300 hover:bg-gray-700 flex items-center gap-2"
-          >
-            <span className="w-4 h-4 inline-block">⧉</span>
-            Дублировать
           </button>
           <button
             onClick={() => {
@@ -147,7 +134,7 @@ export default function TaskMenu({
               setShowMenu(false);
               setMenuPosition(null);
             }}
-            className="w-full px-4 py-2 pb-3 text-left text-[12px] text-red-400 hover:bg-gray-700 rounded-b-lg flex items-center gap-2"
+            className="w-full px-4 py-2 text-left text-[12px] text-red-400 hover:bg-gray-700 flex items-center gap-2"
           >
             <TrashIcon className="w-4 h-4" />
             Удалить

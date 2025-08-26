@@ -272,6 +272,7 @@ export default function UserTasksBoard() {
           onFiltersChange={setFilters}
           availableDepartments={allDepartments}
           availableUsers={allUsers}
+          context="my-tasks"
           searchPlaceholder="Поиск моих задач..."
           showDepartmentFilter={true}
           showAssigneeFilter={true}

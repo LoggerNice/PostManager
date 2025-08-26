@@ -13,7 +13,7 @@ interface ColumnProps {
   column: ColumnType;
   handleDeleteTask: (columnId: string, taskId: string) => void;
   onTaskUpdate: (taskId: string, updatedTask: Task) => void;
-  onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, taskType?: any, deadline?: string, assigneeIds?: number[]) => void;
+  onAddTask: (columnId: string, title: string, description?: string, priority?: TaskPriority, taskType?: TaskType, deadline?: string, assigneeIds?: number[]) => void;
   onUpdateColumnName: (columnId: string, newName: string) => void;
   showProjectTitle?: boolean;
   showAddButton?: boolean;
@@ -29,7 +29,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
     title: '',
     description: '',
     priority: 'Низкий' as 'Низкий' | 'Средний' | 'Высокий',
-    taskType: 'OTHER' as any,
+    taskType: 'OTHER' as TaskType,
     deadline: null as Date | null,
     assigneeIds: [] as number[]
   });
@@ -65,7 +65,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
       title: '',
       description: '',
       priority: 'Низкий',
-      taskType: 'OTHER' as any,
+      taskType: 'OTHER',
       deadline: null,
       assigneeIds: []
     });
@@ -79,7 +79,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
         'Высокий': 'HIGH'
       };
       
-      const taskTypeMap: Record<string, any> = {
+      const taskTypeMap: Record<TaskType, TaskType> = {
         'OTHER': 'OTHER',
         'METHODOLOGIES': 'METHODOLOGIES',
         'TESTING_PREPARATION': 'TESTING_PREPARATION',
@@ -94,7 +94,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
         newTaskData.title.trim(),
         newTaskData.description.trim(),
         priorityMap[newTaskData.priority],
-        taskTypeMap[newTaskData.taskType] || 'OTHER',
+        newTaskData.taskType,
         deadlineString,
         newTaskData.assigneeIds
       );
@@ -102,7 +102,7 @@ export default function Column({ columnId, column, handleDeleteTask, onTaskUpdat
         title: '',
         description: '',
         priority: 'Низкий',
-        taskType: 'OTHER' as any,
+        taskType: 'OTHER',
         deadline: null,
         assigneeIds: []
       });

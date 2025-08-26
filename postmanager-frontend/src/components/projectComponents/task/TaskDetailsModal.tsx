@@ -529,7 +529,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                           const viewStats = allViewStats.find(stats => stats.commentId === comment.id);
 
                           return (
-                            <div key={comment.id} className={`flex gap-3 p-3 rounded-lg transition-colors ${comment.isSolution ? 'border-2 border-green-400 bg-green-400/5' : ''}`}>
+                            <div key={comment.id} className={`flex gap-3 rounded-lg transition-colors ${comment.isSolution ? 'p-2 border-2 border-green-400 bg-green-400/5' : ''}`}>
                               <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
                                 {comment.author?.name?.charAt(0) || 'U'}
                               </div>
@@ -540,34 +540,36 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                     <span className="text-gray-400 text-xs">
                                       {format(new Date(comment.createdAt), 'dd MMM HH:mm', { locale: ru })}
                                     </span>
+                                    {/* Индикатор просмотра рядом с датой */}
+                                    {viewStats && (
+                                      <CommentViewIndicator
+                                        key={`view-indicator-${comment.id}-${viewStats.viewStatus}-${viewStats.viewedAssignees}`}
+                                        stats={viewStats}
+                                        currentUserId={user?.id || 0}
+                                        commentAuthorId={comment.authorId}
+                                        className="ml-2"
+                                      />
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2">
-                                                                         {/* Индикатор просмотра */}
-                                     {viewStats && (
-                                       <CommentViewIndicator
-                                         key={`view-indicator-${comment.id}-${viewStats.viewStatus}-${viewStats.viewedAssignees}`}
-                                         stats={viewStats}
-                                         currentUserId={user?.id || 0}
-                                         commentAuthorId={comment.authorId}
-                                         className="ml-2"
-                                       />
-                                     )}
                                     {/* Кнопки редактирования */}
                                     <div className="flex items-center gap-1">
-                                      {/* Кнопка пометки как решение для исполнителя задачи */}
-                                      {task?.assignees?.some(assignee => assignee.userId === user?.id) && (
-                                        <button
-                                          onClick={() => handleToggleSolution(comment.id, comment.isSolution || false)}
-                                          className={`p-1 rounded transition-colors ${
-                                            comment.isSolution 
-                                              ? 'text-green-400 bg-green-400/10 hover:bg-green-400/20' 
-                                              : 'text-gray-400 hover:text-green-400 hover:bg-gray-700'
-                                          }`}
-                                          title={comment.isSolution ? "Убрать пометку решения" : "Пометить как решение"}
-                                        >
-                                          <CheckIcon className="w-3 h-3" />
-                                        </button>
-                                      )}
+                                                                             {/* Кнопка пометки как решение для исполнителей, начальника отдела и создателя */}
+                                       {(task?.assignees?.some(assignee => assignee.userId === user?.id) || 
+                                         user?.role === 'MANAGER' || 
+                                         user?.id === task?.creatorId) && (
+                                         <button
+                                           onClick={() => handleToggleSolution(comment.id, comment.isSolution || false)}
+                                           className={`p-1 rounded transition-colors ${
+                                             comment.isSolution 
+                                               ? 'text-green-400 bg-green-400/10 hover:bg-green-400/20' 
+                                               : 'text-gray-400 hover:text-green-400 hover:bg-gray-700'
+                                           }`}
+                                           title={comment.isSolution ? "Убрать пометку решения" : "Пометить как решение"}
+                                         >
+                                           <CheckIcon className="w-3 h-3" />
+                                         </button>
+                                       )}
                                       {/* Кнопки автора комментария */}
                                       {user?.id === comment.authorId && (
                                         <>

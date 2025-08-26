@@ -17,10 +17,12 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
   }));
 
 
+
+
   if (!visible) return null;
   return (
     <div className="fixed inset-0 bg-opacity-60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-gray-900 rounded-lg p-6 w-full max-w-md border border-white">
+      <div className="bg-gray-900 rounded-lg p-6 w-full max-w-2xl border border-white">
         <h2 className="text-xl font-bold mb-4 text-white">Задача</h2>
         <div className="mb-3">
           <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -39,11 +41,10 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             Описание задачи
           </label>
           <textarea
-            className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
+            className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white resize-none"
             placeholder="Введите описание"
             value={newTask.description}
             onChange={e => setNewTask({ ...newTask, description: e.target.value })}
-            rows={3}
           />
         </div>
         <div className="mb-3">
@@ -66,11 +67,13 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
           </label>
           <select
             className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
-            value={getTaskTypeDisplay(newTask.taskType || 'OTHER')}
-            onChange={e => setNewTask({ ...newTask, taskType: getTaskTypeFromDisplay(e.target.value as TaskTypeDisplay) })}
+            value={newTask.taskType}
+            onChange={e => {
+              setNewTask({ ...newTask, taskType: e.target.value as TaskType });
+            }}
           >
             {getAllTaskTypes().map(type => (
-              <option key={type.value} value={type.label}>{type.label}</option>
+              <option key={type.value} value={type.value}>{type.label}</option>
             ))}
           </select>
         </div>

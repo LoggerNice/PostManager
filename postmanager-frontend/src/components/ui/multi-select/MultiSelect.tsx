@@ -16,17 +16,28 @@ interface MultiSelectProps {
     onChange: (value: number[]) => void;
     error?: string;
     placeholder?: string;
+    disabled?: boolean;
 }
 
 const customStyles: StylesConfig<Option, true> = {
     control: (base, state) => ({
         ...base,
         minHeight: '42px',
-        background: 'var(--select-bg, white)',
-        borderColor: state.isFocused ? 'var(--select-focus-border, #6366f1)' : 'var(--select-border, #d1d5db)',
+        background: state.isDisabled 
+            ? 'var(--select-disabled-bg, #f3f4f6)' 
+            : 'var(--select-bg, white)',
+        borderColor: state.isDisabled 
+            ? 'var(--select-disabled-border, #d1d5db)' 
+            : state.isFocused 
+                ? 'var(--select-focus-border, #6366f1)' 
+                : 'var(--select-border, #d1d5db)',
         boxShadow: state.isFocused ? '0 0 0 2px var(--select-focus-shadow, rgba(99, 102, 241, 0.2))' : 'none',
+        opacity: state.isDisabled ? 0.6 : 1,
+        cursor: state.isDisabled ? 'not-allowed' : 'default',
         '&:hover': {
-            borderColor: 'var(--select-hover-border, #6366f1)'
+            borderColor: state.isDisabled 
+                ? 'var(--select-disabled-border, #d1d5db)' 
+                : 'var(--select-hover-border, #6366f1)'
         }
     }),
     menu: (base) => ({
@@ -98,7 +109,8 @@ export function MultiSelect({
     value,
     onChange,
     error,
-    placeholder = 'Выберите...'
+    placeholder = 'Выберите...',
+    disabled
 }: MultiSelectProps) {
     const instanceId = `multi-select-${name}`;
 
@@ -117,6 +129,7 @@ export function MultiSelect({
                 value={options.filter(option => value?.includes(option.value))}
                 onChange={(newValue) => onChange(newValue.map(option => option.value))}
                 instanceId={instanceId}
+                isDisabled={disabled}
             />
             {error && (
                 <p className="mt-1 text-sm text-red-500">{error}</p>

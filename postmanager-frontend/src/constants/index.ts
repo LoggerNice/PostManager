@@ -1,10 +1,9 @@
 import { UserRole } from '@/types';
-import { ChartBarIcon, CalendarDaysIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import { ChartBarIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 export { UserRole } from '@/types';
 
 export const TABS = [
   { key: 'tasks', label: 'Задачи', icon: ClipboardDocumentListIcon },
-  { key: 'calendar', label: 'Календарь', icon: CalendarDaysIcon },
   { key: 'timeline', label: 'Этапы', icon: ChartBarIcon }
 ];
 
