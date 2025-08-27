@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Button from './Button';
+import { HomeIcon } from '@heroicons/react/24/outline';
 
 interface WeekNavigationProps {
     currentWeek: Date;
@@ -83,41 +84,41 @@ export default function WeekNavigation({ currentWeek, onWeekChange }: WeekNaviga
     };
 
     return (
-        <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-            <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4 xl:p-6 shadow-sm gap-3 sm:gap-0">
+            <div className="flex items-center space-x-2 order-2 sm:order-1">
                 <Button
                     onClick={goToPreviousWeek}
                     variant="outline"
                     size="sm"
-                    className="px-3 py-1"
+                    className="px-2 sm:px-3 xl:px-4 py-1 xl:py-2 hover:bg-gray-100 dark:hover:bg-gray-700 min-w-[40px] sm:min-w-[48px] xl:min-w-[56px]"
                 >
-                    ← Предыдущая неделя
+                    ←
                 </Button>
                 
                 <Button
                     onClick={goToCurrentWeek}
                     variant={isCurrentWeek() ? "primary" : "outline"}
                     size="sm"
-                    className="px-3 py-1"
+                    className="px-2 sm:px-3 xl:px-4 py-1 xl:py-2 min-w-[40px] sm:min-w-[48px] xl:min-w-[56px]"
                 >
-                    Текущая неделя
+                    <HomeIcon className="w-4 h-4 sm:w-5 sm:h-5 xl:w-6 xl:h-6" />
                 </Button>
                 
                 <Button
                     onClick={goToNextWeek}
                     variant="outline"
                     size="sm"
-                    className="px-3 py-1"
+                    className="px-2 sm:px-3 xl:px-4 py-1 xl:py-2 hover:bg-gray-100 dark:hover:bg-gray-700 min-w-[40px] sm:min-w-[48px] xl:min-w-[56px]"
                 >
-                    Следующая неделя →
+                    →
                 </Button>
             </div>
             
-            <div className="text-center">
-                <div className="text-lg font-semibold text-gray-900 dark:text-white">
+            <div className="text-center order-1 sm:order-2 flex-shrink-0">
+                <div className="text-base sm:text-lg xl:text-xl font-semibold text-gray-900 dark:text-white break-words">
                     {formatWeekRange(currentWeekStart)}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-xs sm:text-sm xl:text-base text-gray-500 dark:text-gray-400">
                     Рабочая неделя (пн-пт)
                 </div>
             </div>

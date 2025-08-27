@@ -159,53 +159,58 @@ export default function TasksFilter({
   }, [filters, isAssigneeFilterActive]);
 
   return (
-    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-hidden ${className}`}>
       {/* Заголовок и поиск */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
         {/* Поле поиска */}
-        <div className="flex-1 relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+        <div className="flex-1 w-full sm:w-auto min-w-0">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              placeholder={searchPlaceholder}
+              value={filters.searchQuery}
+              onChange={handleSearchChange}
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-500 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            />
           </div>
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={filters.searchQuery}
-            onChange={handleSearchChange}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-500 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-          />
         </div>
 
-        {/* Кнопка расширения фильтров */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-        >
-          <FunnelIcon className="h-4 w-4" />
-          Фильтры
-          {hasActiveFilters && (
-            <span className="bg-blue-500 text-white text-xs rounded-full h-2 w-2"></span>
-          )}
-        </button>
-
-        {/* Кнопка очистки фильтров */}
-        {hasActiveFilters && (
+        {/* Кнопки */}
+        <div className="flex items-center gap-2 w-full sm:w-auto flex-shrink-0">
+          {/* Кнопка расширения фильтров */}
           <button
-            onClick={clearAllFilters}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors whitespace-nowrap"
           >
-            <XMarkIcon className="h-4 w-4" />
-            Очистить
+            <FunnelIcon className="h-4 w-4" />
+            Фильтры
+            {hasActiveFilters && (
+              <span className="bg-blue-500 text-white text-xs rounded-full h-2 w-2"></span>
+            )}
           </button>
-        )}
+
+          {/* Кнопка очистки фильтров */}
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors whitespace-nowrap"
+            >
+              <XMarkIcon className="h-4 w-4" />
+              Очистить
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Расширенные фильтры */}
       {isExpanded && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
           {/* Фильтр по отделам */}
           {showDepartmentFilter && departmentOptions.length > 0 && (
-            <div>
+            <div className="min-w-0">
               <MultiSelect
                 label="Отделы"
                 name="departments"
@@ -219,7 +224,7 @@ export default function TasksFilter({
 
           {/* Фильтр по приоритету */}
           {showPriorityFilter && (
-            <div>
+            <div className="min-w-0">
               <MultiSelect
                 label="Приоритет"
                 name="priorities"
@@ -233,7 +238,7 @@ export default function TasksFilter({
 
           {/* Фильтр по участникам */}
           {showAssigneeFilter && (
-            <div>
+            <div className="min-w-0">
               <MultiSelect
                 label={'Участники'}
                 name="assignees"
@@ -253,7 +258,7 @@ export default function TasksFilter({
 
           {/* Фильтр по дате */}
           {showDateFilter && (
-            <div className="space-y-2">
+            <div className="min-w-0 space-y-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Период задач
               </label>
@@ -262,13 +267,13 @@ export default function TasksFilter({
                   placeholder="От"
                   value={filters.dateRange.startDate ? format(filters.dateRange.startDate, 'yyyy-MM-dd') : ''}
                   onChange={handleStartDateChange}
-                  className="flex-1 hover:border-blue-400"
+                  className="flex-1 min-w-0 hover:border-blue-400"
                 />
                 <DateInput
                   placeholder="До"
                   value={filters.dateRange.endDate ? format(filters.dateRange.endDate, 'yyyy-MM-dd') : ''}
                   onChange={handleEndDateChange}
-                  className="flex-1 hover:border-blue-400"
+                  className="flex-1 min-w-0 hover:border-blue-400" 
                 />
               </div>
             </div>
