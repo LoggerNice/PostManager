@@ -25,3 +25,4 @@ coverage/
 # Build directory
 dist/
 build/
+uploads/

@@ -15,6 +15,7 @@ import {
   FunnelIcon,
   XMarkIcon 
 } from '@heroicons/react/24/outline';
+import { formatName } from '../charts/DepartmentTasksExcelExport';
 
 // Константы для приоритетов
 const PRIORITY_OPTIONS: FilterOption<TaskPriority>[] = [
@@ -59,7 +60,7 @@ export default function TasksFilter({
     
     return users.map(user => ({
       value: user.id,
-      label: `${user.name}${user.department ? ` (${user.department.name})` : ''}`
+      label: formatName(user.name)
     }));
   }, [availableUsers, context, projectParticipants]);
 
@@ -261,13 +262,13 @@ export default function TasksFilter({
                   placeholder="От"
                   value={filters.dateRange.startDate ? format(filters.dateRange.startDate, 'yyyy-MM-dd') : ''}
                   onChange={handleStartDateChange}
-                  className="flex-1"
+                  className="flex-1 hover:border-blue-400"
                 />
                 <DateInput
                   placeholder="До"
                   value={filters.dateRange.endDate ? format(filters.dateRange.endDate, 'yyyy-MM-dd') : ''}
                   onChange={handleEndDateChange}
-                  className="flex-1"
+                  className="flex-1 hover:border-blue-400"
                 />
               </div>
             </div>
@@ -317,7 +318,7 @@ export default function TasksFilter({
           {/* Теги участников - показываем только если фильтр активен */}
           {isAssigneeFilterActive && filters.assignees.map(user => (
             <div key={user.id} className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
-              {user.name}
+              {formatName(user.name)}
               <button
                 onClick={() => handleAssigneesChange(filters.assignees.filter(u => u.id !== user.id).map(u => u.id))}
                 className="hover:text-purple-600 dark:hover:text-purple-300"

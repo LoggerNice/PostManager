@@ -308,10 +308,10 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
               {item.assignees.slice(0, 1).map((assignee) => (
                 <div
                   key={assignee.id}
-                  className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium"
+                  className="w-9 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium"
                   title={`${assignee.user.name} (${assignee.user.department?.name || 'Без отдела'})`}
                 >
-                  {assignee.user.name.charAt(0)}
+                  {assignee.user.name.split(' ').map(part => part[0]).join('')}
                 </div>
               ))}
               {item.assignees.length > 1 && (
