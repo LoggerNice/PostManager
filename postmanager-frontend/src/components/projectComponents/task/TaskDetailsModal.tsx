@@ -28,11 +28,49 @@ interface TaskDetailsModalProps {
 
 export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate }: TaskDetailsModalProps) {
   const { user } = useAuth();
+
+  // CSS стили для скроллбара в цвет проекта
+  const scrollbarStyles = `
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #374151;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #3B82F6;
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #2563EB;
+    }
+  `;
+  
+  // Функция для форматирования размера файла
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Б';
+    const k = 1024;
+    const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
+
+  // Функция для обрезки названия файла
+  const truncateFileName = (fileName: string, maxLength: number = 30): string => {
+    if (fileName.length <= maxLength) return fileName;
+    const extension = fileName.split('.').pop();
+    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+    const truncatedName = nameWithoutExt.substring(0, maxLength - 3);
+    return `${truncatedName}...${extension ? '.' + extension : ''}`;
+  };
   const [newComment, setNewComment] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
+  const [editingCommentFile, setEditingCommentFile] = useState<File | null>(null);
+  const [isEditingComment, setIsEditingComment] = useState(false);
 
   const { 
     data: comments = [], 
@@ -164,20 +202,64 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   };
 
   const handleEditComment = async (commentId: number, newContent: string) => {
-    if (!newContent.trim()) return;
+    // Проверяем, что есть либо текст, либо файл
+    if (!newContent.trim() && !editingCommentFile) {
+      alert('Добавьте текст комментария или файл');
+      return;
+    }
 
+    setIsEditingComment(true);
     try {
+      let fileUrl: string | undefined = undefined;
+      let fileName: string | undefined = undefined;
+      let fileSize: number | undefined = undefined;
+
+      // Если есть новый файл, загружаем его
+      if (editingCommentFile) {
+        try {
+          const formData = new FormData();
+          formData.append('file', editingCommentFile);
+          
+          const uploadResult = await uploadFile(formData).unwrap();
+          fileUrl = uploadResult.file.url;
+          fileName = uploadResult.file.originalname;
+          fileSize = uploadResult.file.size;
+        } catch (uploadError) {
+          console.error('Ошибка при загрузке файла:', uploadError);
+          alert('Ошибка при загрузке файла. Попробуйте еще раз.');
+          return;
+        }
+      }
+
+      // Подготавливаем данные для обновления
+      const updateData: any = { content: newContent };
+      
+      // Если есть новый файл, добавляем его данные
+      if (editingCommentFile) {
+        updateData.fileUrl = fileUrl;
+        updateData.fileName = fileName;
+        updateData.fileSize = fileSize;
+      } else {
+        // Если файл убран, устанавливаем значения в null
+        updateData.fileUrl = null;
+        updateData.fileName = null;
+        updateData.fileSize = null;
+      }
+
       await updateComment({
         id: commentId,
-        data: { content: newContent }
+        data: updateData
       }).unwrap();
       
       setEditingCommentId(null);
       setEditingCommentText('');
+      setEditingCommentFile(null);
       safeRefetchComments();
       
     } catch (error) {
       console.error('Ошибка при обновлении комментария:', error);
+    } finally {
+      setIsEditingComment(false);
     }
   };
 
@@ -207,9 +289,10 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
 
 
 
-  const startEditingComment = (commentId: number, currentContent: string) => {
+    const startEditingComment = (commentId: number, currentContent: string, currentFile?: File | null) => {
     setEditingCommentId(commentId);
     setEditingCommentText(currentContent);
+    setEditingCommentFile(currentFile || null);
     
     // Устанавливаем правильную высоту textarea после рендера
     setTimeout(() => {
@@ -222,8 +305,10 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   };
 
   const cancelEditingComment = () => {
-    setEditingCommentId(null);
-    setEditingCommentText('');
+          setEditingCommentId(null);
+      setEditingCommentText('');
+      setEditingCommentFile(null);
+      setIsEditingComment(false);
   };
 
   const handleFileSelect = (file: File) => {
@@ -232,6 +317,16 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
 
   const handleFileRemove = () => {
     setSelectedFile(null);
+  };
+
+  const handleEditingFileSelect = (file: File) => {
+    setEditingCommentFile(file);
+    // Показываем небольшое уведомление о выборе файла
+    console.log(`Файл "${file.name}" выбран для замены`);
+  };
+
+  const handleEditingFileRemove = () => {
+    setEditingCommentFile(null);
   };
 
   const getPriorityColor = (priority: string) => {
@@ -335,17 +430,19 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   }
 
   return createPortal(
-    <div 
-      className="fixed inset-0 flex items-start justify-end z-50 p-4 cursor-default"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          console.log('Клик вне формы - закрытие модального окна');
-          setTimeout(() => {
-            onClose();
-          }, 0);
-        }
-      }}
-    >
+    <>
+      <style>{scrollbarStyles}</style>
+      <div 
+        className="fixed inset-0 flex items-start justify-end z-50 p-4 cursor-default"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            console.log('Клик вне формы - закрытие модального окна');
+            setTimeout(() => {
+              onClose();
+            }, 0);
+          }
+        }}
+      >
       <div 
         className="bg-gray-900 rounded-lg shadow-xl w-full max-w-2xl h-[calc(100vh-2rem)] flex flex-col border border-gray-700 mr-4"
         onClick={(e) => e.stopPropagation()}
@@ -512,8 +609,8 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                 </button>
               </div>
 
-              {/* Comments Content - Scrollable Area */}
-              <div className="flex-1 overflow-y-auto min-h-0">
+                             {/* Comments Content - Scrollable Area */}
+               <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar">
                 <div className="p-6">
                   <div className="space-y-4">
                     {/* Comments List */}
@@ -574,7 +671,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                       {user?.id === comment.authorId && (
                                         <>
                                           <button
-                                            onClick={() => startEditingComment(comment.id, comment.content)}
+                                            onClick={() => startEditingComment(comment.id, comment.content, null)}
                                             className="p-1 text-gray-400 hover:text-blue-400 hover:bg-gray-700 rounded transition-colors"
                                             title="Редактировать комментарий"
                                           >
@@ -607,17 +704,85 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                        rows={1}
                                        autoFocus
                                        data-comment-id={comment.id}
+                                       placeholder="Введите текст комментария..."
                                      />
+                                     
+                                                                            {/* Редактирование файла */}
+                                       <div className="space-y-2">
+                                         <div className="flex items-center gap-2">
+                                           <label className="text-xs text-gray-400">Файл:</label>
+                                           {editingCommentFile ? (
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-xs text-gray-300 bg-blue-900 px-2 py-1 rounded">
+                                                 Новый: {truncateFileName(editingCommentFile.name)} ({formatFileSize(editingCommentFile.size)})
+                                               </span>
+                                               <button
+                                                 onClick={handleEditingFileRemove}
+                                                 className="text-xs text-red-400 hover:text-red-300"
+                                               >
+                                                 Убрать
+                                               </button>
+                                             </div>
+                                           ) : comment.fileUrl ? (
+                                             <div className="flex items-center gap-2">
+                                               <span className="text-xs text-gray-300 bg-gray-700 px-2 py-1 rounded">
+                                                 Текущий: {truncateFileName(comment.fileName)} {comment.fileSize ? `(${formatFileSize(comment.fileSize)})` : ''}
+                                               </span>
+                                               <label className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer">
+                                                 <input
+                                                   type="file"
+                                                   className="hidden"
+                                                   onChange={(e) => {
+                                                     const file = e.target.files?.[0];
+                                                     if (file) {
+                                                       handleEditingFileSelect(file);
+                                                     }
+                                                   }}
+                                                 />
+                                                 Заменить
+                                               </label>
+                                               <button
+                                                 onClick={() => {
+                                                   // Убираем файл из комментария
+                                                   setEditingCommentFile(null);
+                                                 }}
+                                                 className="text-xs text-red-400 hover:text-red-300"
+                                               >
+                                                 Убрать
+                                               </button>
+                                             </div>
+                                           ) : (
+                                             <label className="text-xs text-blue-400 hover:text-blue-300 cursor-pointer">
+                                               <input
+                                                 type="file"
+                                                 className="hidden"
+                                                 onChange={(e) => {
+                                                   const file = e.target.files?.[0];
+                                                   if (file) {
+                                                     handleEditingFileSelect(file);
+                                                   }
+                                                 }}
+                                               />
+                                               Добавить файл
+                                             </label>
+                                           )}
+                                         </div>
+                                       
+
+                                     </div>
+                                     
                                      <div className="flex gap-2">
                                        <button
                                          onClick={() => handleEditComment(comment.id, editingCommentText)}
-                                         className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                         disabled={isEditingComment}
+                                         className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                        >
-                                         Сохранить
+                                         {isEditingComment ? 'Сохранение...' : 'Сохранить'}
                                        </button>
                                        <button
                                          onClick={cancelEditingComment}
-                                         className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
+                                         disabled={isEditingComment}
+                                         className="px-3 py-1 text-xs bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                        >
                                          Отмена
                                        </button>
@@ -673,9 +838,10 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                 </div>
               </div>
             </div>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
+                 </div>
+       </div>
+     </div>
+     </>,
+     document.body
+   );
 } 

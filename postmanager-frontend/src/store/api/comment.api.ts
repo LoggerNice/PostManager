@@ -42,7 +42,7 @@ export const commentApi = api.injectEndpoints({
                 }
             },
         }),
-        updateComment: build.mutation<any, { id: number; data: { content: string } }>({
+        updateComment: build.mutation<any, { id: number; data: { content?: string; fileUrl?: string; fileName?: string; fileSize?: number } }>({
             query: ({ id, data }) => ({
                 url: `comments/${id}`,
                 method: 'PUT',

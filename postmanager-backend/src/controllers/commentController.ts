@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import prisma from '../utils/prisma.js';
 import { getWebSocketServer } from '../websocketServer.js';
+import { deleteFileByUrl } from './fileController.js';
 
 export const createComment = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -160,10 +161,47 @@ export const getCommentById = async (req: Request, res: Response): Promise<void>
 export const updateComment = async (req: Request, res: Response): Promise<void> => {
     try {
         const { commentId } = req.params;
-        const { content } = req.body;
+        const { content, fileUrl, fileName, fileSize } = req.body;
+        
+        // Получаем текущий комментарий для проверки старого файла
+        const currentComment = await prisma.comment.findUnique({
+            where: { id: parseInt(commentId) },
+            select: { fileUrl: true }
+        });
+        
+        if (!currentComment) {
+            res.status(404).json({ message: 'Комментарий не найден' });
+            return;
+        }
+        
+        // Подготавливаем данные для обновления
+        const updateData: any = {};
+        if (content !== undefined) updateData.content = content;
+        if (fileUrl !== undefined) updateData.fileUrl = fileUrl;
+        if (fileName !== undefined) updateData.fileName = fileName;
+        if (fileSize !== undefined) updateData.fileSize = fileSize ? parseInt(fileSize) : null;
+        
+        // Если файл убирается или заменяется, удаляем старый файл
+        if (fileUrl === null || (fileUrl !== undefined && fileUrl !== currentComment.fileUrl)) {
+            if (currentComment.fileUrl) {
+                try {
+                    await deleteFileByUrl(currentComment.fileUrl);
+                } catch (error) {
+                    console.warn('Не удалось удалить старый файл:', error);
+                }
+            }
+        }
+        
+        // Если файл убирается (fileUrl = null), очищаем все связанные поля
+        if (fileUrl === null) {
+            updateData.fileUrl = null;
+            updateData.fileName = null;
+            updateData.fileSize = null;
+        }
+        
         const updatedComment = await prisma.comment.update({
             where: { id: parseInt(commentId) },
-            data: { content },
+            data: updateData,
             include: {
                 author: {
                     select: {
@@ -178,6 +216,16 @@ export const updateComment = async (req: Request, res: Response): Promise<void> 
                 }
             }
         });
+        
+        // Логируем обновление для отладки
+        console.log('Комментарий обновлен:', {
+            commentId,
+            content: content !== undefined ? 'обновлен' : 'не изменен',
+            file: fileUrl !== undefined ? 'обновлен' : 'не изменен',
+            fileName: fileName || 'не указан',
+            oldFileRemoved: currentComment.fileUrl && (fileUrl === null || fileUrl !== currentComment.fileUrl)
+        });
+        
         res.status(200).json(updatedComment);
     } catch (error) {
         console.error('Ошибка при обновлении комментария:', error);

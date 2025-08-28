@@ -10,6 +10,7 @@ export const fileApi = api.injectEndpoints({
                 size: number;
                 mimetype: string;
                 url: string;
+                note: string;
             };
         }, FormData>({
             query: (formData) => ({

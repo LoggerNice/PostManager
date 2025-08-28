@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 
 // Настройка multer для загрузки файлов
 const storage = multer.diskStorage({
@@ -16,10 +17,15 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Генерируем уникальное имя файла
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+    // Генерируем уникальное имя файла с UUID для избежания проблем с кодировкой
+    const originalName = file.originalname;
+    const ext = path.extname(originalName);
+    const uuid = randomUUID();
+    
+    // Сохраняем файл с UUID именем, но сохраняем оригинальное название в метаданных
+    const finalName = `${uuid}${ext}`;
+    
+    cb(null, finalName);
   }
 });
 
@@ -69,23 +75,50 @@ export const uploadFile = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
+    // Исправляем кодировку оригинального названия файла
+    let correctedOriginalName = req.file.originalname;
+    
+    // Если название содержит искаженные символы, пытаемся исправить
+    if (correctedOriginalName.includes('Ð') || correctedOriginalName.includes('')) {
+      try {
+        // Пытаемся исправить кодировку UTF-8
+        correctedOriginalName = Buffer.from(correctedOriginalName, 'latin1').toString('utf8');
+        
+        // Если все еще есть проблемы, пробуем другие кодировки
+        if (correctedOriginalName.includes('')) {
+          try {
+            correctedOriginalName = Buffer.from(req.file.originalname, 'latin1').toString('utf8');
+          } catch {
+            // Если не удалось, оставляем как есть
+          }
+        }
+      } catch (error) {
+        console.warn('Не удалось исправить кодировку названия файла:', error);
+        // Оставляем оригинальное название как есть
+        correctedOriginalName = req.file.originalname;
+      }
+    }
+
     // Логируем информацию о загруженном файле
     console.log('Файл загружен:', {
       filename: req.file.filename,
       originalname: req.file.originalname,
+      correctedOriginalName,
       path: req.file.path,
-      size: req.file.size
+      size: req.file.size,
+      message: 'Файл сохранен с UUID именем для совместимости с файловой системой'
     });
 
     // Возвращаем информацию о загруженном файле
     res.status(200).json({
-      message: 'Файл успешно загружен',
+      message: 'Файл успешно загружен с UUID именем',
       file: {
         filename: req.file.filename,
-        originalname: req.file.originalname,
+        originalname: correctedOriginalName,
         size: req.file.size,
         mimetype: req.file.mimetype,
-        url: `/uploads/comments/${req.file.filename}`
+        url: `/uploads/comments/${req.file.filename}`,
+        note: `Файл сохранен как "${req.file.filename}" (оригинальное название: "${correctedOriginalName}")`
       }
     });
   } catch (error) {
@@ -108,5 +141,26 @@ export const deleteFile = async (req: Request, res: Response): Promise<void> => 
   } catch (error) {
     console.error('Ошибка при удалении файла:', error);
     res.status(500).json({ message: 'Ошибка при удалении файла' });
+  }
+};
+
+// Функция для удаления файла по URL (используется при обновлении комментариев)
+export const deleteFileByUrl = async (fileUrl: string): Promise<boolean> => {
+  try {
+    // Извлекаем имя файла из URL
+    const filename = fileUrl.split('/').pop();
+    if (!filename) return false;
+    
+    const filePath = path.join(process.cwd(), 'uploads', 'comments', filename);
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`Файл ${filename} успешно удален при обновлении комментария`);
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Ошибка при удалении файла по URL:', error);
+    return false;
   }
 }; 

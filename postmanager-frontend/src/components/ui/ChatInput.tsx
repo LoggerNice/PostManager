@@ -29,6 +29,15 @@ export default function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Функция для обрезки названия файла
+  const truncateFileName = (fileName: string, maxLength: number = 30): string => {
+    if (fileName.length <= maxLength) return fileName;
+    const extension = fileName.split('.').pop();
+    const nameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
+    const truncatedName = nameWithoutExt.substring(0, maxLength - 3);
+    return `${truncatedName}...${extension ? '.' + extension : ''}`;
+  };
+
   // Автоматическое изменение высоты textarea
   useEffect(() => {
     if (textareaRef.current) {
@@ -114,7 +123,7 @@ export default function ChatInput({
               <span className="text-lg">{getFileIcon(selectedFile.type)}</span>
               <div>
                 <p className="text-sm font-medium text-gray-200 truncate" title={selectedFile.name}>
-                  {selectedFile.name}
+                  {truncateFileName(selectedFile.name)}
                 </p>
                 <p className="text-xs text-gray-400">
                   {formatFileSize(selectedFile.size)}
