@@ -86,25 +86,36 @@ export function filterTasks(tasks: Task[], filters: TasksFilterConfig): TaskFilt
     filteredTasks = filteredTasks.filter(task => {
       // Для фильтрации по дате используем deadline, если есть, иначе createdAt
       const taskDate = task.deadline ? new Date(task.deadline) : new Date(task.createdAt);
-      
+      const now = new Date();
+
       // Проверяем начальную дату
       if (filters.dateRange.startDate) {
         const startDate = new Date(filters.dateRange.startDate);
         startDate.setHours(0, 0, 0, 0); // Начало дня
         if (taskDate < startDate) {
+          // Если задача просрочена и выбранный период включает даты после deadline,
+          // то показываем просроченную задачу
+          if (task.deadline && new Date(task.deadline) < now && startDate > new Date(task.deadline)) {
+            return true;
+          }
           return false;
         }
       }
-      
+
       // Проверяем конечную дату
       if (filters.dateRange.endDate) {
         const endDate = new Date(filters.dateRange.endDate);
         endDate.setHours(23, 59, 59, 999); // Конец дня
         if (taskDate > endDate) {
+          // Если задача просрочена и выбранный период включает даты после deadline,
+          // то показываем просроченную задачу
+          if (task.deadline && new Date(task.deadline) < now && endDate > new Date(task.deadline)) {
+            return true;
+          }
           return false;
         }
       }
-      
+
       return true;
     });
   }

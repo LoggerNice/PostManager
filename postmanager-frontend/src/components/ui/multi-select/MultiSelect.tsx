@@ -44,7 +44,12 @@ const customStyles: StylesConfig<Option, true> = {
         ...base,
         background: 'var(--select-bg, white)',
         border: '1px solid var(--select-border, #d1d5db)',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        zIndex: 9999
+    }),
+    menuPortal: (base) => ({
+        ...base,
+        zIndex: 9999
     }),
     option: (base, state) => ({
         ...base,
@@ -130,6 +135,7 @@ export function MultiSelect({
                 onChange={(newValue) => onChange(newValue.map(option => option.value))}
                 instanceId={instanceId}
                 isDisabled={disabled}
+                menuPortalTarget={document.body}
             />
             {error && (
                 <p className="mt-1 text-sm text-red-500">{error}</p>

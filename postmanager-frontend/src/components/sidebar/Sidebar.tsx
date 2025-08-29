@@ -89,25 +89,31 @@ export default function Sidebar() {
                         {!collapsed && <span className="ml-3">Мои задачи</span>}
                     </Link>
 
-                    <Link
-                        key={'Мой отдел'}
-                        href={PAGE_URL.MY_DEPARTMENT}
-                        className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.MY_DEPARTMENT ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                        title={collapsed ? 'Мой отдел' : undefined}
-                    >
-                        <UsersIcon className="h-6 w-6" />
-                        {!collapsed && <span className="ml-3">Мой отдел</span>}
-                    </Link>
+                    {/* Мой отдел - доступен только для администраторов и начальников отделов */}
+                    {(userRole === UserRole.ADMIN || userRole === UserRole.MANAGER) && (
+                        <Link
+                            key={'Мой отдел'}
+                            href={PAGE_URL.MY_DEPARTMENT}
+                            className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.MY_DEPARTMENT ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                            title={collapsed ? 'Мой отдел' : undefined}
+                        >
+                            <UsersIcon className="h-6 w-6" />
+                            {!collapsed && <span className="ml-3">Мой отдел</span>}
+                        </Link>
+                    )}
 
-                    <Link
-                        key={'Анализ'}
-                        href={PAGE_URL.ANALYSIS}
-                        className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.ANALYSIS ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                        title={collapsed ? 'Анализ' : undefined}
-                    >
-                        <ChartBarIcon className="h-6 w-6" />
-                        {!collapsed && <span className="ml-3">Анализ</span>}
-                    </Link>
+                    {/* Анализ - доступен только для администраторов и начальников отделов */}
+                    {(userRole === UserRole.ADMIN || userRole === UserRole.MANAGER) && (
+                        <Link
+                            key={'Анализ'}
+                            href={PAGE_URL.ANALYSIS}
+                            className={`flex items-center ${collapsed ? 'justify-center' : ''} mx-2 p-2 rounded-lg transition-colors ${pathname === PAGE_URL.ANALYSIS ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                            title={collapsed ? 'Анализ' : undefined}
+                        >
+                            <ChartBarIcon className="h-6 w-6" />
+                            {!collapsed && <span className="ml-3">Анализ</span>}
+                        </Link>
+                    )}
 
                     {/* Проекты с выпадающим списком */}
                     <div className="mx-2">

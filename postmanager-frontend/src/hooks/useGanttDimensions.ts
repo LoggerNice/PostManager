@@ -6,7 +6,7 @@ export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
     const leftMargin = 120;
     const rightMargin = 100;
     const rowHeight = 30;
-    const headerHeight = 80;
+    const headerHeight = 80; // Возвращаем стандартную высоту заголовка
     
     // Состояния для размеров
     const [containerWidth, setContainerWidth] = useState(0);

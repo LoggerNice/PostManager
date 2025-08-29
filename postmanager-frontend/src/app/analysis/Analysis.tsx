@@ -1,11 +1,26 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
+import { UserRole } from '@/types';
 import ProjectsGanttChart from '@/components/charts/ProjectsGanttChart';
 import TasksStatusChart from '@/components/charts/TasksStatusChart';
 import DepartmentTasksStats from '@/components/charts/DepartmentTasksStats';
 
 export default function AnalysisBoard() {
+    const { user } = useAuth();
+
+    // Дополнительная проверка роли для безопасности
+    if (!user || (user.role !== UserRole.ADMIN && user.role !== UserRole.MANAGER)) {
+        return (
+            <div className="flex justify-center items-center h-screen">
+                <div className="text-center">
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                        У вас нет прав доступа к анализу
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="">

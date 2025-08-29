@@ -53,14 +53,15 @@ export const calculateTimelineData = (selectedWeek?: Date): TimelineData => {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 4); // Пятница (5 дней: пн, вт, ср, чт, пт)
     
-    const totalDays = 5; // Только рабочие дни
+    // Добавляем пустые столбцы: воскресенье перед понедельником и суббота после пятницы
+    const totalDays = 7; // 7 дней: вс, пн, вт, ср, чт, пт, сб
     
-    // Генерируем даты для оси X (только рабочие дни)
-    const workDates = [];
-    for (let i = 0; i < 5; i++) {
+    // Генерируем даты для оси X (включая воскресенье и субботу)
+    const allDates = [];
+    for (let i = 0; i < 7; i++) {
         const date = new Date(startOfWeek);
-        date.setDate(startOfWeek.getDate() + i);
-        workDates.push(date);
+        date.setDate(startOfWeek.getDate() + i - 1); // -1 чтобы начать с воскресенья
+        allDates.push(date);
     }
     
     // Получаем месяц для заголовка
@@ -68,7 +69,7 @@ export const calculateTimelineData = (selectedWeek?: Date): TimelineData => {
     
     return {
         timelineRange: { start: startOfWeek, end: endOfWeek, totalDays },
-        dates: workDates,
+        dates: allDates,
         months: [month]
     };
 };
@@ -118,25 +119,41 @@ export const calculateTaskPosition = (
     const taskEndTime = task.endDate.getTime();
     const weekStartTime = timelineData.timelineRange.start.getTime();
     
-    // 5 рабочих дней => 6 промежутков (между 5 днями)
-    const daySpacing = availableWidth / 5; // один день = одна доля ширины
+    // 7 дней (вс, пн, вт, ср, чт, пт, сб) => 7 промежутков
+    const daySpacing = availableWidth / 7; // один день = одна доля ширины
     
     // Определяем, в какой день начинается и заканчивается задача
     let startDayIndex = Math.floor((taskStartTime - weekStartTime) / (24 * 60 * 60 * 1000));
     const endDayIndex = Math.floor((taskEndTime - weekStartTime) / (24 * 60 * 60 * 1000));
     
-    // Если задача начинается раньше недели, показываем её от начала недели
-    if (startDayIndex < 0) {
-        startDayIndex = 0;
+    // Определяем, начинается ли задача раньше недели и заканчивается ли после
+    const startsBeforeWeek = task.startDate < timelineData.timelineRange.start;
+    const endsAfterWeek = task.endDate > timelineData.timelineRange.end;
+    
+    let startX: number;
+    let endX: number;
+    
+    if (startsBeforeWeek && endsAfterWeek) {
+        // Задача охватывает всю неделю - показываем в столбце воскресенья
+        startX = leftMargin + 0 * daySpacing; // Воскресенье
+        endX = leftMargin + 6 * daySpacing;   // Суббота
+    } else if (startsBeforeWeek) {
+        // Задача начинается до недели - показываем от воскресенья до конца задачи
+        startX = leftMargin + 0 * daySpacing; // Воскресенье
+        const clampedEndDay = Math.max(1, Math.min(5, endDayIndex + 1)); // Ограничиваем рабочими днями
+        endX = leftMargin + clampedEndDay * daySpacing;
+    } else if (endsAfterWeek) {
+        // Задача заканчивается после недели - показываем от начала задачи до субботы
+        const clampedStartDay = Math.max(1, Math.min(5, startDayIndex + 1)); // Ограничиваем рабочими днями
+        startX = leftMargin + clampedStartDay * daySpacing;
+        endX = leftMargin + 6 * daySpacing;   // Суббота
+    } else {
+        // Задача полностью в пределах недели - обычная логика
+        const clampedStartDay = Math.max(1, Math.min(5, startDayIndex + 1));
+        const clampedEndDay = Math.max(1, Math.min(5, endDayIndex + 1));
+        startX = leftMargin + clampedStartDay * daySpacing;
+        endX = leftMargin + clampedEndDay * daySpacing;
     }
-    
-    // Ограничиваем индексы дня в пределах 0–4 (понедельник–пятница)
-    const clampedStartDay = Math.max(0, Math.min(4, startDayIndex));
-    const clampedEndDay = Math.max(0, Math.min(4, endDayIndex));
-    
-    // Позиция по X — начало и конец задачи в пикселях
-    const startX = leftMargin + clampedStartDay * daySpacing;
-    const endX = leftMargin + clampedEndDay * daySpacing;
     
     // Адаптивный правый отступ
     const rightMargin = Math.max(20, Math.min(50, chartWidth * 0.05)); // 5% от ширины, минимум 20px
@@ -148,14 +165,12 @@ export const calculateTaskPosition = (
     // Ширина задачи (минимум 60px)
     const barWidth = Math.max(actualEndX - actualStartX, 60);
     
-    // Определяем, начинается ли задача раньше недели
-    const startsBeforeWeek = task.startDate < timelineData.timelineRange.start;
-    
     return {
         startX: actualStartX,
         endX: actualEndX,
         barWidth,
         startsBeforeWeek,
+        endsAfterWeek,
         daySpacing
     };
 };

@@ -7,18 +7,20 @@ interface TaskBarProps {
         endX: number;
         barWidth: number;
         startsBeforeWeek: boolean;
+        endsAfterWeek: boolean;
         daySpacing: number;
     };
     dimensions: {
         leftMargin: number;
         chartWidth: number;
+        availableWidth: number;
     };
     onTaskClick: (task: GanttTask) => void;
 }
 
 export default function TaskBar({ task, position, dimensions, onTaskClick }: TaskBarProps) {
-    const { leftMargin, chartWidth } = dimensions;
-    const { startX, barWidth, startsBeforeWeek } = position;
+    const { leftMargin, chartWidth, availableWidth } = dimensions;
+    const { startX, endX, barWidth, startsBeforeWeek, endsAfterWeek, daySpacing } = position;
     
     // Цвета для разных статусов
     const colorMap = {
@@ -59,6 +61,20 @@ export default function TaskBar({ task, position, dimensions, onTaskClick }: Tas
                     x1={leftMargin}
                     y1={12}
                     x2={startX}
+                    y2={12}
+                    stroke={borderColorMap[task.color]}
+                    strokeWidth={2}
+                    strokeDasharray="5,5"
+                    opacity={0.6}
+                />
+            )}
+
+            {/* Если задача заканчивается после рабочей недели, показываем пунктирную линию справа */}
+            {endsAfterWeek && (
+                <line
+                    x1={leftMargin + 5 * daySpacing}
+                    y1={12}
+                    x2={endX}
                     y2={12}
                     stroke={borderColorMap[task.color]}
                     strokeWidth={2}

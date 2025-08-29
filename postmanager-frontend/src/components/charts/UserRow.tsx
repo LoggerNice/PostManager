@@ -64,7 +64,7 @@ export default function UserRow({
                         <TaskBar
                             task={task}
                             position={position}
-                            dimensions={{ leftMargin, chartWidth }}
+                            dimensions={{ leftMargin, chartWidth, availableWidth }}
                             onTaskClick={onTaskClick}
                         />
                     </g>
