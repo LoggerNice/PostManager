@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { useGetCommentsByTaskQuery, useCreateCommentMutation, useUpdateCommentMutation, useDeleteCommentMutation, useMarkCommentAsViewedMutation, useGetCommentViewStatsQuery, useMarkCommentAsSolutionMutation } from '@/store/api/comment.api';
 import { useUpdateTaskMutation } from '@/store/api/task.api';
 import { useUploadFileMutation } from '@/store/api/file.api';
@@ -475,8 +476,13 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                 {task.project && (
                   <div>
                     <span className="text-gray-400 text-xs uppercase tracking-wide">Проект</span>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-medium text-blue-400">{task.project.title}</span>
+                    <div className="mt-1">
+                      <Link 
+                        href={`/projects/${task.project.id}`}
+                        className="font-medium text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                      >
+                        {task.project.title}
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -496,12 +502,6 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                             <option value="COMPLETED">Выполнено</option>
                           )}
                         </select>
-                        <button
-                          onClick={() => setIsEditingStatus(false)}
-                          className="text-gray-400 hover:text-gray-300"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -515,13 +515,6 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                         </button>
                       </div>
                     )}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-400 text-xs uppercase tracking-wide">Приоритет</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.priority)}`}></div>
-                    <span className="font-medium text-gray-200">{task.priority}</span>
                   </div>
                 </div>
                 <div>

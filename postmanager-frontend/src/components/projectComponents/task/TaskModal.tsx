@@ -4,19 +4,44 @@ import { ru } from 'date-fns/locale';
 import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useAuth } from '@/hooks/useAuth';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import DatePicker from '@/components/ui/DatePicker';
+import TimeOnlyPicker from '@/components/ui/TimeOnlyPicker';
 
 export default function TaskModal({ visible, onClose, onCreate, newTask, setNewTask, columns, selectedColumn, setSelectedColumn }: TaskModalProps) {
   const { user: currentUser } = useAuth();
   const { data: users = [] } = useGetUsersQuery();
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedTime, setSelectedTime] = useState('');
   const assigneeOptions = users.map(user => ({
     value: user.id,
     label: `${user.name}${user.department ? ' (' + user.department.name + ')' : ''}`
   }));
 
+  // Инициализируем время из существующего дедлайна
+  useEffect(() => {
+    if (newTask.deadline) {
+      const time = format(new Date(newTask.deadline), 'HH:mm');
+      setSelectedTime(time);
+    } else {
+      setSelectedTime('');
+    }
+  }, [newTask.deadline]);
 
+  // Объединяем дату и время при изменении
+  useEffect(() => {
+    if (newTask.deadline && selectedTime) {
+      const date = new Date(newTask.deadline);
+      const [hours, minutes] = selectedTime.split(':').map(Number);
+      date.setHours(hours, minutes, 0, 0);
+      
+      // Обновляем только если время действительно изменилось
+      const currentTime = format(new Date(newTask.deadline), 'HH:mm');
+      if (selectedTime !== currentTime) {
+        setNewTask({ ...newTask, deadline: date });
+      }
+    }
+  }, [selectedTime]);
 
 
   if (!visible) return null;
@@ -87,12 +112,21 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
               onClick={() => setShowDatePicker(true)}
               className="flex-1 px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white text-left"
             >
-              {newTask.deadline ? format(newTask.deadline, 'dd.MM.yyyy HH:mm', { locale: ru }) : 'Выберите дату и время'}
+              {newTask.deadline ? format(new Date(newTask.deadline), 'dd.MM.yyyy', { locale: ru }) : 'Выберите дату'}
             </button>
+            <TimeOnlyPicker
+              value={selectedTime}
+              onChange={(time) => setSelectedTime(time)}
+              placeholder="Время"
+              className="w-24"
+            />
             {newTask.deadline && (
               <button
                 type="button"
-                onClick={() => setNewTask({ ...newTask, deadline: null })}
+                onClick={() => {
+                  setNewTask({ ...newTask, deadline: null });
+                  setSelectedTime('');
+                }}
                 className="px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-700 text-white hover:bg-gray-600"
               >
                 ✕
@@ -130,17 +164,29 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
         </div>
       </div>
       
-      {/* Календарь для выбора даты и времени */}
+      {/* Календарь для выбора даты (без времени) */}
       <DatePicker
         isOpen={showDatePicker}
         onClose={() => setShowDatePicker(false)}
         onDateSelect={(date) => {
-          setNewTask({ ...newTask, deadline: date });
+          // Объединяем выбранную дату с выбранным временем
+          if (selectedTime) {
+            const [hours, minutes] = selectedTime.split(':').map(Number);
+            const combinedDate = new Date(date);
+            combinedDate.setHours(hours, minutes, 0, 0);
+            setNewTask({ ...newTask, deadline: combinedDate });
+          } else {
+            // Если время не выбрано, устанавливаем время по умолчанию 9:00
+            const combinedDate = new Date(date);
+            combinedDate.setHours(9, 0, 0, 0);
+            setNewTask({ ...newTask, deadline: combinedDate });
+            setSelectedTime('09:00');
+          }
         }}
         selectedDate={newTask.deadline}
-        showTimeSelect={true}
+        showTimeSelect={false}
         minDate={new Date()}
-        placeholder="Выберите дату и время"
+        placeholder="Выберите дату"
       />
     </div>
   );
