@@ -6,17 +6,21 @@ import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'react-hot-toast';
 
+interface BoardTasksTabProps {
+  columns: Record<string, any>;
+  handleDeleteTask: (columnId: string, taskId: string) => void;
+  onTaskUpdate: (taskId: string, updatedTask: any) => void;
+  onTaskMove?: (taskId: string, sourceColumnId: string, destinationColumnId: string, sourceIndex: number, destinationIndex: number) => void;
+  showProjectTitle?: boolean;
+}
 
 export default function TasksTab({ 
   columns, 
   handleDeleteTask,
   onTaskUpdate,
-  onAddTask,
-  onUpdateColumnName,
   onTaskMove,
-  showProjectTitle = false,
-  showAddButton = true
-}: TasksTabProps & { showProjectTitle?: boolean; showAddButton?: boolean }) {
+  showProjectTitle = false
+}: BoardTasksTabProps) {
   const { user } = useAuth();
 
   const handleDragEnd = (result: DropResult) => {
@@ -52,8 +56,15 @@ export default function TasksTab({
       return;
     }
 
+    // Проверяем, что функция перемещения существует
+    if (!onTaskMove) {
+      console.error('onTaskMove function is not provided');
+      toast.error('Функция перемещения недоступна');
+      return;
+    }
+
     // Вызываем функцию перемещения задачи
-    if (onTaskMove) {
+    try {
       onTaskMove(
         draggableId,
         source.droppableId,
@@ -66,6 +77,9 @@ export default function TasksTab({
       if (destination.droppableId === 'COMPLETED' && user?.role === 'MANAGER') {
         toast.success('Задача успешно перемещена в столбец "Выполнено"');
       }
+    } catch (error) {
+      console.error('Error during task move:', error);
+      toast.error('Ошибка при перемещении задачи');
     }
   };
 
@@ -80,10 +94,7 @@ export default function TasksTab({
               column={column}
               handleDeleteTask={handleDeleteTask}
               onTaskUpdate={onTaskUpdate}
-              onAddTask={onAddTask}
-              onUpdateColumnName={onUpdateColumnName}
               showProjectTitle={showProjectTitle}
-              showAddButton={showAddButton}
             />
           ))}
         </div>

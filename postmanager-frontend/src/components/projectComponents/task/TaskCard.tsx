@@ -16,8 +16,10 @@ import { MessageCircle } from 'lucide-react';
 const getPriorityColor = (priority: string) => {
   switch (priority) {
     case 'Высокий':
+    case 'HIGH':
       return 'border-red-500';
     case 'Средний':
+    case 'MEDIUM':
       return 'border-yellow-500';
     default:
       return 'border-gray-900';

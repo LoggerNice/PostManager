@@ -11,6 +11,7 @@ import { useGetDepartmentsQuery } from '@/store/api/department.api';
 import { filterTasks } from '@/utils/taskFiltering';
 import { soundManager } from '@/utils/soundUtils';
 import { format } from 'date-fns';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 import TasksTab from '../projectComponents/TasksTab';
 import TasksFilter from '../filters/TasksFilter';
@@ -33,6 +34,7 @@ const initialColumns: Record<string, Column> = {
 export default function UserTasksBoard() {
   const { user } = useAuth();
   const userId = user?.id;
+  const { isConnected } = useWebSocketContext();
 
   // Состояние фильтров
   const [filters, setFilters] = useState<TasksFilterConfig>({
@@ -59,7 +61,6 @@ export default function UserTasksBoard() {
     groupedUserTasks,
     isLoading,
     error,
-    createTask,
     updateTask,
     deleteTask,
     sortTasksByPriority
@@ -110,69 +111,25 @@ export default function UserTasksBoard() {
     };
   }, [groupedFilteredTasks]);
 
-  const handleCreateTask = async (
-    columnId: string,
-    title: string,
-    description: string = '',
-    priority: TaskPriority = 'LOW',
-    taskType: TaskType = 'OTHER',
-    deadline?: string,
-    assigneeIds?: number[]
-  ) => {
-    if (!title.trim() || !userId) return;
 
-    // Определяем порядок для новой задачи (в конце списка)
-    const currentColumnItems = columns[columnId]?.items || [];
-    const nextOrder = currentColumnItems.length;
-
-    // Убеждаемся, что текущий пользователь включен в список исполнителей
-    const finalAssigneeIds = assigneeIds || [];
-    if (!finalAssigneeIds.includes(userId)) {
-      finalAssigneeIds.push(userId);
-    }
-
-    // Находим первый проект пользователя для создания задачи
-    const firstProject = userTasks?.[0]?.projectId;
-    if (!firstProject) {
-      console.error('Нет доступных проектов для создания задачи');
-      return;
-    }
-
-    const taskData: TaskForm = {
-      title: title.trim(),
-      description: description.trim(),
-      priority: priority,
-      taskType: taskType,
-      status: columnId as TaskStatus,
-      projectId: firstProject,
-      deadline: deadline,
-      order: nextOrder,
-      assigneeIds: finalAssigneeIds
-    };
-
-    try {
-      await createTask(taskData);
-
-      // Воспроизводим звук при появлении задачи в столбце "В процессе"
-      if (columnId === 'IN_PROGRESS') {
-        soundManager.playTaskCreatedSound();
-      }
-    } catch (error) {
-      console.error('Failed to create task:', error);
-      alert('Ошибка при создании задачи. Проверьте консоль для деталей.');
-    }
-  };
 
   const handleDeleteTask = async (columnId: string, taskId: string) => {
     try {
-      // Находим проект задачи
-      const task = userTasks.find((t: Task) => t.id === taskId);
-      if (!task?.projectId) {
-        console.error('Task project not found');
+      // Проверяем, что данные загружены
+      if (isLoading) {
+        alert('Данные еще загружаются. Попробуйте позже.');
         return;
       }
 
-      await deleteTask(taskId, task.projectId);
+      // Находим проект задачи
+      const task = userTasks.find((t: Task) => t.id === taskId);
+      if (!task?.projectId) {
+        console.error('Task project not found for task:', taskId);
+        alert('Задача не найдена. Попробуйте обновить страницу.');
+        return;
+      }
+
+      await deleteTask(taskId);
     } catch (error) {
       console.error('Failed to delete task:', error);
       alert('Ошибка при удалении задачи. Проверьте консоль для деталей.');
@@ -181,10 +138,17 @@ export default function UserTasksBoard() {
 
   const handleTaskUpdate = async (taskId: string, updatedTask: Task) => {
     try {
+      // Проверяем, что данные загружены
+      if (isLoading) {
+        alert('Данные еще загружаются. Попробуйте позже.');
+        return;
+      }
+
       // Находим проект задачи
       const task = userTasks.find((t: Task) => t.id === taskId);
       if (!task?.projectId) {
-        console.error('Task project not found');
+        console.error('Task project not found for task:', taskId);
+        alert('Задача не найдена. Попробуйте обновить страницу.');
         return;
       }
 
@@ -206,10 +170,6 @@ export default function UserTasksBoard() {
     }
   };
 
-  const handleUpdateColumnName = (columnId: string, newName: string) => {
-    // Не реализовано, если потребуется — добавить
-  };
-
   const handleTaskMove = async (
     taskId: string,
     sourceColumnId: string,
@@ -218,10 +178,17 @@ export default function UserTasksBoard() {
     destinationIndex: number
   ) => {
     try {
+      // Проверяем, что данные загружены
+      if (isLoading) {
+        alert('Данные еще загружаются. Попробуйте позже.');
+        return;
+      }
+
       // Находим задачу
       const task = userTasks.find((t: Task) => t.id === taskId);
       if (!task?.projectId) {
-        console.error('Task project not found');
+        console.error('Task project not found for task:', taskId);
+        alert('Задача не найдена. Попробуйте обновить страницу.');
         return;
       }
 
@@ -256,9 +223,18 @@ export default function UserTasksBoard() {
   return (
     <div className="h-full flex flex-col">
       <div className="ml-6 mb-6 flex-shrink-0">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Мои задачи
-        </h2>
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Мои задачи
+          </h2>
+          {/* Индикатор синхронизации */}
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-sm text-gray-500 dark:text-gray-400">
+              {isConnected ? 'Синхронизация активна' : 'Синхронизация отключена'}
+            </span>
+          </div>
+        </div>
         <p className="text-gray-600 dark:text-gray-400">
           Задачи по всем проектам, где вы являетесь исполнителем
         </p>
@@ -286,11 +262,8 @@ export default function UserTasksBoard() {
           columns={columns}
           handleDeleteTask={handleDeleteTask}
           onTaskUpdate={handleTaskUpdate}
-          onAddTask={handleCreateTask}
-          onUpdateColumnName={handleUpdateColumnName}
           onTaskMove={handleTaskMove}
           showProjectTitle={true}
-          showAddButton={false}
         />
       </div>
     </div>

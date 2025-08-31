@@ -288,6 +288,27 @@ export const selectUserTasks = (state: { tasks: TaskState }, userId?: number) =>
       )
     : state.tasks.tasks;
 
+export const selectDepartmentTasks = (state: { tasks: TaskState }, departmentId?: number, departmentUsers?: any[]) => {
+  if (!departmentId || !departmentUsers || departmentUsers.length === 0) return [];
+  
+  return state.tasks.tasks.filter(task => {
+    // Проверяем через assignees
+    if (task.assignees && task.assignees.length > 0) {
+      return task.assignees.some((assignee: any) => 
+        departmentUsers.some((user: any) => user.id === assignee.userId)
+      );
+    }
+    
+    // Проверяем через assigneeId
+    if (task.assigneeId) {
+      const assigneeId = typeof task.assigneeId === 'string' ? parseInt(task.assigneeId) : task.assigneeId;
+      return departmentUsers.some((user: any) => user.id === assigneeId);
+    }
+    
+    return false;
+  });
+};
+
 export const selectTasksLoading = (state: { tasks: TaskState }) => 
   state.tasks.isLoading;
 

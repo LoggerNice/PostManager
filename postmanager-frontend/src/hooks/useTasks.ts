@@ -1,6 +1,7 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useGetProjectTasksQuery, useGetUserTasksQuery } from '@/store/api/task.api';
+import { useGetUsersQuery } from '@/store/api/user.api';
 import { useCreateTaskMutation, useUpdateTaskMutation, useDeleteTaskMutation } from '@/store/api/task.api';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,7 +25,8 @@ import {
   selectTasksLoading,
   selectTasksError,
   selectLastSync,
-  selectPendingOperations
+  selectPendingOperations,
+  selectDepartmentTasks
 } from '@/store/slices/taskSlice';
 import { Task, TaskForm, TaskStatus, TaskPriority } from '@/types/task.types';
 import { TaskEventData } from '@/contexts/WebSocketContext';
