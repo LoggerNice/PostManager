@@ -63,7 +63,8 @@ export default function UserTasksBoard() {
     error,
     updateTask,
     deleteTask,
-    sortTasksByPriority
+    sortTasksByPriority,
+    createTask
   } = useTasks({ enableSounds: true, autoSync: true });
 
   // Загружаем данные для фильтров
@@ -213,6 +214,53 @@ export default function UserTasksBoard() {
     } catch (error) {
       console.error('Failed to update task order or status:', error);
       alert('Ошибка при перемещении задачи. Проверьте консоль для деталей.');
+    }
+  };
+
+  const handleCreateTask = async (
+    columnId: string,
+    title: string,
+    description: string = '',
+    priority: TaskPriority = 'LOW',
+    taskType: TaskType = 'OTHER',
+    deadline?: string,
+    assigneeIds?: number[]
+  ) => {
+    if (!title.trim()) return;
+
+    // Находим первый проект пользователя для создания задачи
+    const userProject = userTasks.find(task => task.projectId)?.projectId;
+    if (!userProject) {
+      alert('Не найдено подходящего проекта для создания задачи');
+      return;
+    }
+
+    // Определяем порядок для новой задачи (в конце списка)
+    const currentColumnItems = columns[columnId]?.items || [];
+    const nextOrder = currentColumnItems.length;
+
+    const taskData: TaskForm = {
+      title: title.trim(),
+      description: description.trim(),
+      priority: priority,
+      taskType: taskType,
+      status: columnId as TaskStatus,
+      projectId: userProject,
+      deadline: deadline,
+      order: nextOrder,
+      assigneeIds: assigneeIds || [userId]
+    };
+
+    try {
+      await createTask(taskData);
+
+      // Воспроизводим звук при появлении задачи в столбце "В процессе"
+      if (columnId === 'IN_PROGRESS') {
+        soundManager.playTaskCreatedSound();
+      }
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      alert('Ошибка при создании задачи. Проверьте консоль для деталей.');
     }
   };
 

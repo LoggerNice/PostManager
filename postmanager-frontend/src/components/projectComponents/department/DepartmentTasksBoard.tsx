@@ -1,11 +1,11 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { TaskStatus, TaskPriority, Task, TaskForm } from '@/types/task.types';
+import { TaskStatus, TaskPriority, Task, TaskForm, TaskType } from '@/types/task.types';
 import { TasksFilterConfig } from '@/types/filter.types';
 import { Column } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
-import { useGetTasksQuery, useUpdateTaskMutation, useDeleteTaskMutation } from '@/store/api/task.api';
+import { useGetTasksQuery, useUpdateTaskMutation, useDeleteTaskMutation, useCreateTaskMutation } from '@/store/api/task.api';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useGetDepartmentsQuery } from '@/store/api/department.api';
 import { filterTasks } from '@/utils/taskFiltering';
@@ -41,6 +41,7 @@ export default function DepartmentTasksBoard() {
   // Хуки для обновления и удаления задач
   const [updateTask] = useUpdateTaskMutation();
   const [deleteTask] = useDeleteTaskMutation();
+  const [createTask] = useCreateTaskMutation();
 
   // Получаем текущего пользователя и его отдел
   const currentUser = allUsers.find(user => user.id === userId);
@@ -321,6 +322,49 @@ export default function DepartmentTasksBoard() {
     } catch (error) {
       console.error('Failed to update task order or status:', error);
       toast.error('Ошибка при перемещении задачи');
+    }
+  };
+
+  const handleCreateTask = async (
+    columnId: string,
+    title: string,
+    description: string = '',
+    priority: TaskPriority = 'LOW',
+    taskType: TaskType = 'OTHER',
+    deadline?: string,
+    assigneeIds?: number[]
+  ) => {
+    if (!title.trim()) return;
+
+    // Находим первый проект из задач отдела для создания задачи
+    const departmentProject = departmentTasks.find(task => task.projectId)?.projectId;
+    if (!departmentProject) {
+      toast.error('Не найдено подходящего проекта для создания задачи');
+      return;
+    }
+
+    // Определяем порядок для новой задачи (в конце списка)
+    const currentColumnItems = columns[columnId]?.items || [];
+    const nextOrder = currentColumnItems.length;
+
+    const taskData: TaskForm = {
+      title: title.trim(),
+      description: description.trim(),
+      priority: priority,
+      taskType: taskType,
+      status: columnId as TaskStatus,
+      projectId: departmentProject,
+      deadline: deadline,
+      order: nextOrder,
+      assigneeIds: assigneeIds || []
+    };
+
+    try {
+      await createTask(taskData);
+      toast.success('Задача успешно создана');
+    } catch (error) {
+      console.error('Failed to create task:', error);
+      toast.error('Ошибка при создании задачи');
     }
   };
 

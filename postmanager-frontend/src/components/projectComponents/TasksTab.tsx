@@ -11,6 +11,7 @@ interface BoardTasksTabProps {
   handleDeleteTask: (columnId: string, taskId: string) => void;
   onTaskUpdate: (taskId: string, updatedTask: any) => void;
   onTaskMove?: (taskId: string, sourceColumnId: string, destinationColumnId: string, sourceIndex: number, destinationIndex: number) => void;
+  onAddTask?: (columnId: string, title: string, description?: string, priority?: any, taskType?: any, deadline?: string, assigneeIds?: number[]) => void;
   showProjectTitle?: boolean;
 }
 
@@ -19,6 +20,7 @@ export default function TasksTab({
   handleDeleteTask,
   onTaskUpdate,
   onTaskMove,
+  onAddTask,
   showProjectTitle = false
 }: BoardTasksTabProps) {
   const { user } = useAuth();
@@ -94,6 +96,7 @@ export default function TasksTab({
               column={column}
               handleDeleteTask={handleDeleteTask}
               onTaskUpdate={onTaskUpdate}
+              onCreateTask={onAddTask}
               showProjectTitle={showProjectTitle}
             />
           ))}
