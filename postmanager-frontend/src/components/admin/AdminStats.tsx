@@ -37,16 +37,14 @@ export default function AdminStats() {
       value: stats.totalProjects,
       icon: FolderIcon,
       color: 'text-green-600',
-      bgColor: 'bg-green-100 dark:bg-green-900/20',
-      subtitle: `${stats.activeProjects} активных`
+      bgColor: 'bg-green-100 dark:bg-green-900/20'
     },
     {
       title: 'Задачи',
-      value: stats.totalTasks,
+      value: stats.totalTasks - stats.completedTasks,
       icon: ClipboardDocumentListIcon,
       color: 'text-purple-600',
-      bgColor: 'bg-purple-100 dark:bg-purple-900/20',
-      subtitle: `${stats.completedTasks} завершенных`
+      bgColor: 'bg-purple-100 dark:bg-purple-900/20'
     },
     {
       title: 'Отделы',
@@ -91,7 +89,7 @@ export default function AdminStats() {
               key={card.title}
               className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
             >
-              <div className="flex items-center">
+              <div className="flex items-center flex-wrap">
                 <div className={`p-3 rounded-lg ${card.bgColor}`}>
                   <card.icon className={`h-6 w-6 ${card.color}`} />
                 </div>
@@ -125,7 +123,7 @@ export default function AdminStats() {
               key={stat.title}
               className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap">
                 <div>
                   <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                     {stat.title}

@@ -275,13 +275,6 @@ export default function UserTasksBoard() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Мои задачи
           </h2>
-          {/* Индикатор синхронизации */}
-          <div className="flex items-center space-x-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              {isConnected ? 'Синхронизация активна' : 'Синхронизация отключена'}
-            </span>
-          </div>
         </div>
         <p className="text-gray-600 dark:text-gray-400">
           Задачи по всем проектам, где вы являетесь исполнителем

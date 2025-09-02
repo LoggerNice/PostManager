@@ -102,7 +102,7 @@ export default function DepartmentTasksStatusChart() {
                 Статистика задач отдела
             </h3>
             
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap">
                 {/* Pie chart */}
                 <div className="flex-shrink-0">
                     <svg width={chartSize} height={chartSize} className="transform -rotate-90">

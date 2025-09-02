@@ -20,9 +20,9 @@ export default function TimeOnlyPicker({
   // Генерируем временные слоты с 9:00 до 18:00 с интервалом в 15 минут
   const generateTimeSlots = () => {
     const slots = [];
-    for (let hour = 9; hour <= 17; hour++) {
+    for (let hour = 9; hour <= 18; hour++) {
       for (let minute = 0; minute < 60; minute += 15) {
-        if (hour === 17 && minute > 45) break; // Последний слот 17:45
+        if (hour === 18 && minute > 0) break;
         
         const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
         slots.push(timeString);
