@@ -4,7 +4,7 @@ import { UserTasksGroup } from '@/types/gantt.types';
 export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
     // Константы
     const leftMargin = 120;
-    const rightMargin = 100;
+    const rightMargin = 0; // Убираем правый отступ
     const rowHeight = 30;
     const headerHeight = 80; // Возвращаем стандартную высоту заголовка
     
@@ -86,7 +86,7 @@ export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
         const chartWidth = Math.max(width, 800); // Минимальная ширина 800px
         
         // Адаптивный расчет доступной ширины
-        const rightMargin = Math.max(20, Math.min(50, width * 0.05)); // 5% от ширины, минимум 20px
+        const rightMargin = 0; // Убираем правый отступ
         const availableWidth = chartWidth - leftMargin - rightMargin;
 
         return {
@@ -103,7 +103,7 @@ export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
             ? Math.max(...userTasksGroups.map(group => group.maxLevel + 1), 1)
             : 1;
             
-        const calculatedHeight = headerHeight + (totalUsers * (maxLevels * rowHeight + 40)) + 80;
+        const calculatedHeight = headerHeight + (totalUsers * (maxLevels * rowHeight + 20)) + 20; // Статичный отступ 40px снизу
         setChartHeight(Math.max(calculatedHeight, 400));
     }, [userTasksGroups, headerHeight, rowHeight]);
 

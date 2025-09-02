@@ -5,12 +5,14 @@ import {
   EllipsisVerticalIcon,
   ExclamationTriangleIcon,
   CalendarIcon,
-  TrashIcon
+  TrashIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
 interface TaskMenuProps {
   onEditPriority: () => void;
   onAddDate: () => void;
+  onAddTime: () => void;
   onDelete: () => void;
   onEdit: () => void;
   menuHeight: number;
@@ -25,6 +27,7 @@ interface TaskMenuProps {
 export default function TaskMenu({
   onEditPriority,
   onAddDate,
+  onAddTime,
   onDelete,
   onEdit,
   menuHeight,
@@ -117,16 +120,27 @@ export default function TaskMenu({
             <ExclamationTriangleIcon className="w-4 h-4" />
             Изменить приоритет
           </button>
-                    <button
+          <button
             onClick={() => {
               onAddDate();
               setShowMenu(false);
               setMenuPosition(null);
             }}
-            className="w-full px-4 py-2 pb-3 text-left text-[12px] text-gray-300 hover:bg-gray-700 rounded-b-lg flex items-center gap-2"
+            className="w-full px-4 py-2 text-left text-[12px] text-gray-300 hover:bg-gray-700 flex items-center gap-2"
           >
             <CalendarIcon className="w-4 h-4" />
             Указать срок
+          </button>
+          <button
+            onClick={() => {
+              onAddTime();
+              setShowMenu(false);
+              setMenuPosition(null);
+            }}
+            className="w-full px-4 py-2 pb-3 text-left text-[12px] text-gray-300 hover:bg-gray-700 rounded-b-lg flex items-center gap-2"
+          >
+            <ClockIcon className="w-4 h-4" />
+            Указать время
           </button>
           <button
             onClick={() => {

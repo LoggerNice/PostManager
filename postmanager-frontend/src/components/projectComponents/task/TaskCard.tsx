@@ -11,6 +11,8 @@ import TaskMenu from './TaskMenu';
 import TaskModal from './TaskModal';
 import TaskDetailsModal from './TaskDetailsModal';
 import TimePicker from './TimePicker';
+import DateOnlyModal from '@/components/ui/DateOnlyModal';
+import TimeOnlyModal from '@/components/ui/TimeOnlyModal';
 import { MessageCircle } from 'lucide-react';
 
 const getPriorityColor = (priority: string) => {
@@ -39,6 +41,8 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDateOnlyModal, setShowDateOnlyModal] = useState(false);
+  const [showTimeOnlyModal, setShowTimeOnlyModal] = useState(false);
   const [editTaskData, setEditTaskData] = useState({
     title: item.title,
     description: item.description || '',
@@ -116,6 +120,87 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     }
   };
 
+  const handleDateOnlySelect = async (date: Date) => {
+    try {
+      const priorityMap: Record<string, TaskPriority> = {
+        'Низкий': 'LOW',
+        'Средний': 'MEDIUM',
+        'Высокий': 'HIGH'
+      };
+
+      // Сохраняем текущее время, если оно есть
+      const currentDeadline = item.deadline ? new Date(item.deadline) : new Date();
+      const newDeadline = new Date(date);
+      newDeadline.setHours(currentDeadline.getHours(), currentDeadline.getMinutes(), 0, 0);
+
+      const deadlineValue = format(newDeadline, 'yyyy-MM-dd HH:mm:ss');
+      console.log('Sending date only to API:', deadlineValue);
+
+      await updateTask({
+        taskId: item.id,
+        task: {
+          ...item,
+          priority: priorityMap[item.priority as keyof typeof priorityMap],
+          deadline: deadlineValue,
+          taskType: (item.taskType as TaskType) || 'OTHER'
+        }
+      }).unwrap();
+
+      console.log('API call successful, updating local state with date:', newDeadline);
+
+      onTaskUpdate(item.id, {
+        ...item,
+        deadline: newDeadline
+      });
+
+      setShowDateOnlyModal(false);
+    } catch (error) {
+      console.error('Failed to update task date:', error);
+    }
+  };
+
+  const handleTimeOnlySelect = async (time: string) => {
+    try {
+      const priorityMap: Record<string, TaskPriority> = {
+        'Низкий': 'LOW',
+        'Средний': 'MEDIUM',
+        'Высокий': 'HIGH'
+      };
+
+      // Парсим время
+      const [hours, minutes] = time.split(':').map(Number);
+      
+      // Используем текущую дату или дату дедлайна
+      const currentDeadline = item.deadline ? new Date(item.deadline) : new Date();
+      const newDeadline = new Date(currentDeadline);
+      newDeadline.setHours(hours, minutes, 0, 0);
+
+      const deadlineValue = format(newDeadline, 'yyyy-MM-dd HH:mm:ss');
+      console.log('Sending time only to API:', deadlineValue);
+
+      await updateTask({
+        taskId: item.id,
+        task: {
+          ...item,
+          priority: priorityMap[item.priority as keyof typeof priorityMap],
+          deadline: deadlineValue,
+          taskType: (item.taskType as TaskType) || 'OTHER'
+        }
+      }).unwrap();
+
+      console.log('API call successful, updating local state with time:', newDeadline);
+
+      onTaskUpdate(item.id, {
+        ...item,
+        deadline: newDeadline
+      });
+
+      setShowTimeOnlyModal(false);
+    } catch (error) {
+      console.error('Failed to update task time:', error);
+    }
+  };
+
   const handleEditCancel = () => {
     setShowEditModal(false);
   };
@@ -162,7 +247,8 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           <div onMouseEnter={(e) => e.stopPropagation()} onMouseLeave={(e) => e.stopPropagation()}>
             <TaskMenu
               onEditPriority={() => setShowPriorityModal(true)}
-              onAddDate={() => setShowTimePicker(true)}
+              onAddDate={() => setShowDateOnlyModal(true)}
+              onAddTime={() => setShowTimeOnlyModal(true)}
               onDelete={() => handleDeleteTask(columnId, item.id)}
               onEdit={handleEdit}
               menuHeight={menuHeight}
@@ -336,6 +422,23 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
         onClose={() => setShowTimePicker(false)}
         onTimeSelect={handleTimeSelect}
         currentDeadline={item.deadline ? new Date(item.deadline) : null}
+      />
+
+      <DateOnlyModal
+        isOpen={showDateOnlyModal}
+        onClose={() => setShowDateOnlyModal(false)}
+        onDateSelect={handleDateOnlySelect}
+        selectedDate={item.deadline ? new Date(item.deadline) : new Date()}
+      />
+
+      <TimeOnlyModal
+        isOpen={showTimeOnlyModal}
+        onClose={() => setShowTimeOnlyModal(false)}
+        onTimeSelect={handleTimeOnlySelect}
+        currentTime={item.deadline ? 
+          `${new Date(item.deadline).getHours().toString().padStart(2, '0')}:${new Date(item.deadline).getMinutes().toString().padStart(2, '0')}` : 
+          ''
+        }
       />
 
     </div>

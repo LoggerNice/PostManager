@@ -4,7 +4,7 @@ import { ru } from 'date-fns/locale';
 import ReactDatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 
-// Кастомные стили для DatePicker
+// Кастомные стили для DatePicker (только дата)
 const datePickerStyles = `
   .react-datepicker {
     background-color: #1f2937 !important;
@@ -32,12 +32,6 @@ const datePickerStyles = `
     font-weight: 500 !important;
     font-size: 12px !important;
     margin-top: 10px !important;
-  }
-
-  .react-datepicker-time__header {
-    color: #f9fafb !important;
-    font-weight: 600 !important;
-    font-size: 16px !important;
   }
   
   .react-datepicker__day {
@@ -89,36 +83,6 @@ const datePickerStyles = `
     border-radius: 6px !important;
   }
   
-  .react-datepicker__time-container {
-    background-color: #1f2937 !important;
-    border-left: 1px solid #374151 !important;
-    border-radius: 0 12px 12px 0 !important;
-  }
-  
-  .react-datepicker__time {
-    background-color: #1f2937 !important;
-    border-radius: 0 12px 12px 0 !important;
-  }
-  
-  .react-datepicker__time-list-item {
-    color: #f9fafb !important;
-    padding: 8px 12px !important;
-    font-size: 14px !important;
-    border-radius: 4px !important;
-    margin: 2px 4px !important;
-  }
-  
-  .react-datepicker__time-list-item:hover {
-    background-color: #3b82f6 !important;
-    color: white !important;
-  }
-  
-  .react-datepicker__time-list-item--selected {
-    background-color: #3b82f6 !important;
-    color: white !important;
-    font-weight: 600 !important;
-  }
-  
   .react-datepicker__month-container {
     background-color: #1f2937 !important;
   }
@@ -135,40 +99,31 @@ const datePickerStyles = `
   .react-datepicker__day--disabled {
     color: #4b5563 !important;
   }
-  
-  .react-datepicker__time-caption {
-    color: #9ca3af !important;
-    font-weight: 500 !important;
-    font-size: 12px !important;
-    padding: 8px 12px !important;
-  }
 `;
 
-export interface DatePickerProps {
+interface DateOnlyModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDateSelect: (date: Date) => void;
   selectedDate?: Date | null;
-  showTimeSelect?: boolean;
   minDate?: Date;
-  placeholder?: string;
 }
 
-export default function DatePicker({ 
+export default function DateOnlyModal({ 
   isOpen, 
   onClose, 
   onDateSelect, 
   selectedDate = new Date(),
-  showTimeSelect = true,
-  minDate = new Date(),
-  placeholder = "Выберите дату и время"
-}: DatePickerProps) {
-  // Используем selectedDate напрямую, без локального состояния
+  minDate = new Date()
+}: DateOnlyModalProps) {
   const currentDate = selectedDate || new Date();
 
   const handleDateChange = (date: Date | null) => {
     if (date) {
-      onDateSelect(date);
+      // Устанавливаем время в 00:00:00 для выбранной даты
+      const dateOnly = new Date(date);
+      dateOnly.setHours(0, 0, 0, 0);
+      onDateSelect(dateOnly);
       onClose();
     }
   };
@@ -182,17 +137,14 @@ export default function DatePicker({
         <ReactDatePicker
           selected={currentDate}
           onChange={handleDateChange}
-          showTimeSelect={showTimeSelect}
-          timeFormat="HH:mm"
-          timeIntervals={15}
-          dateFormat={showTimeSelect ? "dd.MM.yyyy HH:mm" : "dd.MM.yyyy"}
+          showTimeSelect={false}
+          dateFormat="dd.MM.yyyy"
           locale={ru}
           inline
           minDate={minDate}
-          timeCaption="Время"
-          placeholderText={placeholder}
+          placeholderText="Выберите дату"
         />
       </div>
     </div>
   );
-} 
+}

@@ -26,30 +26,36 @@ export const useGanttData = (
             
             // Определяем начальную дату на основе статуса задачи
             if (task.status === 'COMPLETED') {
-                // Для завершенных задач используем deadline как конечную дату
-                // и показываем их как короткие задачи (1 день) для видимости
-                actualStartDate = new Date(deadline);
-                actualStartDate.setDate(actualStartDate.getDate() - 1); // Показываем как 1-дневную задачу
-                actualEndDate = deadline;
+                // Для завершенных задач используем реальную длительность от создания до дедлайна + 1 день
+                actualStartDate = new Date(task.createdAt);
+                actualStartDate.setDate(actualStartDate.getDate() + 1);
+                actualEndDate = new Date(deadline);
+                actualEndDate.setDate(actualEndDate.getDate() + 1);
             } else if (task.assignees && task.assignees.length > 0) {
                 // Для задач с исполнителями берем дату назначения первого исполнителя
                 actualStartDate = new Date(task.assignees[0].assignedAt);
+                actualStartDate.setDate(actualStartDate.getDate() + 1);
                 
                 // Для просроченных задач показываем длину до текущего дня
                 if (deadline < now) {
                     actualEndDate = now;
                 } else {
-                    actualEndDate = deadline;
+                    // Для непросроченных задач добавляем длину до следующего дня
+                    actualEndDate = new Date(deadline);
+                    actualEndDate.setDate(actualEndDate.getDate() + 1);
                 }
             } else {
                 // По умолчанию от создания до дедлайна
                 actualStartDate = new Date(task.createdAt);
+                actualStartDate.setDate(actualStartDate.getDate() + 1);
                 
                 // Для просроченных задач показываем длину до текущего дня
                 if (deadline < now) {
                     actualEndDate = now;
                 } else {
-                    actualEndDate = deadline;
+                    // Для непросроченных задач добавляем длину до следующего дня
+                    actualEndDate = new Date(deadline);
+                    actualEndDate.setDate(actualEndDate.getDate() + 1);
                 }
             }
 
