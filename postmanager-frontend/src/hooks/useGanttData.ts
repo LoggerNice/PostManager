@@ -28,13 +28,13 @@ export const useGanttData = (
             if (task.status === 'COMPLETED') {
                 // Для завершенных задач используем реальную длительность от создания до дедлайна + 1 день
                 actualStartDate = new Date(task.createdAt);
-                actualStartDate.setDate(actualStartDate.getDate() + 1);
+                actualStartDate.setDate(actualStartDate.getDate());
                 actualEndDate = new Date(deadline);
-                actualEndDate.setDate(actualEndDate.getDate() + 1);
+                actualEndDate.setDate(actualEndDate.getDate());
             } else if (task.assignees && task.assignees.length > 0) {
                 // Для задач с исполнителями берем дату назначения первого исполнителя
                 actualStartDate = new Date(task.assignees[0].assignedAt);
-                actualStartDate.setDate(actualStartDate.getDate() + 1);
+                actualStartDate.setDate(actualStartDate.getDate());
                 
                 // Для просроченных задач показываем длину до текущего дня
                 if (deadline < now) {
@@ -42,12 +42,12 @@ export const useGanttData = (
                 } else {
                     // Для непросроченных задач добавляем длину до следующего дня
                     actualEndDate = new Date(deadline);
-                    actualEndDate.setDate(actualEndDate.getDate() + 1);
+                    actualEndDate.setDate(actualEndDate.getDate());
                 }
             } else {
                 // По умолчанию от создания до дедлайна
                 actualStartDate = new Date(task.createdAt);
-                actualStartDate.setDate(actualStartDate.getDate() + 1);
+                actualStartDate.setDate(actualStartDate.getDate());
                 
                 // Для просроченных задач показываем длину до текущего дня
                 if (deadline < now) {
@@ -55,7 +55,7 @@ export const useGanttData = (
                 } else {
                     // Для непросроченных задач добавляем длину до следующего дня
                     actualEndDate = new Date(deadline);
-                    actualEndDate.setDate(actualEndDate.getDate() + 1);
+                    actualEndDate.setDate(actualEndDate.getDate());
                 }
             }
 

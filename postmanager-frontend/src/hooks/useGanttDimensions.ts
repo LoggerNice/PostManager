@@ -5,7 +5,7 @@ export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
     // Константы
     const leftMargin = 120;
     const rightMargin = 0; // Убираем правый отступ
-    const rowHeight = 30;
+    const rowHeight = 15;
     const headerHeight = 80; // Возвращаем стандартную высоту заголовка
     
     // Состояния для размеров
@@ -102,8 +102,8 @@ export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
         const maxLevels = userTasksGroups.length > 0 
             ? Math.max(...userTasksGroups.map(group => group.maxLevel + 1), 1)
             : 1;
-            
-        const calculatedHeight = headerHeight + (totalUsers * (maxLevels * rowHeight + 20)) + 20; // Статичный отступ 40px снизу
+        
+        const calculatedHeight = headerHeight + (totalUsers * ((maxLevels) * rowHeight + 20)) + 0; // Статичный отступ 40px снизу
         setChartHeight(Math.max(calculatedHeight, 400));
     }, [userTasksGroups, headerHeight, rowHeight]);
 

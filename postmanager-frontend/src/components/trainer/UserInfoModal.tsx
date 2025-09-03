@@ -8,7 +8,6 @@ import { useGetUsersQuery } from '@/store/api/user.api';
 interface User {
   id: number;
   name: string;
-  login: string;
   department?: {
     id: number;
     name: string;
@@ -19,7 +18,6 @@ interface UserInfo {
   lastName: string;
   firstName: string;
   department: string;
-  postLinkId: string;
   isGuest?: boolean;
 }
 
@@ -32,7 +30,6 @@ export default function UserInfoModal({ onClose, onSubmit }: UserInfoModalProps)
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [department, setDepartment] = useState('');
-  const [postLinkId, setPostLinkId] = useState('');
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [error, setError] = useState('');
 
@@ -49,7 +46,6 @@ export default function UserInfoModal({ onClose, onSubmit }: UserInfoModalProps)
     if (!lastName) {
       setSuggestions([]);
       setDepartment('');
-      setPostLinkId('');
       return;
     }
 
@@ -62,7 +58,6 @@ export default function UserInfoModal({ onClose, onSubmit }: UserInfoModalProps)
     if (filtered.length === 1) {
       const user = filtered[0];
       setDepartment(user.department?.name || '');
-      setPostLinkId(user.login || '');
     }
   }, [lastName, allUsers]);
 
@@ -73,13 +68,12 @@ export default function UserInfoModal({ onClose, onSubmit }: UserInfoModalProps)
     setLastName(nameParts[0] || '');
     setFirstName(nameParts[1] || '');
     setDepartment(user.department?.name || '');
-    setPostLinkId(user.login || '');
     setSuggestions([]);
   };
 
   const submit = () => {
     if (!isValid) return;
-    onSubmit({ lastName, firstName, department, postLinkId, isGuest: false });
+    onSubmit({ lastName, firstName, department, isGuest: false });
   };
 
   const submitAsGuest = () => {
@@ -87,7 +81,6 @@ export default function UserInfoModal({ onClose, onSubmit }: UserInfoModalProps)
       lastName: 'Гость', 
       firstName: '', 
       department: 'Гостевой доступ', 
-      postLinkId: `guest_${Date.now()}`,
       isGuest: true 
     });
   };
@@ -137,16 +130,12 @@ export default function UserInfoModal({ onClose, onSubmit }: UserInfoModalProps)
                   </div>
                   {suggestions.map(s => (
                     <button
-                      key={`${s.name}-${s.login}`}
+                      key={`${s.name}`}
                       className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 last:border-b-0"
                       onClick={() => handlePick(s)}
                     >
                       <div className="font-medium text-gray-900 dark:text-white">
                         {s.name}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 space-x-4">
-                        <span>{s.department?.name || 'Не указан'}</span>
-                        <span>Логин: {s.login}</span>
                       </div>
                     </button>
                   ))}
@@ -183,23 +172,7 @@ export default function UserInfoModal({ onClose, onSubmit }: UserInfoModalProps)
               disabled
             />
           </div>
-
-          {/* ID PostLink */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              ID PostLink
-            </label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 cursor-not-allowed"
-              value={postLinkId}
-              onChange={(e) => setPostLinkId(e.target.value)}
-              placeholder="12345"
-              disabled
-            />
-          </div>
         </div>
-
         {/* Действия */}
         <div className="flex flex-col gap-2 mt-6">
           <button

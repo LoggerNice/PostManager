@@ -382,7 +382,10 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           {/* Срок слева */}
           {item.deadline && !showTimePicker && (
             <div className="text-xs text-gray-400">
-              Срок: {new Date(item.deadline).toLocaleDateString('ru-RU')}
+              Срок: {new Date(item.deadline).toLocaleDateString('ru-RU', {
+                      day: 'numeric',
+                      month: 'short'
+                    })}
               {new Date(item.deadline).getHours() !== 0 || new Date(item.deadline).getMinutes() !== 0 ?
                 ` ${new Date(item.deadline).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` :
                 ''

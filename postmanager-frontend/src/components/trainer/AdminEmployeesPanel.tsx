@@ -2,6 +2,7 @@ import React from 'react';
 import { UsersIcon, BuildingOfficeIcon, AcademicCapIcon } from '@heroicons/react/24/solid';
 import { TRAINER_LABELS } from '@/constants/trainer';
 import { AdminEmployeesPanelProps } from '@/types/trainer.types';
+import { formatName } from '../charts/DepartmentTasksExcelExport';
 
 export const AdminEmployeesPanel: React.FC<AdminEmployeesPanelProps> = ({
   users,
@@ -65,10 +66,7 @@ export const AdminEmployeesPanel: React.FC<AdminEmployeesPanelProps> = ({
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="font-medium text-gray-900 dark:text-white">
-                                {user.name}
-                              </div>
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
-                                Логин: {user.login}
+                                {formatName(user.name)}
                               </div>
                             </div>
                             <div className="text-right">

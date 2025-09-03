@@ -130,6 +130,7 @@ export function MultiSelect({
                 options={options}
                 styles={customStyles}
                 classNamePrefix="react-select"
+                noOptionsMessage={() => 'Ничего не найдено'}
                 placeholder={placeholder}
                 value={options.filter(option => value?.includes(option.value))}
                 onChange={(newValue) => onChange(newValue.map(option => option.value))}

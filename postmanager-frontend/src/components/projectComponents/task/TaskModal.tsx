@@ -4,7 +4,7 @@ import { ru } from 'date-fns/locale';
 import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useAuth } from '@/hooks/useAuth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import DatePicker from '@/components/ui/DatePicker';
 import TimeOnlyPicker from '@/components/ui/TimeOnlyPicker';
 
@@ -28,6 +28,25 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
     }
   }, [newTask.deadline]);
 
+
+  useEffect(() => {
+  if (descriptionRef.current) {
+    descriptionRef.current.style.height = 'auto';
+    descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
+    
+    if (descriptionRef.current.scrollHeight <= 400) { // например, 150px
+      descriptionRef.current.style.height = `${descriptionRef.current.scrollHeight}px`;
+      descriptionRef.current.style.overflowY = 'hidden';
+    } else {
+      descriptionRef.current.style.height = '400px';
+      descriptionRef.current.style.overflowY = 'auto';
+  }
+
+  }
+}, [newTask.description]);
+
+    const descriptionRef = useRef(null);
+
   // Объединяем дату и время при изменении
   useEffect(() => {
     if (newTask.deadline && selectedTime) {
@@ -43,6 +62,22 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
     }
   }, [selectedTime]);
 
+  const titleRef = useRef(null);
+
+useEffect(() => {
+  if (titleRef.current) {
+    titleRef.current.style.height = 'auto';
+    const scrollHeight = titleRef.current.scrollHeight;
+    
+    if (scrollHeight <= 150) {
+      titleRef.current.style.height = `${scrollHeight}px`;
+      titleRef.current.style.overflowY = 'hidden';
+    } else {
+      titleRef.current.style.height = '150px';
+      titleRef.current.style.overflowY = 'auto';
+    }
+  }
+}, [newTask.title]);
 
   if (!visible) return null;
   return (
@@ -51,14 +86,17 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
         <h2 className="text-xl font-bold mb-4 text-white">Задача</h2>
         <div className="mb-3">
           <label className="block text-sm font-medium text-gray-300 mb-1">
-            Название задачи *
+            Название задачи
           </label>
-          <input
-            className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white"
+          <textarea
+            ref={titleRef}
+            className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white resize-none"
             placeholder="Введите название"
+            style={{ overflow: 'hidden' }}
             value={newTask.title}
             onChange={e => setNewTask({ ...newTask, title: e.target.value })}
-            maxLength={100}
+            maxLength={200}
+            rows={1}
           />
         </div>
         <div className="mb-3">
@@ -66,9 +104,12 @@ export default function TaskModal({ visible, onClose, onCreate, newTask, setNewT
             Описание задачи
           </label>
           <textarea
+            ref={descriptionRef}
             className="w-full px-3 py-2 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-800 text-white resize-none"
             placeholder="Введите описание"
+            style={{ overflow: 'hidden' }}
             value={newTask.description}
+            rows={1}
             onChange={e => setNewTask({ ...newTask, description: e.target.value })}
           />
         </div>
