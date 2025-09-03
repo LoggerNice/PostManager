@@ -50,6 +50,9 @@ export default function ProjectPage() {
     departments: [],
     priorities: [],
     assignees: [],
+    projects: [],
+    sortBy: 'priority',
+    sortOrder: 'desc',
     dateRange: {
       startDate: null,
       endDate: null
@@ -290,6 +293,7 @@ export default function ProjectPage() {
               onFiltersChange={setFilters}
               availableDepartments={allDepartments}
               availableUsers={allUsers}
+              availableProjects={project ? [project] : []}
               context="project"
               projectParticipants={users}
               searchPlaceholder="Поиск задач проекта..."
@@ -297,6 +301,7 @@ export default function ProjectPage() {
               showAssigneeFilter={true}
               showDateFilter={true}
               showPriorityFilter={true}
+              showProjectFilter={false}
             />
           </div>
 

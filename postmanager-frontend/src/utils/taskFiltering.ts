@@ -25,24 +25,34 @@ export function filterTasks(tasks: Task[], filters: TasksFilterConfig): TaskFilt
   }
 
   // 2. Фильтр по отделам (через создателя задачи и участников)
-  if (filters.departments.length > 0) {
+  if (filters.departments && filters.departments.length > 0) {
     const departmentIds = filters.departments.map(dept => dept.id);
     filteredTasks = filteredTasks.filter(task => {
       // Проверяем отдел создателя задачи
-      if (task.creator?.departmentId && departmentIds.includes(task.creator.departmentId)) {
-        return true;
+      if (task.creator) {
+        const creatorDeptId = task.creator.departmentId || task.creator.department?.id;
+        if (creatorDeptId && departmentIds.includes(creatorDeptId)) {
+          return true;
+        }
       }
       
       // Проверяем отделы исполнителей
-      if (task.assignee?.departmentId && departmentIds.includes(task.assignee.departmentId)) {
-        return true;
+      if (task.assignee) {
+        const assigneeDeptId = task.assignee.departmentId || task.assignee.department?.id;
+        if (assigneeDeptId && departmentIds.includes(assigneeDeptId)) {
+          return true;
+        }
       }
       
       // Проверяем отделы множественных исполнителей
       if (task.assignees && task.assignees.length > 0) {
-        return task.assignees.some(assignee => 
-          assignee.user?.departmentId && departmentIds.includes(assignee.user.departmentId)
-        );
+        return task.assignees.some(assignee => {
+          if (assignee.user) {
+            const userDeptId = assignee.user.departmentId || assignee.user.department?.id;
+            return userDeptId && departmentIds.includes(userDeptId);
+          }
+          return false;
+        });
       }
       
       return false;
@@ -50,7 +60,7 @@ export function filterTasks(tasks: Task[], filters: TasksFilterConfig): TaskFilt
   }
 
   // 3. Фильтр по приоритетам
-  if (filters.priorities.length > 0) {
+  if (filters.priorities && filters.priorities.length > 0) {
     filteredTasks = filteredTasks.filter(task => {
       // Нормализуем приоритет к английскому формату
       const taskPriority = normalizeTaskPriority(task.priority);
@@ -59,7 +69,7 @@ export function filterTasks(tasks: Task[], filters: TasksFilterConfig): TaskFilt
   }
 
   // 4. Фильтр по участникам (создатель + исполнители)
-  if (filters.assignees.length > 0) {
+  if (filters.assignees && filters.assignees.length > 0) {
     const assigneeIds = filters.assignees.map(user => user.id);
     filteredTasks = filteredTasks.filter(task => {
       // Проверяем создателя
@@ -81,7 +91,15 @@ export function filterTasks(tasks: Task[], filters: TasksFilterConfig): TaskFilt
     });
   }
 
-  // 5. Фильтр по дате (период)
+  // 5. Фильтр по проектам
+  if (filters.projects && filters.projects.length > 0) {
+    const projectIds = filters.projects.map(project => project.id);
+    filteredTasks = filteredTasks.filter(task => {
+      return projectIds.includes(task.projectId);
+    });
+  }
+
+  // 6. Фильтр по дате (период)
   if (filters.dateRange.startDate || filters.dateRange.endDate) {
     filteredTasks = filteredTasks.filter(task => {
       // Для фильтрации по дате используем deadline, если есть, иначе createdAt
@@ -120,11 +138,67 @@ export function filterTasks(tasks: Task[], filters: TasksFilterConfig): TaskFilt
     });
   }
 
+  // Применяем сортировку
+  if (filters.sortBy) {
+    filteredTasks = sortTasks(filteredTasks, filters.sortBy, filters.sortOrder);
+  }
+
   return {
     filteredTasks,
     totalCount: tasks.length,
     filteredCount: filteredTasks.length
   };
+}
+
+/**
+ * Сортирует задачи по указанному полю
+ */
+function sortTasks(tasks: Task[], sortBy: string, sortOrder: 'asc' | 'desc'): Task[] {
+  return [...tasks].sort((a, b) => {
+    let aValue: any;
+    let bValue: any;
+
+    switch (sortBy) {
+      case 'priority':
+        aValue = normalizeTaskPriority(a.priority);
+        bValue = normalizeTaskPriority(b.priority);
+        const priorityOrder = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3 };
+        aValue = priorityOrder[aValue as keyof typeof priorityOrder] || 0;
+        bValue = priorityOrder[bValue as keyof typeof priorityOrder] || 0;
+        break;
+      
+      case 'assignee':
+        aValue = a.assignee?.name || a.assignees?.[0]?.user?.name || '';
+        bValue = b.assignee?.name || b.assignees?.[0]?.user?.name || '';
+        break;
+      
+      case 'deadline':
+        aValue = a.deadline ? new Date(a.deadline).getTime() : 0;
+        bValue = b.deadline ? new Date(b.deadline).getTime() : 0;
+        break;
+      
+      case 'createdAt':
+        aValue = new Date(a.createdAt).getTime();
+        bValue = new Date(b.createdAt).getTime();
+        break;
+      
+      case 'title':
+        aValue = a.title.toLowerCase();
+        bValue = b.title.toLowerCase();
+        break;
+      
+      default:
+        return 0;
+    }
+
+    if (aValue < bValue) {
+      return sortOrder === 'asc' ? -1 : 1;
+    }
+    if (aValue > bValue) {
+      return sortOrder === 'asc' ? 1 : -1;
+    }
+    return 0;
+  });
 }
 
 /**
@@ -151,15 +225,17 @@ function normalizeTaskPriority(priority: TaskPriority | TaskPriorityDisplay): Ta
  */
 export function useTasksFilter(tasks: Task[], initialFilters?: Partial<TasksFilterConfig>) {
   const [filters, setFilters] = React.useState<TasksFilterConfig>({
-    searchQuery: '',
-    departments: [],
-    priorities: [],
-    assignees: [],
+    searchQuery: initialFilters?.searchQuery || '',
+    departments: initialFilters?.departments || [],
+    priorities: initialFilters?.priorities || [],
+    assignees: initialFilters?.assignees || [],
+    projects: initialFilters?.projects || [],
+    sortBy: initialFilters?.sortBy || 'priority',
+    sortOrder: initialFilters?.sortOrder || 'desc',
     dateRange: {
-      startDate: null,
-      endDate: null
-    },
-    ...initialFilters
+      startDate: initialFilters?.dateRange?.startDate || null,
+      endDate: initialFilters?.dateRange?.endDate || null
+    }
   });
 
   const filterResult = React.useMemo(() => 

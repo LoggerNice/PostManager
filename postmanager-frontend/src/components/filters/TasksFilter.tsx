@@ -24,17 +24,34 @@ const PRIORITY_OPTIONS: FilterOption<TaskPriority>[] = [
   { value: 'HIGH', label: 'Высокий' }
 ];
 
+// Константы для сортировки
+const SORT_OPTIONS: FilterOption<string>[] = [
+  { value: 'priority', label: 'По приоритету' },
+  { value: 'assignee', label: 'По исполнителю' },
+  { value: 'deadline', label: 'По сроку' },
+  { value: 'createdAt', label: 'По дате создания' },
+  { value: 'title', label: 'По названию' }
+];
+
+const SORT_ORDER_OPTIONS: FilterOption<string>[] = [
+  { value: 'asc', label: 'По возрастанию' },
+  { value: 'desc', label: 'По убыванию' }
+];
+
 export default function TasksFilter({
   filters,
   onFiltersChange,
   availableDepartments = [],
   availableUsers = [],
+  availableProjects = [],
   context = 'project',
   projectParticipants = [],
   showDepartmentFilter = true,
   showAssigneeFilter = true,
   showDateFilter = true,
   showPriorityFilter = true,
+  showProjectFilter = false,
+  showSortFilter = true,
   searchPlaceholder = 'Поиск по названию задачи...',
   className = ''
 }: TasksFilterProps) {
@@ -64,6 +81,14 @@ export default function TasksFilter({
     }));
   }, [availableUsers, context, projectParticipants]);
 
+  // Преобразуем проекты в опции для MultiSelect
+  const projectOptions = useMemo(() => 
+    availableProjects.map(project => ({
+      value: project.id,
+      label: project.title
+    })), [availableProjects]
+  );
+
   // Определяем, должно ли поле участников быть активным
   const isAssigneeFilterActive = useMemo(() => {
     return context !== 'my-tasks';
@@ -71,13 +96,13 @@ export default function TasksFilter({
 
   // Очищаем фильтр участников, если он стал неактивным
   React.useEffect(() => {
-    if (!isAssigneeFilterActive && filters.assignees.length > 0) {
+    if (!isAssigneeFilterActive && filters.assignees && filters.assignees.length > 0) {
       onFiltersChange({
         ...filters,
         assignees: []
       });
     }
-  }, [isAssigneeFilterActive, filters.assignees.length, filters, onFiltersChange]);
+  }, [isAssigneeFilterActive, filters.assignees, filters, onFiltersChange]);
 
   // Обработчики изменений
   const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,22 +116,30 @@ export default function TasksFilter({
     const selectedDepartments = availableDepartments.filter(dept => selectedIds.includes(dept.id));
     onFiltersChange({
       ...filters,
-      departments: selectedDepartments
+      departments: selectedDepartments || []
     });
   }, [filters, onFiltersChange, availableDepartments]);
 
   const handlePrioritiesChange = useCallback((selectedPriorities: string[]) => {
     onFiltersChange({
       ...filters,
-      priorities: selectedPriorities as TaskPriority[]
+      priorities: (selectedPriorities as TaskPriority[]) || []
     });
   }, [filters, onFiltersChange]);
+
+  const handleProjectsChange = useCallback((selectedIds: number[]) => {
+    const selectedProjects = availableProjects.filter(project => selectedIds.includes(project.id));
+    onFiltersChange({
+      ...filters,
+      projects: selectedProjects || []
+    });
+  }, [filters, onFiltersChange, availableProjects]);
 
   const handleAssigneesChange = useCallback((selectedIds: number[]) => {
     const selectedUsers = availableUsers.filter(user => selectedIds.includes(user.id));
     onFiltersChange({
       ...filters,
-      assignees: selectedUsers
+      assignees: selectedUsers || []
     });
   }, [filters, onFiltersChange, availableUsers]);
 
@@ -132,6 +165,20 @@ export default function TasksFilter({
     });
   }, [filters, onFiltersChange]);
 
+  const handleSortByChange = useCallback((sortBy: string) => {
+    onFiltersChange({
+      ...filters,
+      sortBy: sortBy as 'priority' | 'assignee' | 'deadline' | 'createdAt' | 'title'
+    });
+  }, [filters, onFiltersChange]);
+
+  const handleSortOrderChange = useCallback((sortOrder: string) => {
+    onFiltersChange({
+      ...filters,
+      sortOrder: sortOrder as 'asc' | 'desc'
+    });
+  }, [filters, onFiltersChange]);
+
   // Очистка всех фильтров
   const clearAllFilters = useCallback(() => {
     onFiltersChange({
@@ -139,6 +186,9 @@ export default function TasksFilter({
       departments: [],
       priorities: [],
       assignees: [],
+      projects: [],
+      sortBy: 'priority',
+      sortOrder: 'desc',
       dateRange: {
         startDate: null,
         endDate: null
@@ -150,11 +200,14 @@ export default function TasksFilter({
   const hasActiveFilters = useMemo(() => {
     return (
       filters.searchQuery.length > 0 ||
-      filters.departments.length > 0 ||
-      filters.priorities.length > 0 ||
-      (isAssigneeFilterActive && filters.assignees.length > 0) ||
+      (filters.departments && filters.departments.length > 0) ||
+      (filters.priorities && filters.priorities.length > 0) ||
+      (isAssigneeFilterActive && filters.assignees && filters.assignees.length > 0) ||
+      (filters.projects && filters.projects.length > 0) ||
       filters.dateRange.startDate !== null ||
-      filters.dateRange.endDate !== null
+      filters.dateRange.endDate !== null ||
+      filters.sortBy !== 'priority' ||
+      filters.sortOrder !== 'desc'
     );
   }, [filters, isAssigneeFilterActive]);
 
@@ -215,7 +268,7 @@ export default function TasksFilter({
                 label="Отделы"
                 name="departments"
                 options={departmentOptions}
-                value={filters.departments.map(dept => dept.id)}
+                                 value={(filters.departments || []).map(dept => dept.id)}
                 onChange={handleDepartmentsChange}
                 placeholder="Выберите отделы..."
               />
@@ -229,9 +282,23 @@ export default function TasksFilter({
                 label="Приоритет"
                 name="priorities"
                 options={PRIORITY_OPTIONS.map(p => ({ value: p.value as any, label: p.label }))}
-                value={filters.priorities as any[]}
+                                 value={(filters.priorities || []) as any[]}
                 onChange={handlePrioritiesChange as any}
                 placeholder="Выберите приоритеты..."
+              />
+            </div>
+          )}
+
+          {/* Фильтр по проектам */}
+          {showProjectFilter && projectOptions.length > 0 && (
+            <div className="min-w-0">
+              <MultiSelect
+                label="Проекты"
+                name="projects"
+                options={projectOptions}
+                                 value={(filters.projects || []).map(project => project.id)}
+                onChange={handleProjectsChange}
+                placeholder="Выберите проекты..."
               />
             </div>
           )}
@@ -243,7 +310,7 @@ export default function TasksFilter({
                 label={'Участники'}
                 name="assignees"
                 options={userOptions}
-                value={filters.assignees.map(user => user.id)}
+                                 value={(filters.assignees || []).map(user => user.id)}
                 onChange={handleAssigneesChange}
                 placeholder={context === 'my-tasks' ? 'Недоступно' : 'Выберите участников...'}
                 disabled={!isAssigneeFilterActive}
@@ -256,28 +323,61 @@ export default function TasksFilter({
             </div>
           )}
 
-          {/* Фильтр по дате */}
-          {showDateFilter && (
-            <div className="min-w-0 space-y-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Период задач
-              </label>
-              <div className="flex gap-2">
-                <DateInput
-                  placeholder="От"
-                  value={filters.dateRange.startDate ? format(filters.dateRange.startDate, 'yyyy-MM-dd') : ''}
-                  onChange={handleStartDateChange}
-                  className="flex-1 min-w-0 hover:border-blue-400"
-                />
-                <DateInput
-                  placeholder="До"
-                  value={filters.dateRange.endDate ? format(filters.dateRange.endDate, 'yyyy-MM-dd') : ''}
-                  onChange={handleEndDateChange}
-                  className="flex-1 min-w-0 hover:border-blue-400" 
-                />
-              </div>
-            </div>
-          )}
+                     {/* Фильтр по дате */}
+           {showDateFilter && (
+             <div className="min-w-0 space-y-2">
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                 Период задач
+               </label>
+               <div className="flex gap-2">
+                 <DateInput
+                   placeholder="От"
+                   value={filters.dateRange.startDate ? format(filters.dateRange.startDate, 'yyyy-MM-dd') : ''}
+                   onChange={handleStartDateChange}
+                   className="flex-1 min-w-0 hover:border-blue-400"
+                 />
+                 <DateInput
+                   placeholder="До"
+                   value={filters.dateRange.endDate ? format(filters.dateRange.endDate, 'yyyy-MM-dd') : ''}
+                   onChange={handleEndDateChange}
+                   className="flex-1 min-w-0 hover:border-blue-400" 
+                 />
+               </div>
+             </div>
+           )}
+
+           {/* Фильтр сортировки */}
+           {showSortFilter && (
+             <div className="min-w-0 space-y-2">
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                 Сортировка
+               </label>
+               <div className="flex gap-2">
+                 <select
+                   value={filters.sortBy || 'priority'}
+                   onChange={(e) => handleSortByChange(e.target.value)}
+                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                 >
+                   {SORT_OPTIONS.map(option => (
+                     <option key={option.value} value={option.value}>
+                       {option.label}
+                     </option>
+                   ))}
+                 </select>
+                 <select
+                   value={filters.sortOrder || 'desc'}
+                   onChange={(e) => handleSortOrderChange(e.target.value)}
+                   className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                 >
+                   {SORT_ORDER_OPTIONS.map(option => (
+                     <option key={option.value} value={option.value}>
+                       {option.label}
+                     </option>
+                   ))}
+                 </select>
+               </div>
+             </div>
+           )}
         </div>
       )}
 
@@ -296,11 +396,11 @@ export default function TasksFilter({
             </div>
           )}
           
-          {filters.departments.map(dept => (
+                     {filters.departments && filters.departments.map(dept => (
             <div key={dept.id} className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
               {dept.name}
               <button
-                onClick={() => handleDepartmentsChange(filters.departments.filter(d => d.id !== dept.id).map(d => d.id))}
+                                 onClick={() => handleDepartmentsChange((filters.departments || []).filter(d => d.id !== dept.id).map(d => d.id))}
                 className="hover:text-green-600 dark:hover:text-green-300"
               >
                 <XMarkIcon className="h-3 w-3" />
@@ -308,11 +408,11 @@ export default function TasksFilter({
             </div>
           ))}
           
-          {filters.priorities.map(priority => (
+                     {filters.priorities && filters.priorities.map(priority => (
             <div key={priority} className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
               {PRIORITY_OPTIONS.find(p => p.value === priority)?.label || priority}
               <button
-                onClick={() => handlePrioritiesChange(filters.priorities.filter(p => p !== priority))}
+                                 onClick={() => handlePrioritiesChange((filters.priorities || []).filter(p => p !== priority))}
                 className="hover:text-orange-600 dark:hover:text-orange-300"
               >
                 <XMarkIcon className="h-3 w-3" />
@@ -320,18 +420,31 @@ export default function TasksFilter({
             </div>
           ))}
           
-          {/* Теги участников - показываем только если фильтр активен */}
-          {isAssigneeFilterActive && filters.assignees.map(user => (
-            <div key={user.id} className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
-              {formatName(user.name)}
-              <button
-                onClick={() => handleAssigneesChange(filters.assignees.filter(u => u.id !== user.id).map(u => u.id))}
-                className="hover:text-purple-600 dark:hover:text-purple-300"
-              >
-                <XMarkIcon className="h-3 w-3" />
-              </button>
-            </div>
-          ))}
+                     {/* Теги проектов */}
+                       {filters.projects && filters.projects.map(project => (
+             <div key={project.id} className="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
+               {project.title}
+               <button
+                                   onClick={() => handleProjectsChange((filters.projects || []).filter(p => p.id !== project.id).map(p => p.id))}
+                 className="hover:text-indigo-600 dark:hover:text-indigo-300"
+               >
+                 <XMarkIcon className="h-3 w-3" />
+               </button>
+             </div>
+           ))}
+           
+           {/* Теги участников - показываем только если фильтр активен */}
+                       {isAssigneeFilterActive && filters.assignees && filters.assignees.map(user => (
+             <div key={user.id} className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
+               {formatName(user.name)}
+               <button
+                 onClick={() => handleAssigneesChange((filters.assignees || []).filter(u => u.id !== user.id).map(u => u.id))}
+                 className="hover:text-purple-600 dark:hover:text-purple-300"
+               >
+                 <XMarkIcon className="h-3 w-3" />
+               </button>
+             </div>
+           ))}
           
           {filters.dateRange.startDate && (
             <div className="bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
@@ -345,17 +458,30 @@ export default function TasksFilter({
             </div>
           )}
           
-          {filters.dateRange.endDate && (
-            <div className="bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
-              До {format(filters.dateRange.endDate, 'dd.MM.yyyy')}
-              <button
-                onClick={() => onFiltersChange({ ...filters, dateRange: { ...filters.dateRange, endDate: null } })}
-                className="hover:text-pink-600 dark:hover:text-pink-300"
-              >
-                <XMarkIcon className="h-3 w-3" />
-              </button>
-            </div>
-          )}
+                     {filters.dateRange.endDate && (
+             <div className="bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
+               До {format(filters.dateRange.endDate, 'dd.MM.yyyy')}
+               <button
+                 onClick={() => onFiltersChange({ ...filters, dateRange: { ...filters.dateRange, endDate: null } })}
+                 className="hover:text-pink-600 dark:hover:text-pink-300"
+               >
+                 <XMarkIcon className="h-3 w-3" />
+               </button>
+             </div>
+           )}
+
+           {/* Теги сортировки */}
+           {(filters.sortBy !== 'priority' || filters.sortOrder !== 'desc') && (
+             <div className="bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-200 px-2 py-1 rounded-full text-sm flex items-center gap-1">
+               {SORT_OPTIONS.find(s => s.value === filters.sortBy)?.label} ({SORT_ORDER_OPTIONS.find(o => o.value === filters.sortOrder)?.label})
+               <button
+                 onClick={() => onFiltersChange({ ...filters, sortBy: 'priority', sortOrder: 'desc' })}
+                 className="hover:text-teal-600 dark:hover:text-teal-300"
+               >
+                 <XMarkIcon className="h-3 w-3" />
+               </button>
+             </div>
+           )}
         </div>
       )}
     </div>

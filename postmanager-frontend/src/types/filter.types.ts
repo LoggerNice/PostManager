@@ -10,6 +10,11 @@ export interface TasksFilterConfig {
   departments: IDepartment[];
   priorities: TaskPriority[];
   assignees: IUser[];
+  projects: any[]; // Project[]
+  
+  // Сортировка
+  sortBy: 'priority' | 'assignee' | 'deadline' | 'createdAt' | 'title';
+  sortOrder: 'asc' | 'desc';
   
   // Фильтр по дате (период)
   dateRange: {
@@ -31,6 +36,7 @@ export interface TasksFilterProps {
   // Данные для селектов
   availableDepartments: IDepartment[];
   availableUsers: IUser[];
+  availableProjects?: any[]; // Project[]
   
   // Контекст фильтрации
   context?: 'project' | 'my-tasks' | 'department';
@@ -41,6 +47,8 @@ export interface TasksFilterProps {
   showAssigneeFilter?: boolean;
   showDateFilter?: boolean;
   showPriorityFilter?: boolean;
+  showProjectFilter?: boolean;
+  showSortFilter?: boolean;
   
   // Плейсхолдеры
   searchPlaceholder?: string;

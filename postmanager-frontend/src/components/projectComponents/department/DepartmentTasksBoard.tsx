@@ -11,6 +11,7 @@ import { useGetDepartmentsQuery } from '@/store/api/department.api';
 import { filterTasks } from '@/utils/taskFiltering';
 import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
+import { useTaskSorting } from '@/hooks/useTaskSorting';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 import TasksTab from '../TasksTab';
@@ -27,6 +28,9 @@ export default function DepartmentTasksBoard() {
     departments: [],
     priorities: [],
     assignees: [],
+    projects: [],
+    sortBy: 'priority',
+    sortOrder: 'desc',
     dateRange: {
       startDate: null,
       endDate: null
@@ -101,6 +105,20 @@ export default function DepartmentTasksBoard() {
     return filtered;
   }, [allTasks, departmentUsers, departmentId]);
 
+  // Получаем уникальные проекты из задач отдела
+  const availableProjects = useMemo(() => {
+    if (!departmentTasks || departmentTasks.length === 0) return [];
+    
+    const projectMap = new Map();
+    departmentTasks.forEach(task => {
+      if (task.project && !projectMap.has(task.project.id)) {
+        projectMap.set(task.project.id, task.project);
+      }
+    });
+    
+    return Array.from(projectMap.values());
+  }, [departmentTasks]);
+
   // Применяем фильтрацию к задачам отдела
   const filteredTasks = useMemo(() => {
     if (!departmentTasks || departmentTasks.length === 0) return [];
@@ -108,7 +126,7 @@ export default function DepartmentTasksBoard() {
   }, [departmentTasks, filters]);
 
   // Группируем отфильтрованные задачи по статусам
-  const columns = useMemo(() => {
+  const unsortedColumns = useMemo(() => {
     const grouped: Record<string, Column> = {
       IN_PROGRESS: { name: "В процессе", items: [] },
       PROBLEM: { name: "Согласование", items: [] },
@@ -147,6 +165,9 @@ export default function DepartmentTasksBoard() {
     
     return grouped;
   }, [filteredTasks]);
+
+  // Применяем автоматическую сортировку по приоритету
+  const columns = useTaskSorting(unsortedColumns);
 
   // WebSocket синхронизация - подписываемся на события задач
   useEffect(() => {
@@ -420,12 +441,14 @@ export default function DepartmentTasksBoard() {
           onFiltersChange={setFilters}
           availableDepartments={allDepartments}
           availableUsers={allUsers}
+          availableProjects={availableProjects}
           context="department"
           searchPlaceholder="Поиск задач отдела..."
           showDepartmentFilter={false}
           showAssigneeFilter={true}
           showDateFilter={true}
           showPriorityFilter={true}
+          showProjectFilter={true}
         />
       </div>
       

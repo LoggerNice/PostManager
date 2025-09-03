@@ -10,7 +10,9 @@ import { useGetUsersQuery } from '@/store/api/user.api';
 import { useGetDepartmentsQuery } from '@/store/api/department.api';
 import { filterTasks } from '@/utils/taskFiltering';
 import { soundManager } from '@/utils/soundUtils';
+import { sortTasksByPriority } from '@/utils/taskSorting';
 import { format } from 'date-fns';
+import { useTaskSorting } from '@/hooks/useTaskSorting';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
 
 import TasksTab from '../projectComponents/TasksTab';
@@ -42,6 +44,9 @@ export default function UserTasksBoard() {
     departments: [],
     priorities: [],
     assignees: [],
+    projects: [],
+    sortBy: 'priority',
+    sortOrder: 'desc',
     dateRange: {
       startDate: null,
       endDate: null
@@ -70,6 +75,20 @@ export default function UserTasksBoard() {
   // Загружаем данные для фильтров
   const { data: allUsers = [], isLoading: usersLoading } = useGetUsersQuery();
   const { data: allDepartments = [], isLoading: departmentsLoading } = useGetDepartmentsQuery();
+  
+  // Получаем уникальные проекты из задач пользователя
+  const availableProjects = useMemo(() => {
+    if (!userTasks || userTasks.length === 0) return [];
+    
+    const projectMap = new Map();
+    userTasks.forEach(task => {
+      if (task.project && !projectMap.has(task.project.id)) {
+        projectMap.set(task.project.id, task.project);
+      }
+    });
+    
+    return Array.from(projectMap.values());
+  }, [userTasks]);
 
   // Применяем фильтрацию к пользовательским задачам
   const filteredTasks = useMemo(() => {
@@ -95,7 +114,7 @@ export default function UserTasksBoard() {
   }, [filteredTasks]);
 
   // Формируем колонки из отфильтрованных и сгруппированных задач
-  const columns: Record<string, Column> = useMemo(() => {
+  const unsortedColumns: Record<string, Column> = useMemo(() => {
     return {
       IN_PROGRESS: { 
         name: 'В процессе', 
@@ -111,6 +130,9 @@ export default function UserTasksBoard() {
       }
     };
   }, [groupedFilteredTasks]);
+
+  // Применяем автоматическую сортировку по приоритету
+  const columns = useTaskSorting(unsortedColumns);
 
 
 
@@ -283,19 +305,21 @@ export default function UserTasksBoard() {
 
       {/* Фильтры задач */}
       <div className="mx-8 flex-shrink-0">
-        <TasksFilter
-          tasks={userTasks || []}
-          filters={filters}
-          onFiltersChange={setFilters}
-          availableDepartments={allDepartments}
-          availableUsers={allUsers}
-          context="my-tasks"
-          searchPlaceholder="Поиск моих задач..."
-          showDepartmentFilter={true}
-          showAssigneeFilter={true}
-          showDateFilter={true}
-          showPriorityFilter={true}
-        />
+                 <TasksFilter
+           tasks={userTasks || []}
+           filters={filters}
+           onFiltersChange={setFilters}
+           availableDepartments={allDepartments}
+           availableUsers={allUsers}
+           availableProjects={availableProjects}
+           context="my-tasks"
+           searchPlaceholder="Поиск моих задач..."
+           showDepartmentFilter={true}
+           showAssigneeFilter={false}
+           showDateFilter={true}
+           showPriorityFilter={true}
+           showProjectFilter={true}
+         />
       </div>
       
       <div className="flex-1 overflow-hidden custom-scrollbar">
