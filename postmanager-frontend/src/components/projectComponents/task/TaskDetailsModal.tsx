@@ -633,7 +633,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
                                     {/* Индикатор просмотра рядом с датой */}
                                     {viewStats && (
                                       <CommentViewIndicator
-                                        key={`view-indicator-${comment.id}-${viewStats.viewStatus}-${viewStats.viewedAssignees}`}
+                                        key={`view-indicator-${comment.id}-${viewStats.viewStatus}-${viewStats.viewedUsers}`}
                                         stats={viewStats}
                                         currentUserId={user?.id || 0}
                                         commentAuthorId={comment.authorId}

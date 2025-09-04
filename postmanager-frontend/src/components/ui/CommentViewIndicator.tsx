@@ -5,19 +5,30 @@ import { Check, CheckCheck } from 'lucide-react';
 
 interface CommentViewStats {
   commentId: number;
-  totalAssignees: number;
-  viewedAssignees: number;
+  totalRequiredViewers: number;
+  viewedUsers: number;
   viewStatus: 'none' | 'partial' | 'all';
   viewers: Array<{
     userId: number;
     userName: string;
     viewedAt: string;
   }>;
+  allUsers: Array<{
+    userId: number;
+    userName: string;
+    role: 'assignee' | 'creator';
+    hasViewed: boolean;
+  }>;
   assignees: Array<{
     userId: number;
     userName: string;
     hasViewed: boolean;
   }>;
+  creator: {
+    userId: number;
+    userName: string;
+    hasViewed: boolean;
+  } | null;
 }
 
 interface CommentViewIndicatorProps {
@@ -52,7 +63,7 @@ export const CommentViewIndicator: React.FC<CommentViewIndicatorProps> = memo(({
       return 'Ваше сообщение еще не просмотрено';
     } else if (stats.viewStatus === 'partial') {
       const viewedNames = stats.viewers.map(v => v.userName).join(', ');
-      const remainingCount = stats.totalAssignees - stats.viewedAssignees;
+      const remainingCount = stats.totalRequiredViewers - stats.viewedUsers;
       return `Просмотрели: ${viewedNames}${remainingCount > 0 ? `\nОсталось: ${remainingCount} чел.` : ''}`;
     } else if (stats.viewStatus === 'all') {
       const viewedNames = stats.viewers.map(v => v.userName).join(', ');
@@ -72,7 +83,7 @@ export const CommentViewIndicator: React.FC<CommentViewIndicatorProps> = memo(({
   }
 
   // Проверяем, что данные статистики корректны
-  if (stats.totalAssignees === undefined || stats.viewedAssignees === undefined) {
+  if (stats.totalRequiredViewers === undefined || stats.viewedUsers === undefined) {
     return null;
   }
 
@@ -84,7 +95,7 @@ export const CommentViewIndicator: React.FC<CommentViewIndicatorProps> = memo(({
       {getViewIcon()}
       {stats.viewStatus === 'partial' && (
         <span className="text-xs text-gray-500">
-          {stats.viewedAssignees}/{stats.totalAssignees}
+          {stats.viewedUsers}/{stats.totalRequiredViewers}
         </span>
       )}
     </div>

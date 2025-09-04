@@ -205,6 +205,9 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     setShowEditModal(false);
   };
 
+  // Проверяем, является ли задача "Заполнение личного плана" и просрочена ли она
+  const isPersonalPlanTask = item.title === 'Заполнение личного плана';
+  const isOverdue = item.deadline && new Date(item.deadline) < new Date();
 
   return (
     <div
@@ -237,6 +240,12 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
           {item.title}
         </div>
         <div className="flex items-center gap-1">
+          {/* Красный череп для просроченной задачи "Заполнение личного плана" */}
+          {isPersonalPlanTask && isOverdue && (
+            <div className="text-red-500 text-lg mr-1" title="Задача просрочена!">
+              💀
+            </div>
+          )}
           {/* Индикатор комментариев */}
           {comments.length > 0 && (
             <div className="flex gap-0.5 text-gray-400">

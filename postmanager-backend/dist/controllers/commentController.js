@@ -1,14 +1,16 @@
 import prisma from '../utils/prisma.js';
 import { getWebSocketServer } from '../websocketServer.js';
+import { deleteFileByUrl } from './fileController.js';
 export const createComment = async (req, res) => {
     try {
-        const { content, taskId, authorId, fileUrl, fileName, fileSize } = req.body;
+        const { content, taskId, authorId, fileUrl, fileName, fileSize, isSolution } = req.body;
         const comment = await prisma.comment.create({
             data: {
                 content,
                 fileUrl: fileUrl || null,
                 fileName: fileName || null,
                 fileSize: fileSize ? parseInt(fileSize) : null,
+                isSolution: isSolution || false,
                 taskId: parseInt(taskId),
                 authorId: parseInt(authorId),
             },
@@ -140,10 +142,42 @@ export const getCommentById = async (req, res) => {
 export const updateComment = async (req, res) => {
     try {
         const { commentId } = req.params;
-        const { content } = req.body;
+        const { content, fileUrl, fileName, fileSize } = req.body;
+        const currentComment = await prisma.comment.findUnique({
+            where: { id: parseInt(commentId) },
+            select: { fileUrl: true }
+        });
+        if (!currentComment) {
+            res.status(404).json({ message: 'Комментарий не найден' });
+            return;
+        }
+        const updateData = {};
+        if (content !== undefined)
+            updateData.content = content;
+        if (fileUrl !== undefined)
+            updateData.fileUrl = fileUrl;
+        if (fileName !== undefined)
+            updateData.fileName = fileName;
+        if (fileSize !== undefined)
+            updateData.fileSize = fileSize ? parseInt(fileSize) : null;
+        if (fileUrl === null || (fileUrl !== undefined && fileUrl !== currentComment.fileUrl)) {
+            if (currentComment.fileUrl) {
+                try {
+                    await deleteFileByUrl(currentComment.fileUrl);
+                }
+                catch (error) {
+                    console.warn('Не удалось удалить старый файл:', error);
+                }
+            }
+        }
+        if (fileUrl === null) {
+            updateData.fileUrl = null;
+            updateData.fileName = null;
+            updateData.fileSize = null;
+        }
         const updatedComment = await prisma.comment.update({
             where: { id: parseInt(commentId) },
-            data: { content },
+            data: updateData,
             include: {
                 author: {
                     select: {
@@ -157,6 +191,13 @@ export const updateComment = async (req, res) => {
                     }
                 }
             }
+        });
+        console.log('Комментарий обновлен:', {
+            commentId,
+            content: content !== undefined ? 'обновлен' : 'не изменен',
+            file: fileUrl !== undefined ? 'обновлен' : 'не изменен',
+            fileName: fileName || 'не указан',
+            oldFileRemoved: currentComment.fileUrl && (fileUrl === null || fileUrl !== currentComment.fileUrl)
         });
         res.status(200).json(updatedComment);
     }
@@ -182,6 +223,20 @@ export const markCommentAsViewed = async (req, res) => {
         const { userId } = req.body;
         if (!commentId || !userId) {
             res.status(400).json({ message: 'Не указаны commentId или userId' });
+            return;
+        }
+        const comment = await prisma.comment.findUnique({
+            where: { id: parseInt(commentId) },
+            include: {
+                task: {
+                    select: {
+                        creatorId: true
+                    }
+                }
+            }
+        });
+        if (!comment) {
+            res.status(404).json({ message: 'Комментарий не найден' });
             return;
         }
         const existingView = await prisma.commentView.findUnique({
@@ -213,6 +268,40 @@ export const markCommentAsViewed = async (req, res) => {
                 }
             });
         }
+        const wsServer = getWebSocketServer();
+        if (wsServer && comment.task) {
+            const taskWithAssignees = await prisma.task.findUnique({
+                where: { id: comment.taskId },
+                include: {
+                    assignees: {
+                        include: {
+                            user: {
+                                select: { id: true }
+                            }
+                        }
+                    }
+                }
+            });
+            if (taskWithAssignees) {
+                const allTaskUsers = [
+                    { id: comment.task.creatorId },
+                    ...taskWithAssignees.assignees.map(assignee => ({ id: assignee.user.id }))
+                ];
+                allTaskUsers.forEach(taskUser => {
+                    if (taskUser.id !== parseInt(userId)) {
+                        wsServer.sendNotificationToUser(taskUser.id, {
+                            type: 'comment_viewed',
+                            title: 'Комментарий просмотрен',
+                            message: `Пользователь просмотрел комментарий к задаче`,
+                            taskId: comment.taskId,
+                            commentId: parseInt(commentId),
+                            userId: parseInt(userId),
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                });
+            }
+        }
         res.status(200).json({ message: 'Комментарий отмечен как просмотренный' });
     }
     catch (error) {
@@ -242,6 +331,12 @@ export const getCommentViewStats = async (req, res) => {
                                     }
                                 }
                             }
+                        },
+                        creator: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
                         }
                     }
                 },
@@ -259,34 +354,65 @@ export const getCommentViewStats = async (req, res) => {
         });
         const viewStatsArray = comments.map(comment => {
             const taskAssignees = comment.task?.assignees || [];
-            const totalAssignees = taskAssignees.length;
+            const taskCreator = comment.task?.creator;
+            const requiredViewers = new Set();
+            taskAssignees.forEach(assignee => {
+                requiredViewers.add(assignee.user.id);
+            });
+            if (taskCreator) {
+                requiredViewers.add(taskCreator.id);
+            }
+            const totalRequiredViewers = requiredViewers.size;
             const viewers = comment.views.map(view => ({
                 userId: view.user.id,
                 userName: view.user.name,
                 viewedAt: view.viewedAt.toISOString()
             }));
-            const viewedAssignees = viewers.length;
+            const viewedUsers = viewers.length;
             let viewStatus = 'none';
-            if (totalAssignees === 0) {
+            if (totalRequiredViewers === 0) {
                 viewStatus = 'all';
             }
-            else if (viewedAssignees > 0 && viewedAssignees < totalAssignees) {
+            else if (viewedUsers > 0 && viewedUsers < totalRequiredViewers) {
                 viewStatus = 'partial';
             }
-            else if (viewedAssignees === totalAssignees && totalAssignees > 0) {
+            else if (viewedUsers === totalRequiredViewers && totalRequiredViewers > 0) {
                 viewStatus = 'all';
+            }
+            const allUsers = [];
+            taskAssignees.forEach(assignee => {
+                allUsers.push({
+                    userId: assignee.user.id,
+                    userName: assignee.user.name,
+                    role: 'assignee',
+                    hasViewed: viewers.some(viewer => viewer.userId === assignee.user.id)
+                });
+            });
+            if (taskCreator) {
+                allUsers.push({
+                    userId: taskCreator.id,
+                    userName: taskCreator.name,
+                    role: 'creator',
+                    hasViewed: viewers.some(viewer => viewer.userId === taskCreator.id)
+                });
             }
             return {
                 commentId: comment.id,
-                totalAssignees: totalAssignees || 1,
-                viewedAssignees: totalAssignees === 0 ? 1 : viewedAssignees,
+                totalRequiredViewers: totalRequiredViewers || 1,
+                viewedUsers: totalRequiredViewers === 0 ? 1 : viewedUsers,
                 viewStatus,
                 viewers,
+                allUsers,
                 assignees: taskAssignees.map(assignee => ({
                     userId: assignee.user.id,
                     userName: assignee.user.name,
                     hasViewed: viewers.some(viewer => viewer.userId === assignee.user.id)
-                }))
+                })),
+                creator: taskCreator ? {
+                    userId: taskCreator.id,
+                    userName: taskCreator.name,
+                    hasViewed: viewers.some(viewer => viewer.userId === taskCreator.id)
+                } : null
             };
         });
         res.status(200).json(viewStatsArray);
@@ -294,6 +420,54 @@ export const getCommentViewStats = async (req, res) => {
     catch (error) {
         console.error('Ошибка при получении статистики просмотров:', error);
         res.status(500).json({ message: 'Ошибка при получении статистики просмотров' });
+    }
+};
+export const markCommentAsSolution = async (req, res) => {
+    try {
+        const { commentId } = req.params;
+        const { isSolution } = req.body;
+        if (!commentId) {
+            res.status(400).json({ message: 'ID комментария не указан' });
+            return;
+        }
+        const comment = await prisma.comment.findUnique({
+            where: { id: parseInt(commentId) }
+        });
+        if (!comment) {
+            res.status(404).json({ message: 'Комментарий не найден' });
+            return;
+        }
+        if (isSolution && comment.taskId) {
+            await prisma.comment.updateMany({
+                where: {
+                    taskId: comment.taskId,
+                    id: { not: parseInt(commentId) }
+                },
+                data: { isSolution: false }
+            });
+        }
+        const updatedComment = await prisma.comment.update({
+            where: { id: parseInt(commentId) },
+            data: { isSolution: isSolution || false },
+            include: {
+                author: {
+                    select: {
+                        id: true,
+                        name: true,
+                        department: {
+                            select: {
+                                name: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        res.status(200).json(updatedComment);
+    }
+    catch (error) {
+        console.error('Ошибка при пометке комментария как решения:', error);
+        res.status(500).json({ message: 'Ошибка при пометке комментария как решения' });
     }
 };
 //# sourceMappingURL=commentController.js.map

@@ -149,15 +149,10 @@ const manageTaskAssignees = async (taskId, assigneeIds, creatorId) => {
         return;
     await prisma.taskAssignee.deleteMany({ where: { taskId } });
     if (assigneeIds.length > 0) {
-        const filteredAssigneeIds = creatorId
-            ? assigneeIds.filter(userId => userId !== creatorId)
-            : assigneeIds;
-        if (filteredAssigneeIds.length > 0) {
-            await prisma.taskAssignee.createMany({
-                data: filteredAssigneeIds.map(userId => ({ taskId, userId })),
-                skipDuplicates: true
-            });
-        }
+        await prisma.taskAssignee.createMany({
+            data: assigneeIds.map(userId => ({ taskId, userId })),
+            skipDuplicates: true
+        });
     }
 };
 const getTaskWithAssignees = async (taskId) => {
@@ -199,7 +194,7 @@ const sendTaskNotificationToProject = async (projectId, taskId, taskTitle, messa
 };
 export const createTask = async (req, res) => {
     try {
-        const { title, description, status, priority, projectId, deadline, order, assigneeIds, creatorId } = req.body;
+        const { title, description, status, priority, taskType, projectId, deadline, order, assigneeIds, creatorId } = req.body;
         const projectIdNum = validateProjectId(projectId);
         const taskOrder = await calculateTaskOrder(projectIdNum, status, order);
         await adjustTaskOrderOnCreate(projectIdNum, status, taskOrder);
@@ -225,6 +220,7 @@ export const createTask = async (req, res) => {
                 description,
                 status,
                 priority,
+                taskType: taskType || 'OTHER',
                 order: taskOrder,
                 deadline: deadline ? new Date(deadline) : null,
                 project: { connect: { id: projectIdNum } },
@@ -306,46 +302,102 @@ export const getTaskById = async (req, res) => {
 export const updateTask = async (req, res) => {
     try {
         const taskId = validateTaskId(req.params.taskId);
-        const { title, description, status, priority, deadline, order, assigneeIds } = req.body;
+        const { title, description, status, priority, taskType, deadline, order, assigneeIds } = req.body;
         const currentTask = await prisma.task.findUnique({ where: { id: taskId } });
         if (!currentTask) {
             res.status(404).json({ message: 'Задача не найдена' });
             return;
         }
-        const updateData = {};
-        if (title !== undefined)
-            updateData.title = title;
-        if (description !== undefined)
-            updateData.description = description;
-        if (priority !== undefined)
-            updateData.priority = priority;
-        if (deadline !== undefined)
-            updateData.deadline = deadline ? new Date(deadline) : null;
-        if (status !== undefined && status !== currentTask.status) {
-            updateData.status = status;
-            updateData.order = await handleStatusChange(currentTask, status);
+        if (title !== undefined && !title.trim()) {
+            res.status(400).json({ message: 'Название задачи не может быть пустым' });
+            return;
         }
-        else if (order !== undefined && order !== currentTask.order) {
-            await handleOrderChange(currentTask, order);
-            updateData.order = order;
+        if (priority !== undefined && !['LOW', 'MEDIUM', 'HIGH'].includes(priority)) {
+            res.status(400).json({ message: 'Неверный приоритет задачи' });
+            return;
         }
-        const updatedTask = await prisma.task.update({
-            where: { id: taskId },
-            data: updateData,
-            include: TASK_INCLUDE_CONFIG
+        if (status !== undefined && !['TODO', 'IN_PROGRESS', 'PROBLEM', 'COMPLETED', 'CANCELLED'].includes(status)) {
+            res.status(400).json({ message: 'Неверный статус задачи' });
+            return;
+        }
+        if (taskType !== undefined && !['METHODOLOGIES', 'TESTING_PREPARATION', 'DEBUG_CHECK', 'MEETING', 'OTHER'].includes(taskType)) {
+            res.status(400).json({ message: 'Неверный тип задачи' });
+            return;
+        }
+        let parsedDeadline = null;
+        if (deadline !== undefined) {
+            if (deadline) {
+                parsedDeadline = new Date(deadline);
+                if (isNaN(parsedDeadline.getTime())) {
+                    res.status(400).json({ message: 'Неверный формат даты' });
+                    return;
+                }
+            }
+        }
+        if (assigneeIds !== undefined && Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+            const validUserIds = validateUserIds(assigneeIds);
+            const users = await prisma.user.findMany({
+                where: { id: { in: validUserIds } }
+            });
+            if (users.length !== validUserIds.length) {
+                res.status(400).json({ message: 'Некоторые указанные исполнители не найдены' });
+                return;
+            }
+        }
+        const result = await prisma.$transaction(async (tx) => {
+            const updateData = {};
+            if (title !== undefined)
+                updateData.title = title.trim();
+            if (description !== undefined)
+                updateData.description = description;
+            if (priority !== undefined)
+                updateData.priority = priority;
+            if (taskType !== undefined)
+                updateData.taskType = taskType;
+            if (deadline !== undefined)
+                updateData.deadline = parsedDeadline;
+            if (status !== undefined && status !== currentTask.status) {
+                updateData.status = status;
+                updateData.order = await handleStatusChange(currentTask, status);
+            }
+            else if (order !== undefined && order !== currentTask.order) {
+                await handleOrderChange(currentTask, order);
+                updateData.order = order;
+            }
+            const updatedTask = await tx.task.update({
+                where: { id: taskId },
+                data: updateData,
+                include: TASK_INCLUDE_CONFIG
+            });
+            const oldAssignees = await tx.taskAssignee.findMany({
+                where: { taskId },
+                select: { userId: true }
+            });
+            const oldAssigneeIds = oldAssignees.map(a => a.userId);
+            if (assigneeIds !== undefined) {
+                await tx.taskAssignee.deleteMany({ where: { taskId } });
+                if (Array.isArray(assigneeIds) && assigneeIds.length > 0) {
+                    await tx.taskAssignee.createMany({
+                        data: assigneeIds.map(userId => ({ taskId, userId })),
+                        skipDuplicates: true
+                    });
+                }
+            }
+            const taskWithAssignees = await tx.task.findUnique({
+                where: { id: taskId },
+                include: TASK_INCLUDE_CONFIG
+            });
+            return { updatedTask, taskWithAssignees, oldAssigneeIds };
         });
-        const oldAssignees = await prisma.taskAssignee.findMany({
-            where: { taskId },
-            select: { userId: true }
-        });
-        const oldAssigneeIds = oldAssignees.map(a => a.userId);
-        await manageTaskAssignees(taskId, assigneeIds, currentTask.creatorId);
-        const taskWithAssignees = await getTaskWithAssignees(taskId);
-        const newAssigneeIds = taskWithAssignees?.assignees?.map(a => a.userId) || [];
-        const addedAssignees = newAssigneeIds.filter(id => !oldAssigneeIds.includes(id));
-        const removedAssignees = oldAssigneeIds.filter(id => !newAssigneeIds.includes(id));
+        if (!result.taskWithAssignees) {
+            res.status(500).json({ message: 'Ошибка при получении обновленной задачи' });
+            return;
+        }
+        const newAssigneeIds = result.taskWithAssignees.assignees?.map(a => a.userId) || [];
+        const addedAssignees = newAssigneeIds.filter(id => !result.oldAssigneeIds.includes(id));
+        const removedAssignees = result.oldAssigneeIds.filter(id => !newAssigneeIds.includes(id));
         const eventData = {
-            task: taskWithAssignees,
+            task: result.taskWithAssignees,
             projectId: currentTask.projectId,
             userId: req.user?.id,
             assigneeIds: newAssigneeIds,
@@ -367,7 +419,7 @@ export const updateTask = async (req, res) => {
             const statusText = STATUS_DISPLAY_TEXT[status] || status;
             await sendTaskNotificationToProject(currentTask.projectId, taskId, currentTask.title, `Задача "${currentTask.title}" переведена в статус "${statusText}"`, 'task_updated', req.user?.id);
         }
-        res.json(taskWithAssignees);
+        res.json(result.taskWithAssignees);
     }
     catch (error) {
         console.error('Ошибка при обновлении задачи:', error);

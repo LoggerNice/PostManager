@@ -134,7 +134,7 @@ export default function GanttChart({ selectedWeek }: DepartmentTasksGanttChartPr
                     {(() => {
                         let currentY = 80;
                         return userTasksGroups.map((userGroup, groupIndex) => {
-                            const sectionHeight = Math.max(40, (userGroup.maxLevel + 1) * 30);
+                            const sectionHeight = Math.max(40, (userGroup.maxLevel + 1) * dimensions.rowHeight);
                             const userY = currentY;
                             currentY += sectionHeight + 20;
                             

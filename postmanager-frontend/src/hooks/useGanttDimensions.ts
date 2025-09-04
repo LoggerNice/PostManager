@@ -5,7 +5,7 @@ export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
     // Константы
     const leftMargin = 120;
     const rightMargin = 0; // Убираем правый отступ
-    const rowHeight = 15;
+    const rowHeight = 30; // Согласуем с основным компонентом
     const headerHeight = 80; // Возвращаем стандартную высоту заголовка
     
     // Состояния для размеров
@@ -99,12 +99,24 @@ export const useGanttDimensions = (userTasksGroups: UserTasksGroup[]) => {
     useEffect(() => {
         const totalUsers = userTasksGroups.length;
         
-        const maxLevels = userTasksGroups.length > 0 
-            ? Math.max(...userTasksGroups.map(group => group.maxLevel + 1), 1)
-            : 1;
+        if (totalUsers === 0) {
+            setChartHeight(400);
+            return;
+        }
         
-        const calculatedHeight = headerHeight + (totalUsers * ((maxLevels) * rowHeight + 20)) + 0; // Статичный отступ 40px снизу
-        setChartHeight(Math.max(calculatedHeight, 400));
+        // Вычисляем общую высоту всех секций пользователей
+        let totalHeight = headerHeight;
+        
+        userTasksGroups.forEach((userGroup) => {
+            // Высота секции пользователя = количество уровней * высота строки + отступ между пользователями
+            const sectionHeight = Math.max(40, (userGroup.maxLevel + 1) * rowHeight);
+            totalHeight += sectionHeight + 20; // 20px отступ между пользователями
+        });
+        
+        // Добавляем фиксированный отступ снизу 20px
+        totalHeight += 20;
+        
+        setChartHeight(Math.max(totalHeight, 400));
     }, [userTasksGroups, headerHeight, rowHeight]);
 
     return {

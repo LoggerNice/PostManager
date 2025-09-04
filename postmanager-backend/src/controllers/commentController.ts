@@ -255,6 +255,23 @@ export const markCommentAsViewed = async (req: Request, res: Response): Promise<
             return;
         }
 
+        // Получаем информацию о комментарии и задаче
+        const comment = await prisma.comment.findUnique({
+            where: { id: parseInt(commentId) },
+            include: {
+                task: {
+                    select: {
+                        creatorId: true
+                    }
+                }
+            }
+        });
+
+        if (!comment) {
+            res.status(404).json({ message: 'Комментарий не найден' });
+            return;
+        }
+
         // Проверяем, существует ли уже запись о просмотре
         const existingView = await prisma.commentView.findUnique({
             where: {
@@ -288,6 +305,47 @@ export const markCommentAsViewed = async (req: Request, res: Response): Promise<
             });
         }
 
+        // Отправляем уведомление через WebSocket о том, что комментарий просмотрен
+        const wsServer = getWebSocketServer();
+        if (wsServer && comment.task) {
+            // Получаем всех участников задачи для уведомления
+            const taskWithAssignees = await prisma.task.findUnique({
+                where: { id: comment.taskId! },
+                include: {
+                    assignees: {
+                        include: {
+                            user: {
+                                select: { id: true }
+                            }
+                        }
+                    }
+                }
+            });
+
+            if (taskWithAssignees) {
+                // Отправляем уведомление создателю задачи и всем исполнителям
+                const allTaskUsers = [
+                    { id: comment.task.creatorId },
+                    ...taskWithAssignees.assignees.map(assignee => ({ id: assignee.user.id }))
+                ];
+
+                allTaskUsers.forEach(taskUser => {
+                    // Не отправляем уведомление самому просматривающему пользователю
+                    if (taskUser.id !== parseInt(userId)) {
+                        wsServer.sendNotificationToUser(taskUser.id, {
+                            type: 'comment_viewed',
+                            title: 'Комментарий просмотрен',
+                            message: `Пользователь просмотрел комментарий к задаче`,
+                            taskId: comment.taskId!,
+                            commentId: parseInt(commentId),
+                            userId: parseInt(userId),
+                            timestamp: new Date().toISOString()
+                        });
+                    }
+                });
+            }
+        }
+
         res.status(200).json({ message: 'Комментарий отмечен как просмотренный' });
     } catch (error) {
         console.error('Ошибка при отметке комментария как просмотренного:', error);
@@ -307,7 +365,7 @@ export const getCommentViewStats = async (req: Request, res: Response): Promise<
         
         const commentIdArray = (commentIds as string).split(',').map(id => parseInt(id));
         
-        // Получаем все комментарии с их задачами, участниками и просмотрами
+        // Получаем все комментарии с их задачами, участниками, создателем и просмотрами
         const comments = await prisma.comment.findMany({
             where: { id: { in: commentIdArray } },
             include: {
@@ -321,6 +379,12 @@ export const getCommentViewStats = async (req: Request, res: Response): Promise<
                                         name: true
                                     }
                                 }
+                            }
+                        },
+                        creator: {
+                            select: {
+                                id: true,
+                                name: true
                             }
                         }
                     }
@@ -341,7 +405,22 @@ export const getCommentViewStats = async (req: Request, res: Response): Promise<
         const viewStatsArray = comments.map(comment => {
             // Получаем всех участников задачи
             const taskAssignees = comment.task?.assignees || [];
-            const totalAssignees = taskAssignees.length;
+            const taskCreator = comment.task?.creator;
+            
+            // Создаем список всех пользователей, которые должны прочитать комментарий
+            const requiredViewers = new Set<number>();
+            
+            // Добавляем исполнителей
+            taskAssignees.forEach(assignee => {
+                requiredViewers.add(assignee.user.id);
+            });
+            
+            // Добавляем создателя задачи
+            if (taskCreator) {
+                requiredViewers.add(taskCreator.id);
+            }
+            
+            const totalRequiredViewers = requiredViewers.size;
             
             // Получаем реальные просмотры из базы данных
             const viewers = comment.views.map(view => ({
@@ -350,30 +429,59 @@ export const getCommentViewStats = async (req: Request, res: Response): Promise<
                 viewedAt: view.viewedAt.toISOString()
             }));
             
-            const viewedAssignees = viewers.length;
+            const viewedUsers = viewers.length;
             
             // Определяем статус просмотра
             let viewStatus: 'none' | 'partial' | 'all' = 'none';
-            if (totalAssignees === 0) {
-                // Если нет назначенных исполнителей, считаем сообщение прочитанным
+            if (totalRequiredViewers === 0) {
+                // Если нет ни исполнителей, ни создателя, считаем сообщение прочитанным
                 viewStatus = 'all';
-            } else if (viewedAssignees > 0 && viewedAssignees < totalAssignees) {
+            } else if (viewedUsers > 0 && viewedUsers < totalRequiredViewers) {
                 viewStatus = 'partial';
-            } else if (viewedAssignees === totalAssignees && totalAssignees > 0) {
+            } else if (viewedUsers === totalRequiredViewers && totalRequiredViewers > 0) {
                 viewStatus = 'all';
+            }
+            
+            // Создаем список всех пользователей с информацией о просмотре
+            const allUsers = [];
+            
+            // Добавляем исполнителей
+            taskAssignees.forEach(assignee => {
+                allUsers.push({
+                    userId: assignee.user.id,
+                    userName: assignee.user.name,
+                    role: 'assignee',
+                    hasViewed: viewers.some(viewer => viewer.userId === assignee.user.id)
+                });
+            });
+            
+            // Добавляем создателя
+            if (taskCreator) {
+                allUsers.push({
+                    userId: taskCreator.id,
+                    userName: taskCreator.name,
+                    role: 'creator',
+                    hasViewed: viewers.some(viewer => viewer.userId === taskCreator.id)
+                });
             }
             
             return {
                 commentId: comment.id,
-                totalAssignees: totalAssignees || 1, // Минимум 1 для корректного отображения
-                viewedAssignees: totalAssignees === 0 ? 1 : viewedAssignees,
+                totalRequiredViewers: totalRequiredViewers || 1, // Минимум 1 для корректного отображения
+                viewedUsers: totalRequiredViewers === 0 ? 1 : viewedUsers,
                 viewStatus,
                 viewers,
+                allUsers,
                 assignees: taskAssignees.map(assignee => ({
                     userId: assignee.user.id,
                     userName: assignee.user.name,
                     hasViewed: viewers.some(viewer => viewer.userId === assignee.user.id)
-                }))
+                })),
+                creator: taskCreator ? {
+                    userId: taskCreator.id,
+                    userName: taskCreator.name,
+                    hasViewed: viewers.some(viewer => viewer.userId === taskCreator.id)
+                } : null
             };
         });
         

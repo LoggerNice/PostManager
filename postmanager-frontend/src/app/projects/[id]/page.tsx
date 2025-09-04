@@ -12,6 +12,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { filterTasks } from '@/utils/taskFiltering';
 import { soundManager } from '@/utils/soundUtils';
 import { format } from 'date-fns';
+import FireworksEffect from '@/components/ui/FireworksEffect';
 
 import ProjectHeader from '../../../components/projectComponents/ProjectHeader';
 import ProjectTabs from '../../../components/projectComponents/ProjectTabs';
@@ -37,6 +38,7 @@ const initialColumns: Record<string, Column> = {
 
 export default function ProjectPage() {
   const params = useParams();
+  const [showFireworks, setShowFireworks] = useState(false);
   const projectId = Number(params.id);
 
   // State variables
@@ -218,6 +220,13 @@ export default function ProjectPage() {
     destinationIndex: number
   ) => {
     try {
+      // Находим задачу в проекте
+      const task = projectTasks.find((t: Task) => t.id === taskId);
+      if (!task) {
+        console.error('Task not found for taskId:', taskId);
+        return;
+      }
+
       // Подготавливаем данные для обновления
       const updateData: Partial<TaskForm> = {
         status: destinationColumnId as TaskStatus,
@@ -230,8 +239,13 @@ export default function ProjectPage() {
 
       await updateTask(taskId, updateData);
 
-      // Воспроизводим звук при перемещении в столбцы "Согласование" или "Выполнено"
-      if (destinationColumnId === 'PROBLEM' || destinationColumnId === 'COMPLETED') {
+      // Специальные эффекты для задачи "Заполнение личного плана"
+      if (task.title === 'Заполнение личного плана' && destinationColumnId === 'PROBLEM') {
+        // Эффект фейерверка и звук праздника
+        setShowFireworks(true);
+        soundManager.playCelebrationSound();
+      } else if (destinationColumnId === 'PROBLEM' || destinationColumnId === 'COMPLETED') {
+        // Обычный звук для других задач
         soundManager.playTaskMovedSound();
       }
 
@@ -330,6 +344,10 @@ export default function ProjectPage() {
           onClose={handleCloseProjectEditModal}
         />
       )}
+      <FireworksEffect 
+        isActive={showFireworks} 
+        onComplete={() => setShowFireworks(false)} 
+      />
     </div>
   );
 }

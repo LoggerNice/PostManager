@@ -14,6 +14,7 @@ import { sortTasksByPriority } from '@/utils/taskSorting';
 import { format } from 'date-fns';
 import { useTaskSorting } from '@/hooks/useTaskSorting';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import FireworksEffect from '@/components/ui/FireworksEffect';
 
 import TasksTab from '../projectComponents/TasksTab';
 import TasksFilter from '../filters/TasksFilter';
@@ -35,6 +36,7 @@ const initialColumns: Record<string, Column> = {
 
 export default function UserTasksBoard() {
   const { user } = useAuth();
+  const [showFireworks, setShowFireworks] = useState(false);
   const userId = user?.id;
   const { isConnected } = useWebSocketContext();
 
@@ -228,8 +230,13 @@ export default function UserTasksBoard() {
 
       await updateTask(taskId, updateData);
 
-      // Воспроизводим звук при перемещении в столбцы "Согласование" или "Выполнено"
-      if (destinationColumnId === 'PROBLEM' || destinationColumnId === 'COMPLETED') {
+      // Специальные эффекты для задачи "Заполнение личного плана"
+      if (task.title === 'Заполнение личного плана' && destinationColumnId === 'PROBLEM') {
+        // Эффект фейерверка и звук праздника
+        setShowFireworks(true);
+        soundManager.playCelebrationSound();
+      } else if (destinationColumnId === 'PROBLEM' || destinationColumnId === 'COMPLETED') {
+        // Обычный звук для других задач
         soundManager.playTaskMovedSound();
       }
 
@@ -331,6 +338,10 @@ export default function UserTasksBoard() {
           showProjectTitle={true}
         />
       </div>
+      <FireworksEffect 
+        isActive={showFireworks} 
+        onComplete={() => setShowFireworks(false)} 
+      />
     </div>
   );
 } 

@@ -6,3 +6,4 @@ export declare const updateComment: (req: Request, res: Response) => Promise<voi
 export declare const deleteComment: (req: Request, res: Response) => Promise<void>;
 export declare const markCommentAsViewed: (req: Request, res: Response) => Promise<void>;
 export declare const getCommentViewStats: (req: Request, res: Response) => Promise<void>;
+export declare const markCommentAsSolution: (req: Request, res: Response) => Promise<void>;

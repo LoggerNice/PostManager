@@ -3,7 +3,11 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 export const getUsers = async (req, res) => {
     try {
-        const users = await prisma.user.findMany();
+        const users = await prisma.user.findMany({
+            include: {
+                department: true
+            }
+        });
         res.json(users);
     }
     catch (error) {

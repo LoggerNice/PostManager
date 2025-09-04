@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "dev": "nodemon",
-    "init:departments": "node dist/scripts/initDepartments.js"
+    "init:departments": "node dist/scripts/initDepartments.js",
+    "connection-check:once": "node dist/scripts/createConnectionCheckTask.js --once",
+    "connection-check:cron": "node dist/scripts/createConnectionCheckTask.js"
   },
   "keywords": [],
   "author": "",

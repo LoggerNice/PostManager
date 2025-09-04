@@ -13,12 +13,15 @@ import { toast } from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useTaskSorting } from '@/hooks/useTaskSorting';
 import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { soundManager } from '@/utils/soundUtils';
+import FireworksEffect from '@/components/ui/FireworksEffect';
 
 import TasksTab from '../TasksTab';
 import TasksFilter from '../../filters/TasksFilter';
 
 export default function DepartmentTasksBoard() {
   const { user } = useAuth();
+  const [showFireworks, setShowFireworks] = useState(false);
   const userId = user?.id;
   const { subscribeToTaskEvents, subscribeToUserTaskEvents, isConnected } = useWebSocketContext();
 
@@ -338,6 +341,17 @@ export default function DepartmentTasksBoard() {
 
       console.log('Updating task with data:', { taskId, updateData });
       await updateTask({ taskId, task: updateData }).unwrap();
+      
+      // Специальные эффекты для задачи "Заполнение личного плана"
+      if (task.title === 'Заполнение личного плана' && destinationColumnId === 'PROBLEM') {
+        // Эффект фейерверка и звук праздника
+        setShowFireworks(true);
+        soundManager.playCelebrationSound();
+      } else if (destinationColumnId === 'PROBLEM' || destinationColumnId === 'COMPLETED') {
+        // Обычный звук для других задач
+        soundManager.playTaskMovedSound();
+      }
+      
       toast.success('Задача успешно перемещена');
       // WebSocket автоматически обновит данные
     } catch (error) {
@@ -461,6 +475,10 @@ export default function DepartmentTasksBoard() {
           showProjectTitle={true}
         />
       </div>
+      <FireworksEffect 
+        isActive={showFireworks} 
+        onComplete={() => setShowFireworks(false)} 
+      />
     </div>
   );
 }

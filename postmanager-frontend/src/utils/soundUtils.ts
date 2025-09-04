@@ -24,9 +24,14 @@ class SoundManager {
     const moveTaskSound = new Audio('/cena_notification.mp3');
     moveTaskSound.preload = 'auto';
     this.sounds.set('task_moved', moveTaskSound);
+
+    // Звук праздника для задачи "Заполнение личного плана"
+    const celebrationSound = new Audio('/cena_notification2.mp3');
+    celebrationSound.preload = 'auto';
+    this.sounds.set('celebration', celebrationSound);
   }
 
-  playSound(soundType: 'task_created' | 'task_moved') {
+  playSound(soundType: 'task_created' | 'task_moved' | 'celebration') {
     // Проверяем, что мы на клиенте и звуки инициализированы
     if (typeof window === 'undefined' || !this.isInitialized) return;
 
@@ -59,6 +64,12 @@ class SoundManager {
   playTaskMovedSound() {
     this.ensureInitialized();
     this.playSound('task_moved');
+  }
+
+  // Метод для воспроизведения звука праздника
+  playCelebrationSound() {
+    this.ensureInitialized();
+    this.playSound('celebration');
   }
 }
 

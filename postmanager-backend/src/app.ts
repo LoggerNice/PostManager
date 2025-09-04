@@ -14,6 +14,7 @@ import * as trainingController from './controllers/trainingController.js';
 import { WebSocketServer } from './websocket.js';
 import { setWebSocketServer } from './websocketServer.js';
 import { authenticateToken } from './middleware/auth.js';
+import { startCronJobs, stopCronJobs } from './utils/cronScheduler.js';
 
 dotenv.config();
 
@@ -152,6 +153,28 @@ const PORT = process.env.PORT || 3045;
 server.listen(PORT, () => {
     console.log(`Сервер запущен на порту ${PORT}`);
     console.log(`WebSocket сервер готов к подключениям`);
+    
+    // Запускаем cron задачи
+    startCronJobs();
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+    console.log('\n🛑 Получен сигнал SIGINT, завершаем работу...');
+    stopCronJobs();
+    server.close(() => {
+        console.log('✅ Сервер остановлен');
+        process.exit(0);
+    });
+});
+
+process.on('SIGTERM', () => {
+    console.log('\n🛑 Получен сигнал SIGTERM, завершаем работу...');
+    stopCronJobs();
+    server.close(() => {
+        console.log('✅ Сервер остановлен');
+        process.exit(0);
+    });
 });
 
 export default app; 

@@ -11,7 +11,7 @@ interface UserRowProps {
         leftMargin: number;
         chartWidth: number;
         availableWidth: number;
-        chartWidth: number;
+        rowHeight: number;
     };
     onTaskClick: (task: GanttTask) => void;
 }
@@ -23,7 +23,7 @@ export default function UserRow({
     dimensions, 
     onTaskClick 
 }: UserRowProps) {
-    const { leftMargin, chartWidth, availableWidth } = dimensions;
+    const { leftMargin, chartWidth, availableWidth, rowHeight } = dimensions;
     
     return (
         <g key={userGroup.user.id}>
@@ -60,7 +60,7 @@ export default function UserRow({
                 });
                 
                 return (
-                    <g key={task.id} transform={`translate(0, ${5 + task.level * 30})`}>
+                    <g key={task.id} transform={`translate(0, ${5 + task.level * rowHeight})`}>
                         <TaskBar
                             task={task}
                             position={position}
