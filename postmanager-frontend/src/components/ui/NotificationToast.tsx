@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, CheckCircle, AlertCircle, MessageCircle, Clock } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, MessageCircle, Clock, ExternalLink, Trash2 } from 'lucide-react';
 import { soundManager } from '@/utils/soundUtils';
+import { useTaskModal } from '@/contexts/TaskModalContext';
 
 export interface NotificationData {
-  type: 'task_created' | 'task_updated' | 'comment_added';
+  type: 'task_created' | 'task_updated' | 'task_deleted' | 'comment_added';
   title: string;
   message: string;
   taskId?: number;
@@ -27,6 +28,8 @@ const getNotificationIcon = (type: string) => {
       return <CheckCircle className="w-5 h-5 text-green-500" />;
     case 'task_updated':
       return <Clock className="w-5 h-5 text-blue-500" />;
+    case 'task_deleted':
+      return <Trash2 className="w-5 h-5 text-red-500" />;
     case 'comment_added':
       return <MessageCircle className="w-5 h-5 text-purple-500" />;
     default:
@@ -40,6 +43,8 @@ const getNotificationColor = (type: string) => {
       return 'border-green-500 bg-green-50 dark:bg-green-900/20';
     case 'task_updated':
       return 'border-blue-500 bg-blue-50 dark:bg-blue-900/20';
+    case 'task_deleted':
+      return 'border-red-500 bg-red-50 dark:bg-red-900/20';
     case 'comment_added':
       return 'border-purple-500 bg-purple-50 dark:bg-purple-900/20';
     default:
@@ -49,6 +54,14 @@ const getNotificationColor = (type: string) => {
 
 export default function NotificationToast({ notification, onClose }: NotificationToastProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const { openTaskModalById } = useTaskModal();
+
+  const handleTaskClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (notification.taskId) {
+      openTaskModalById(notification.taskId);
+    }
+  };
 
   useEffect(() => {
     // Показываем уведомление с небольшой задержкой для анимации
@@ -99,6 +112,17 @@ export default function NotificationToast({ notification, onClose }: Notificatio
             <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
               {notification.message}
             </p>
+            {notification.taskId && notification.type !== 'task_deleted' && (
+              <div className="mt-2">
+                <button 
+                  onClick={handleTaskClick}
+                  className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3 mr-1" />
+                  Перейти к задаче
+                </button>
+              </div>
+            )}
           </div>
           <div className="ml-4 flex-shrink-0">
             <button

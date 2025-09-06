@@ -5,13 +5,18 @@ import { useGanttDimensions } from '@/hooks/useGanttDimensions';
 import { calculateTimelineData } from '@/utils/ganttUtils';
 import { DepartmentTasksGanttChartProps, GanttTask } from '@/types/gantt.types';
 import { Task } from '@/types/task.types';
+import { useWebSocketContext } from '@/contexts/WebSocketContext';
+import { useDispatch } from 'react-redux';
+import { api } from '@/store/api/api';
 import TimelineHeader from './TimelineHeader';
 import UserRow from './UserRow';
 import GanttLegend from './GanttLegend';
 import TaskDetailsModal from '../projectComponents/task/TaskDetailsModal';
 
 export default function GanttChart({ selectedWeek }: DepartmentTasksGanttChartProps) {
-    const { currentUser, departmentId, departmentUsers, departmentTasks, isLoading } = useDepartmentTasks();
+    const { currentUser, departmentId, departmentUsers, departmentTasks, isLoading, refetchTasks } = useDepartmentTasks();
+    const { subscribeToTaskEvents, subscribeToUserTaskEvents, isConnected } = useWebSocketContext();
+    const dispatch = useDispatch();
     
     // Состояние для модального окна
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -25,6 +30,12 @@ export default function GanttChart({ selectedWeek }: DepartmentTasksGanttChartPr
 
     // Получаем размеры диаграммы
     const { containerRef, dimensions } = useGanttDimensions(userTasksGroups);
+
+    // Функция для принудительной инвалидации кэша
+    const invalidateTaskCache = () => {
+        dispatch(api.util.invalidateTags(['Task']));
+        refetchTasks();
+    };
 
     // Обновляем размеры при изменении selectedWeek и при монтировании
     useEffect(() => {
@@ -78,6 +89,110 @@ export default function GanttChart({ selectedWeek }: DepartmentTasksGanttChartPr
         return () => document.removeEventListener('readystatechange', handleReadyStateChange);
     }, [containerRef]);
 
+    // WebSocket синхронизация - подписываемся на события задач
+    useEffect(() => {
+        if (!departmentId) return;
+        if (!isConnected) return;
+
+        // Подписываемся на события задач проекта (для задач отдела)
+        const unsubscribeProjectEvents = subscribeToTaskEvents({
+            onTaskCreate: (data: any) => {
+                // Проверяем, относится ли задача к нашему отделу
+                if (data.task && data.assigneeIds) {
+                    const hasDepartmentUser = data.assigneeIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            },
+            onTaskUpdate: (data: any) => {
+                if (data.task && data.assigneeIds) {
+                    const hasDepartmentUser = data.assigneeIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            },
+            onTaskDelete: (data: any) => {
+                if (data.task && data.assigneeIds) {
+                    const hasDepartmentUser = data.assigneeIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            },
+            onTaskAssignmentChanged: (data: any) => {
+                invalidateTaskCache();
+            }
+        });
+
+        // Подписываемся на пользовательские события задач
+        const unsubscribeUserEvents = subscribeToUserTaskEvents({
+            onUserTaskCreate: (data: any) => {
+                if (data.assigneeIds) {
+                    const hasDepartmentUser = data.assigneeIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            },
+            onUserTaskUpdate: (data: any) => {
+                if (data.assigneeIds) {
+                    const hasDepartmentUser = data.assigneeIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            },
+            onUserTaskDelete: (data: any) => {
+                if (data.assigneeIds) {
+                    const hasDepartmentUser = data.assigneeIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            },
+            onTaskAssigned: (data: any) => {
+                if (data.assigneeIds) {
+                    const hasDepartmentUser = data.assigneeIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            },
+            onTaskUnassigned: (data: any) => {
+                if (data.unassignedUserIds) {
+                    const hasDepartmentUser = data.unassignedUserIds.some((assigneeId: number) => 
+                        departmentUsers.some(user => user.id === assigneeId)
+                    );
+                    if (hasDepartmentUser) {
+                        invalidateTaskCache();
+                    }
+                }
+            }
+        });
+
+        // Отписываемся при размонтировании
+        return () => {
+            unsubscribeProjectEvents();
+            unsubscribeUserEvents();
+        };
+    }, [departmentId, isConnected, departmentUsers, subscribeToTaskEvents, subscribeToUserTaskEvents, refetchTasks]);
+
     const handleTaskClick = (task: GanttTask) => {
         setSelectedTask(task);
         setIsModalOpen(true);
@@ -116,6 +231,7 @@ export default function GanttChart({ selectedWeek }: DepartmentTasksGanttChartPr
             ref={containerRef}
             className="bg-white dark:bg-gray-800 rounded-lg pb-6 shadow-lg w-full"
         >
+            
             <div className="w-full overflow-hidden">
                 <svg 
                     width="100%" 

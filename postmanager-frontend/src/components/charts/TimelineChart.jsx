@@ -246,7 +246,7 @@ const TimelineChart = ({ timelineData, userTasksGroups }) => {
                                             };
 
                                             return (
-                                                <g key={task.id || `task-${Math.random()}`}>
+                                                <g key={`${userGroup.user.id}-${task.id}`}>
                                                     {/* Полоса задачи */}
                                                     <rect
                                                         x={actualStartX}

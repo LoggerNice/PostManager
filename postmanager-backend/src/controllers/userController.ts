@@ -26,7 +26,12 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 export const getUserById = async (req: Request, res: Response): Promise<void> => {
     try {
         const { userId } = req.params;
-        const user = await prisma.user.findUnique({ where: { id: parseInt(userId) } });
+        const user = await prisma.user.findUnique({ 
+            where: { id: parseInt(userId) },
+            include: {
+                department: true
+            }
+        });
         if (!user) {
             res.status(404).json({ message: 'Пользователь не найден' });
             return;
@@ -134,14 +139,62 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
     try {
         const { userId } = req.params;
-        const { login, name, departmentId } = req.body;
+        const { login, name, departmentId, currentPassword, newPassword } = req.body;
+        
+        // Проверяем, что пользователь обновляет только свой профиль
+        const requestedUserId = parseInt(userId);
+        const authenticatedUserId = req.user?.id;
+        
+        if (requestedUserId !== authenticatedUserId) {
+            res.status(403).json({ message: 'Вы можете обновлять только свой собственный профиль' });
+            return;
+        }
 
-        const updatedUser = await prisma.user.update({
-            where: { id: parseInt(userId) },
-            data: { login, name, departmentId: parseInt(departmentId) }
-        });
+        // Если нужно обновить пароль
+        if (currentPassword && newPassword) {
+            const user = await prisma.user.findUnique({ where: { id: requestedUserId } });
+            if (!user) {
+                res.status(404).json({ message: 'Пользователь не найден' });
+                return;
+            }
 
-        res.json(updatedUser);
+            const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+            if (!isValidPassword) {
+                res.status(400).json({ message: 'Неверный текущий пароль' });
+                return;
+            }
+
+            const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+            
+            const updatedUser = await prisma.user.update({
+                where: { id: requestedUserId },
+                data: { 
+                    login, 
+                    name, 
+                    departmentId: departmentId ? parseInt(departmentId) : undefined,
+                    password: hashedNewPassword
+                },
+                include: {
+                    department: true
+                }
+            });
+
+            res.json(updatedUser);
+        } else {
+            const updatedUser = await prisma.user.update({
+                where: { id: requestedUserId },
+                data: { 
+                    login, 
+                    name, 
+                    departmentId: departmentId ? parseInt(departmentId) : undefined
+                },
+                include: {
+                    department: true
+                }
+            });
+
+            res.json(updatedUser);
+        }
     } catch (error) {
         console.error('Ошибка при обновлении пользователя:', error);
         res.status(500).json({ message: 'Ошибка при обновлении пользователя' });

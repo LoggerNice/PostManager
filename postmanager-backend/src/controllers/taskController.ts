@@ -328,12 +328,36 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
             taskCreatorId = req.user.id;
         }
 
+        // Определяем приоритет на основе дедлайна, если приоритет не указан явно
+        let finalPriority = priority;
+        if (!finalPriority && deadline) {
+            const deadlineDate = new Date(deadline);
+            const today = new Date();
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            // Сравниваем только даты (без времени)
+            const deadlineDateOnly = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
+            const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const tomorrowDateOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+            
+            if (deadlineDateOnly.getTime() === todayDateOnly.getTime()) {
+                finalPriority = 'HIGH';
+            } else if (deadlineDateOnly.getTime() === tomorrowDateOnly.getTime()) {
+                finalPriority = 'MEDIUM';
+            } else {
+                finalPriority = 'LOW';
+            }
+        } else if (!finalPriority) {
+            finalPriority = 'LOW';
+        }
+
         const task = await prisma.task.create({
             data: {
                 title,
                 description,
                 status,
-                priority,
+                priority: finalPriority,
                 taskType: taskType || 'OTHER',
                 order: taskOrder,
                 deadline: deadline ? new Date(deadline) : null,
@@ -493,6 +517,31 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
             if (priority !== undefined) updateData.priority = priority;
             if (taskType !== undefined) updateData.taskType = taskType;
             if (deadline !== undefined) updateData.deadline = parsedDeadline;
+
+            // Автоматически определяем приоритет на основе дедлайна, если приоритет не указан явно
+            if (deadline !== undefined && priority === undefined) {
+                if (parsedDeadline) {
+                    const deadlineDate = parsedDeadline;
+                    const today = new Date();
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    
+                    // Сравниваем только даты (без времени)
+                    const deadlineDateOnly = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate());
+                    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                    const tomorrowDateOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+                    
+                    if (deadlineDateOnly.getTime() === todayDateOnly.getTime()) {
+                        updateData.priority = 'HIGH';
+                    } else if (deadlineDateOnly.getTime() === tomorrowDateOnly.getTime()) {
+                        updateData.priority = 'MEDIUM';
+                    } else {
+                        updateData.priority = 'LOW';
+                    }
+                } else {
+                    updateData.priority = 'LOW';
+                }
+            }
 
             // Обработка изменения статуса
             if (status !== undefined && status !== currentTask.status) {
@@ -800,8 +849,48 @@ export const updateTaskAssignees = async (req: Request, res: Response): Promise<
 
 export const updateTaskPriorities = async (req: Request, res: Response): Promise<void> => {
     try {
-        await prisma.$executeRaw`SELECT update_existing_task_priorities()`;
-        res.status(200).json({ message: 'Приоритеты задач обновлены успешно' });
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        // Сравниваем только даты (без времени)
+        const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const tomorrowDateOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+        
+        let updatedCount = 0;
+        
+        // Обновляем приоритет для задач с дедлайном сегодня (HIGH)
+        const highPriorityResult = await prisma.task.updateMany({
+            where: {
+                deadline: {
+                    gte: todayDateOnly,
+                    lt: new Date(todayDateOnly.getTime() + 24 * 60 * 60 * 1000) // следующий день
+                },
+                priority: { not: 'HIGH' },
+                status: { notIn: ['COMPLETED', 'CANCELLED'] }
+            },
+            data: { priority: 'HIGH' }
+        });
+        updatedCount += highPriorityResult.count;
+        
+        // Обновляем приоритет для задач с дедлайном завтра (MEDIUM)
+        const mediumPriorityResult = await prisma.task.updateMany({
+            where: {
+                deadline: {
+                    gte: tomorrowDateOnly,
+                    lt: new Date(tomorrowDateOnly.getTime() + 24 * 60 * 60 * 1000) // следующий день
+                },
+                priority: { notIn: ['HIGH', 'MEDIUM'] },
+                status: { notIn: ['COMPLETED', 'CANCELLED'] }
+            },
+            data: { priority: 'MEDIUM' }
+        });
+        updatedCount += mediumPriorityResult.count;
+        
+        res.status(200).json({ 
+            message: 'Приоритеты задач обновлены успешно',
+            updatedCount 
+        });
     } catch (error) {
         console.error('Ошибка при обновлении приоритетов задач:', error);
         res.status(500).json({ message: 'Ошибка при обновлении приоритетов задач' });

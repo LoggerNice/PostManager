@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { XMarkIcon, BellIcon } from '@heroicons/react/24/outline';
+import { ExternalLink } from 'lucide-react';
 import { useNotificationHistory } from '@/contexts/NotificationContext';
+import { useTaskModal } from '@/contexts/TaskModalContext';
 
 interface NotificationHistoryProps {
   isOpen: boolean;
@@ -20,6 +22,12 @@ export default function NotificationHistory({ isOpen, onClose }: NotificationHis
     unreadCount, 
     markAllAsRead 
   } = useNotificationHistory();
+  const { openTaskModalById, isTaskModalOpen } = useTaskModal();
+
+  const handleTaskClick = (taskId: number) => {
+    // Предотвращаем закрытие модального окна истории уведомлений при клике на задачу
+    openTaskModalById(taskId);
+  };
 
   /**
    * Автоматически отмечаем все уведомления как прочитанные при закрытии модального окна
@@ -33,6 +41,11 @@ export default function NotificationHistory({ isOpen, onClose }: NotificationHis
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Не закрываем модальное окно истории уведомлений, если открыто модальное окно задачи
+      if (isTaskModalOpen) {
+        return;
+      }
+      
       if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
         handleClose();
       }
@@ -45,7 +58,7 @@ export default function NotificationHistory({ isOpen, onClose }: NotificationHis
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, unreadCount, markAllAsRead, onClose, handleClose]);
+  }, [isOpen, unreadCount, markAllAsRead, onClose, handleClose, isTaskModalOpen]);
 
   if (!isOpen) return null;
 
@@ -70,7 +83,7 @@ export default function NotificationHistory({ isOpen, onClose }: NotificationHis
           </button>
         </div>
         
-        <div className="p-4 overflow-y-auto max-h-[60vh]">
+        <div className="p-4 overflow-y-auto max-h-[60vh] custom-scrollbar">
           {notificationHistory.length === 0 ? (
             <div className="text-center text-gray-400 py-8">
               <BellIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -106,6 +119,20 @@ export default function NotificationHistory({ isOpen, onClose }: NotificationHis
                         <p className="text-gray-300 text-sm mt-1">
                           {notification.message}
                         </p>
+                        {notification.taskId && notification.type !== 'task_deleted' && (
+                          <div className="mt-2">
+                            <button 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTaskClick(notification.taskId!);
+                              }}
+                              className="inline-flex items-center text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                            >
+                              <ExternalLink className="w-3 h-3 mr-1" />
+                              Перейти к задаче
+                            </button>
+                          </div>
+                        )}
                         <p className="text-gray-500 text-xs mt-2">
                           {new Date(notification.timestamp).toLocaleString('ru-RU')}
                         </p>

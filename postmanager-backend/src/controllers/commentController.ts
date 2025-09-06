@@ -255,16 +255,9 @@ export const markCommentAsViewed = async (req: Request, res: Response): Promise<
             return;
         }
 
-        // Получаем информацию о комментарии и задаче
+        // Проверяем, существует ли комментарий
         const comment = await prisma.comment.findUnique({
-            where: { id: parseInt(commentId) },
-            include: {
-                task: {
-                    select: {
-                        creatorId: true
-                    }
-                }
-            }
+            where: { id: parseInt(commentId) }
         });
 
         if (!comment) {
@@ -305,46 +298,6 @@ export const markCommentAsViewed = async (req: Request, res: Response): Promise<
             });
         }
 
-        // Отправляем уведомление через WebSocket о том, что комментарий просмотрен
-        const wsServer = getWebSocketServer();
-        if (wsServer && comment.task) {
-            // Получаем всех участников задачи для уведомления
-            const taskWithAssignees = await prisma.task.findUnique({
-                where: { id: comment.taskId! },
-                include: {
-                    assignees: {
-                        include: {
-                            user: {
-                                select: { id: true }
-                            }
-                        }
-                    }
-                }
-            });
-
-            if (taskWithAssignees) {
-                // Отправляем уведомление создателю задачи и всем исполнителям
-                const allTaskUsers = [
-                    { id: comment.task.creatorId },
-                    ...taskWithAssignees.assignees.map(assignee => ({ id: assignee.user.id }))
-                ];
-
-                allTaskUsers.forEach(taskUser => {
-                    // Не отправляем уведомление самому просматривающему пользователю
-                    if (taskUser.id !== parseInt(userId)) {
-                        wsServer.sendNotificationToUser(taskUser.id, {
-                            type: 'comment_viewed',
-                            title: 'Комментарий просмотрен',
-                            message: `Пользователь просмотрел комментарий к задаче`,
-                            taskId: comment.taskId!,
-                            commentId: parseInt(commentId),
-                            userId: parseInt(userId),
-                            timestamp: new Date().toISOString()
-                        });
-                    }
-                });
-            }
-        }
 
         res.status(200).json({ message: 'Комментарий отмечен как просмотренный' });
     } catch (error) {

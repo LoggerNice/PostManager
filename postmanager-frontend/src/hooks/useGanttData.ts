@@ -82,29 +82,31 @@ export const useGanttData = (
                 progress: 0 // Оставляем для совместимости, но не используем
             };
 
-            // Задача с исполнителями (assignees)
+            // Собираем всех уникальных исполнителей задачи
+            const assignedUserIds = new Set<number>();
+            
+            // Добавляем исполнителей из массива assignees
             if (task.assignees && task.assignees.length > 0) {
                 task.assignees.forEach(assignee => {
-                    const userId = assignee.userId;
-                    if (departmentUsers.some(user => user.id === userId)) {
-                        if (!userTasksMap.has(userId)) {
-                            userTasksMap.set(userId, []);
-                        }
-                        userTasksMap.get(userId)!.push(ganttTask);
-                    }
+                    assignedUserIds.add(assignee.userId);
                 });
             }
             
-            // Задача с единичным исполнителем
+            // Добавляем единичного исполнителя из assigneeId
             if (task.assigneeId) {
                 const assigneeId = typeof task.assigneeId === 'string' ? parseInt(task.assigneeId) : task.assigneeId;
-                if (departmentUsers.some(user => user.id === assigneeId)) {
-                    if (!userTasksMap.has(assigneeId)) {
-                        userTasksMap.set(assigneeId, []);
-                    }
-                    userTasksMap.get(assigneeId)!.push(ganttTask);
-                }
+                assignedUserIds.add(assigneeId);
             }
+            
+            // Добавляем задачу только один раз для каждого уникального исполнителя
+            assignedUserIds.forEach(userId => {
+                if (departmentUsers.some(user => user.id === userId)) {
+                    if (!userTasksMap.has(userId)) {
+                        userTasksMap.set(userId, []);
+                    }
+                    userTasksMap.get(userId)!.push(ganttTask);
+                }
+            });
         });
 
         // Создаем группы пользователей с их задачами и назначаем уровни

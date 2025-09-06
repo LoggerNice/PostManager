@@ -38,7 +38,8 @@ app.post('/auth/login', userController.login);
 app.post('/auth/register', userController.register);
 app.get('/users', userController.getUsers);
 app.get('/users/:userId', userController.getUserById);
-app.put('/users/:userId', userController.updateUser);
+app.put('/users/:userId', authenticateToken, userController.updateUser);
+app.patch('/users/:userId', authenticateToken, userController.updateUser);
 
 app.get('/departments', departmentController.getDepartments);
 app.get('/departments/:departmentId', departmentController.getDepartmentById);

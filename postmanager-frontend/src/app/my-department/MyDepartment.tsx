@@ -73,8 +73,8 @@ export default function MyDepartmentBoard() {
                     
                     {/* Статистика задач отдела и сотрудников */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <DepartmentTasksStatusChart />
-                        <DepartmentUsersStats />
+                        <DepartmentTasksStatusChart selectedWeek={selectedWeek} />
+                        <DepartmentUsersStats selectedWeek={selectedWeek} />
                     </div>
                 </div>
             )}

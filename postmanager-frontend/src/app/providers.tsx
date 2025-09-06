@@ -5,6 +5,7 @@ import { store } from '@/store/store';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 import { WebSocketProvider } from '@/contexts/WebSocketContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { TaskModalProvider } from '@/contexts/TaskModalContext';
 
 export default function Providers({ children }: { children: React.ReactNode }) {
     return (
@@ -12,7 +13,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
             <SidebarProvider>
                 <WebSocketProvider>
                     <NotificationProvider>
-                        {children}
+                        <TaskModalProvider>
+                            {children}
+                        </TaskModalProvider>
                     </NotificationProvider>
                 </WebSocketProvider>
             </SidebarProvider>

@@ -6,8 +6,8 @@ import { Task } from '@/types/task.types';
 
 export const useDepartmentTasks = () => {
     const { userId } = useAuth();
-    const { data: allTasks = [], isLoading: tasksLoading } = useGetTasksQuery();
-    const { data: allUsers = [], isLoading: usersLoading } = useGetUsersQuery();
+    const { data: allTasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useGetTasksQuery();
+    const { data: allUsers = [], isLoading: usersLoading, refetch: refetchUsers } = useGetUsersQuery();
 
     // Получаем текущего пользователя и его отдел
     const currentUser = allUsers.find(user => user.id === userId);
@@ -51,6 +51,8 @@ export const useDepartmentTasks = () => {
         departmentId,
         departmentUsers,
         departmentTasks,
-        isLoading: tasksLoading || usersLoading
+        isLoading: tasksLoading || usersLoading,
+        refetchTasks,
+        refetchUsers
     };
 };

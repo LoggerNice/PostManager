@@ -14,7 +14,11 @@ interface UserStats {
     completionRate: number;
 }
 
-export default function DepartmentUsersStats() {
+interface DepartmentUsersStatsProps {
+    selectedWeek?: Date;
+}
+
+export default function DepartmentUsersStats({ selectedWeek }: DepartmentUsersStatsProps) {
     const { userId } = useAuth();
     const { data: currentUser } = useGetUserByIdQuery(userId!, { skip: !userId });
     const departmentId = currentUser?.department?.id || currentUser?.departmentId;
@@ -35,7 +39,7 @@ export default function DepartmentUsersStats() {
 
         return departmentUsers.map(user => {
             // Получаем все задачи пользователя
-            const userTasks = allTasks.filter(task => {
+            let userTasks = allTasks.filter(task => {
                 // Проверяем через assignees (многие-ко-многим)
                 if (task.assignees && task.assignees.length > 0) {
                     const hasUserAssigned = task.assignees.some(assignee => 
@@ -53,6 +57,35 @@ export default function DepartmentUsersStats() {
                 return false;
             });
 
+            // Если выбрана неделя, фильтруем задачи по дате
+            if (selectedWeek) {
+                const weekStart = new Date(selectedWeek);
+                const dayOfWeek = weekStart.getDay();
+                
+                // Вычисляем начало рабочей недели (понедельник)
+                if (dayOfWeek === 0) { // Воскресенье
+                    weekStart.setDate(weekStart.getDate() + 1);
+                } else if (dayOfWeek === 6) { // Суббота
+                    weekStart.setDate(weekStart.getDate() + 2);
+                } else { // Рабочие дни
+                    weekStart.setDate(weekStart.getDate() - dayOfWeek + 1);
+                }
+                
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 4); // Пятница
+                
+                // Устанавливаем время для корректного сравнения
+                weekStart.setHours(0, 0, 0, 0);
+                weekEnd.setHours(23, 59, 59, 999);
+
+                userTasks = userTasks.filter(task => {
+                    if (!task.createdAt) return false;
+                    
+                    const taskDate = new Date(task.createdAt);
+                    return taskDate >= weekStart && taskDate <= weekEnd;
+                });
+            }
+
             const totalTasks = userTasks.length;
             const completedTasks = userTasks.filter(task => task.status === 'COMPLETED').length;
             const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
@@ -65,7 +98,38 @@ export default function DepartmentUsersStats() {
                 completionRate
             };
         }).sort((a, b) => b.completionRate - a.completionRate);
-    }, [allTasks, departmentUsers]);
+    }, [allTasks, departmentUsers, selectedWeek]);
+
+    // Формируем заголовок с информацией о неделе
+    const getTitle = () => {
+        if (selectedWeek) {
+            const weekStart = new Date(selectedWeek);
+            const dayOfWeek = weekStart.getDay();
+            
+            if (dayOfWeek === 0) {
+                weekStart.setDate(weekStart.getDate() + 1);
+            } else if (dayOfWeek === 6) {
+                weekStart.setDate(weekStart.getDate() + 2);
+            } else {
+                weekStart.setDate(weekStart.getDate() - dayOfWeek + 1);
+            }
+            
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 4);
+            
+            const startFormatted = weekStart.toLocaleDateString('ru-RU', { 
+                day: '2-digit', 
+                month: 'short' 
+            });
+            const endFormatted = weekEnd.toLocaleDateString('ru-RU', { 
+                day: '2-digit', 
+                month: 'short' 
+            });
+            
+            return `Статистика по сотрудникам отдела (${startFormatted} - ${endFormatted})`;
+        }
+        return "Статистика по сотрудникам отдела";
+    };
 
     if (tasksLoading || usersLoading) return (
         <div className="flex justify-center items-center h-64">
@@ -88,7 +152,7 @@ export default function DepartmentUsersStats() {
     return (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-lg">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Статистика по сотрудникам отдела
+                {getTitle()}
             </h3>
             
             <div className="space-y-4">

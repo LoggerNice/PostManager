@@ -5,6 +5,15 @@ import { Column } from '@/types';
 
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'PROBLEM' | 'COMPLETED' | 'CANCELLED';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+
+// Enum для TaskStatus для удобства использования
+export const TaskStatus = {
+  TODO: 'TODO' as const,
+  IN_PROGRESS: 'IN_PROGRESS' as const,
+  PROBLEM: 'PROBLEM' as const,
+  COMPLETED: 'COMPLETED' as const,
+  CANCELLED: 'CANCELLED' as const
+} as const;
 export type TaskPriorityDisplay = 'Низкий' | 'Средний' | 'Высокий';
 export type TaskType = 'METHODOLOGIES' | 'TESTING_PREPARATION' | 'DEBUG_CHECK' | 'MEETING' | 'OTHER';
 export type TaskTypeDisplay = 'Методики' | 'Подготовка и проведение испытаний' | 'Отладка\\проверка' | 'Совещание' | 'Прочее';

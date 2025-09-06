@@ -1,6 +1,58 @@
 import cron from 'node-cron';
 import prisma from './prisma.js';
 
+// Функция для обновления приоритетов задач на основе дедлайнов
+async function updateTaskPriorities() {
+    try {
+        console.log('🔄 Обновляем приоритеты задач на основе дедлайнов...');
+
+        const today = new Date();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        // Сравниваем только даты (без времени)
+        const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const tomorrowDateOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+        
+        let updatedCount = 0;
+        
+        // Обновляем приоритет для задач с дедлайном сегодня (HIGH)
+        const highPriorityResult = await prisma.task.updateMany({
+            where: {
+                deadline: {
+                    gte: todayDateOnly,
+                    lt: new Date(todayDateOnly.getTime() + 24 * 60 * 60 * 1000) // следующий день
+                },
+                priority: { not: 'HIGH' },
+                status: { notIn: ['COMPLETED', 'CANCELLED'] }
+            },
+            data: { priority: 'HIGH' }
+        });
+        updatedCount += highPriorityResult.count;
+        
+        // Обновляем приоритет для задач с дедлайном завтра (MEDIUM)
+        const mediumPriorityResult = await prisma.task.updateMany({
+            where: {
+                deadline: {
+                    gte: tomorrowDateOnly,
+                    lt: new Date(tomorrowDateOnly.getTime() + 24 * 60 * 60 * 1000) // следующий день
+                },
+                priority: { notIn: ['HIGH', 'MEDIUM'] },
+                status: { notIn: ['COMPLETED', 'CANCELLED'] }
+            },
+            data: { priority: 'MEDIUM' }
+        });
+        updatedCount += mediumPriorityResult.count;
+        
+        console.log(`✅ Обновлено приоритетов задач: ${updatedCount}`);
+        console.log(`   - Высокий приоритет (сегодня): ${highPriorityResult.count}`);
+        console.log(`   - Средний приоритет (завтра): ${mediumPriorityResult.count}`);
+        
+    } catch (error) {
+        console.error('❌ Ошибка при обновлении приоритетов задач:', error);
+    }
+}
+
 // Функция для создания задачи "Заполнение личного плана"
 async function createConnectionCheckTask() {
     try {
@@ -133,8 +185,18 @@ export function startCronJobs() {
         timezone: "Europe/Moscow" // Используем московское время
     });
 
+    // Запускаем обновление приоритетов задач каждый день в 9:00
+    cron.schedule('0 9 * * *', async () => {
+        console.log('🕘 Время обновления приоритетов задач - 9:00 (ежедневно)');
+        await updateTaskPriorities();
+    }, {
+        scheduled: true,
+        timezone: "Europe/Moscow" // Используем московское время
+    });
+
     console.log('✅ Cron задачи настроены и запущены');
     console.log('📅 Задачи "Заполнение личного плана" будут создаваться каждую пятницу в 8:30 по московскому времени для каждого исполнителя проекта (исключая начальников отделов)');
+    console.log('📅 Приоритеты задач будут обновляться каждый день в 9:00 по московскому времени');
 }
 
 // Функция для остановки всех cron задач

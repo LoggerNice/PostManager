@@ -56,7 +56,7 @@ export default function Modal({
       onClick={onClose}
     >
       <div 
-        className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] overflow-y-auto shadow-xl`}
+        className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg w-full ${maxWidthClasses[maxWidth]} max-h-[90vh] overflow-y-auto custom-scrollbar shadow-xl`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Заголовок */}

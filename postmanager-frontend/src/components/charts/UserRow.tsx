@@ -60,7 +60,7 @@ export default function UserRow({
                 });
                 
                 return (
-                    <g key={task.id} transform={`translate(0, ${5 + task.level * rowHeight})`}>
+                    <g key={`${userGroup.user.id}-${task.id}`} transform={`translate(0, ${5 + task.level * rowHeight})`}>
                         <TaskBar
                             task={task}
                             position={position}
