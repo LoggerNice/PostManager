@@ -1,7 +1,7 @@
 import { TaskModalProps, TaskType, TaskTypeDisplay, getAllTaskTypes, getTaskTypeDisplay, getTaskTypeFromDisplay } from '@/types/task.types';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
+import { CustomMultiSelect } from '@/components/ui';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useAuth } from '@/hooks/useAuth';
 import { useState, useEffect, useRef } from 'react';
@@ -179,13 +179,15 @@ useEffect(() => {
           <label className="block text-sm font-medium text-gray-300 mb-1">
             Исполнители
           </label>
-          <MultiSelect
+          <CustomMultiSelect
             label=""
             name="assignees"
             options={assigneeOptions}
             value={newTask.assigneeIds || []}
             onChange={(value) => setNewTask({ ...newTask, assigneeIds: value })}
             placeholder="Выберите исполнителей..."
+            searchPlaceholder="Поиск исполнителей..."
+            noOptionsMessage="Исполнители не найдены"
           />
         </div>
         <div className="flex justify-end gap-2">

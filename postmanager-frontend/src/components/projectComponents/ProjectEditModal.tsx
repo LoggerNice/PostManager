@@ -5,7 +5,7 @@ import { IProjectForm, IProject } from "@/types/project.types";
 import { Input } from "@/components/ui/input/Input";
 import { Button } from "@/components/ui/button/Button";
 import { DateInput } from "@/components/ui/date-input/DateInput";
-import { MultiSelect } from "@/components/ui/multi-select/MultiSelect";
+import { CustomMultiSelect } from "@/components/ui";
 
 import { useGetDepartmentsQuery } from "@/store/api/department.api";
 import { useGetUsersQuery } from "@/store/api/user.api";
@@ -136,7 +136,7 @@ export default function ProjectEditModal({ isOpen, onClose, project }: ProjectEd
                         control={control}
                         rules={{ required: 'Выберите хотя бы один отдел' }}
                         render={({ field }) => (
-                            <MultiSelect
+                            <CustomMultiSelect
                                 label="Отделы"
                                 name="departmentIds"
                                 options={departmentOptions}
@@ -144,6 +144,8 @@ export default function ProjectEditModal({ isOpen, onClose, project }: ProjectEd
                                 onChange={field.onChange}
                                 error={errors.departmentIds?.message}
                                 placeholder="Выберите отделы"
+                                searchPlaceholder="Поиск отделов..."
+                                noOptionsMessage="Отделы не найдены"
                             />
                         )}
                     />
@@ -153,7 +155,7 @@ export default function ProjectEditModal({ isOpen, onClose, project }: ProjectEd
                         control={control}
                         rules={{ required: 'Выберите хотя бы одного участника' }}
                         render={({ field }) => (
-                            <MultiSelect
+                            <CustomMultiSelect
                                 label="Участники проекта"
                                 name="userIds"
                                 options={userOptions}
@@ -161,6 +163,8 @@ export default function ProjectEditModal({ isOpen, onClose, project }: ProjectEd
                                 onChange={field.onChange}
                                 error={errors.userIds?.message}
                                 placeholder="Выберите участников"
+                                searchPlaceholder="Поиск участников..."
+                                noOptionsMessage="Участники не найдены"
                             />
                         )}
                     />

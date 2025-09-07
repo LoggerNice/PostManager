@@ -9,7 +9,7 @@ import {
 } from '@/types/filter.types';
 import { TaskPriority } from '@/types/task.types';
 import { DateInput } from '@/components/ui';
-import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
+import { CustomMultiSelect } from '@/components/ui';
 import { 
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -264,13 +264,15 @@ export default function TasksFilter({
           {/* Фильтр по отделам */}
           {showDepartmentFilter && departmentOptions.length > 0 && (
             <div className="min-w-0">
-              <MultiSelect
+              <CustomMultiSelect
                 label="Отделы"
                 name="departments"
                 options={departmentOptions}
-                                 value={(filters.departments || []).map(dept => dept.id)}
+                value={(filters.departments || []).map(dept => dept.id)}
                 onChange={handleDepartmentsChange}
                 placeholder="Выберите отделы..."
+                searchPlaceholder="Поиск отделов..."
+                noOptionsMessage="Отделы не найдены"
               />
             </div>
           )}
@@ -278,13 +280,15 @@ export default function TasksFilter({
           {/* Фильтр по приоритету */}
           {showPriorityFilter && (
             <div className="min-w-0">
-              <MultiSelect
+              <CustomMultiSelect
                 label="Приоритет"
                 name="priorities"
                 options={PRIORITY_OPTIONS.map(p => ({ value: p.value as any, label: p.label }))}
-                                 value={(filters.priorities || []) as any[]}
+                value={(filters.priorities || []) as any[]}
                 onChange={handlePrioritiesChange as any}
                 placeholder="Выберите приоритеты..."
+                searchPlaceholder="Поиск приоритетов..."
+                noOptionsMessage="Приоритеты не найдены"
               />
             </div>
           )}
@@ -292,13 +296,15 @@ export default function TasksFilter({
           {/* Фильтр по проектам */}
           {showProjectFilter && projectOptions.length > 0 && (
             <div className="min-w-0">
-              <MultiSelect
+              <CustomMultiSelect
                 label="Проекты"
                 name="projects"
                 options={projectOptions}
-                                 value={(filters.projects || []).map(project => project.id)}
+                value={(filters.projects || []).map(project => project.id)}
                 onChange={handleProjectsChange}
                 placeholder="Выберите проекты..."
+                searchPlaceholder="Поиск проектов..."
+                noOptionsMessage="Проекты не найдены"
               />
             </div>
           )}
@@ -306,14 +312,16 @@ export default function TasksFilter({
           {/* Фильтр по участникам */}
           {showAssigneeFilter && (
             <div className="min-w-0">
-              <MultiSelect
+              <CustomMultiSelect
                 label={'Участники'}
                 name="assignees"
                 options={userOptions}
-                                 value={(filters.assignees || []).map(user => user.id)}
+                value={(filters.assignees || []).map(user => user.id)}
                 onChange={handleAssigneesChange}
                 placeholder={context === 'my-tasks' ? 'Недоступно' : 'Выберите участников...'}
-                disabled={!isAssigneeFilterActive}
+                searchPlaceholder="Поиск участников..."
+                noOptionsMessage="Участники не найдены"
+                disabled={context === 'my-tasks' || !isAssigneeFilterActive}
               />
               {context === 'my-tasks' && (
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

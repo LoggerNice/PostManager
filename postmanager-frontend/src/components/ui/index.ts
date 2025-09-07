@@ -32,3 +32,6 @@ export type { CommentViewStats } from './CommentViewIndicator';
 export { default as CommentFile } from './CommentFile';
 
 export { default as WeekNavigation } from './WeekNavigation';
+
+export { CustomMultiSelect } from './multi-select/CustomMultiSelect';
+export type { CustomMultiSelectProps, MultiSelectOption } from '@/types/multiselect';

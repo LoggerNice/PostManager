@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui';
 import { Card } from '@/components/ui';
-import { MultiSelect } from '@/components/ui/multi-select/MultiSelect';
+import { CustomMultiSelect } from '@/components/ui';
 import { useGetUsersQuery } from '@/store/api/user.api';
 import { useGetTaskAssigneesQuery, useAddTaskAssigneesMutation, useRemoveTaskAssigneesMutation } from '@/store/api/task.api';
 import { IUser } from '@/types/user.types';
@@ -110,13 +110,15 @@ export const AssigneesModal: React.FC<AssigneesModalProps> = ({
                 </div>
 
                 <div className="mb-4">
-                    <MultiSelect
+                    <CustomMultiSelect
                         label=""
                         name="assignees"
                         options={assigneeOptions}
                         value={selectedAssignees.map(id => parseInt(id))}
                         onChange={(value) => setSelectedAssignees(value.map(id => id.toString()))}
                         placeholder="Выберите исполнителей..."
+                        searchPlaceholder="Поиск исполнителей..."
+                        noOptionsMessage="Исполнители не найдены"
                     />
                 </div>
 
