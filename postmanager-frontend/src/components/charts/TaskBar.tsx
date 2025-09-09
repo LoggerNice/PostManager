@@ -85,7 +85,7 @@ export default function TaskBar({ task, position, dimensions, onTaskClick }: Tas
 
             {/* Текст с названием задачи */}
             <text
-                x={startX + 8}
+                x={startX + 5}
                 y={16}
                 className="text-xs fill-white font-medium"
                 style={{ 
@@ -95,7 +95,7 @@ export default function TaskBar({ task, position, dimensions, onTaskClick }: Tas
                 }}
             >
                 {task.title?.length > 25 
-                    ? `${task.title.substring(0, 25)}...` 
+                    ? `${task.title.substring(0, 15)}...` 
                     : task.title || 'Без названия'
                 }
             </text>

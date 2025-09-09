@@ -42,7 +42,7 @@ export const useGanttData = (
                 } else {
                     // Для непросроченных задач добавляем длину до следующего дня
                     actualEndDate = new Date(deadline);
-                    actualEndDate.setDate(actualEndDate.getDate());
+                    actualEndDate.setDate(actualEndDate.getDate() + 1);
                 }
             } else {
                 // По умолчанию от создания до дедлайна

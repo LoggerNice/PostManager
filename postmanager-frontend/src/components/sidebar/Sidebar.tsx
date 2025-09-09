@@ -150,7 +150,7 @@ export default function Sidebar() {
                             )}
                         </div>
                         {projectsOpen && !collapsed && (
-                            <div className="ml-8 mt-2 space-y-1 max-h-64 overflow-y-auto custom-scrollbar">
+                            <div className="ml-8 mt-2 space-y-1 max-h-[calc(100vh-490px)] overflow-y-auto custom-scrollbar">
                                 {projects.length === 0 && !projectsLoading && (
                                     <div className="text-gray-500 text-sm px-2">Нет проектов</div>
                                 )}

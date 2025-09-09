@@ -1,11 +1,12 @@
 'use client';
-
+import { useRouter } from 'next/navigation';
 import ProjectGanttChart from './projectGantt/ProjectGanttChart';
 
 export default function ProjectsGanttChart() {
+    const router = useRouter();
+    
     const handleProjectClick = (project: any) => {
-        // Можно добавить логику для обработки клика по проекту
-        console.log('Clicked project:', project);
+        router.push(`/projects/${project.id}`);
     };
 
     return (

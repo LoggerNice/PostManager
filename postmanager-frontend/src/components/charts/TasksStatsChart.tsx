@@ -79,7 +79,7 @@ export default function TasksStatsChart({ tasks, title, isLoading, error }: Task
                 {title}
             </h3>
 
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between flex-wrap">
                 {/* Pie chart */}
                 <div className="flex-shrink-0 mx-auto md:mx-0 mb-6 md:mb-0">
                     <svg width={chartSize} height={chartSize} className="transform -rotate-90">
