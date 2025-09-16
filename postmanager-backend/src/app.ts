@@ -113,6 +113,7 @@ app.get('/training-results/ratings', trainingController.getTrainingRatings);
 
 // Админские роуты (требуют аутентификации и проверки прав)
 app.get('/admin/stats', authenticateToken, adminController.requireAdminAccess, adminController.getAdminStats);
+app.get('/admin/system-metrics', authenticateToken, adminController.requireAdminAccess, adminController.getSystemMetrics);
 app.get('/admin/user-activity', authenticateToken, adminController.requireAdminAccess, adminController.getUserActivity);
 app.get('/admin/project-analytics', authenticateToken, adminController.requireAdminAccess, adminController.getProjectAnalytics);
 app.get('/admin/department-stats', authenticateToken, adminController.requireAdminAccess, adminController.getDepartmentStats);

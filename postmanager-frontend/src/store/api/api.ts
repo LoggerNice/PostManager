@@ -22,11 +22,12 @@ export const api = createApi({
         'Comment', 
         'CommentViewStats',
         'AdminStats',
+        'SystemMetrics',
         'UserActivity',
         'ProjectAnalytics',
         'DepartmentStats',
         'SystemSettings',
-        'SystemLogs'
+        'SystemLogs',
     ],
     endpoints: () => ({}),
 }); 

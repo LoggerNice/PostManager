@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import * as os from 'os';
 import prisma from '../utils/prisma.js';
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
@@ -67,6 +68,138 @@ export const getAdminStats = async (req: Request, res: Response): Promise<void> 
         res.status(500).json({ message: 'Ошибка при получении статистики' });
     }
 };
+
+// Получение системных метрик
+export const getSystemMetrics = async (req: Request, res: Response): Promise<void> => {
+    try {
+        
+        // Получаем информацию о CPU
+        const cpus = os.cpus();
+        
+        // Получаем информацию о памяти
+        const totalMemory = os.totalmem();
+        const freeMemory = os.freemem();
+        const usedMemory = totalMemory - freeMemory;
+        const memoryUsagePercent = (usedMemory / totalMemory) * 100;
+        
+        // Получаем информацию о загрузке системы
+        const loadAverage = os.loadavg();
+        
+        // Получаем информацию о диске (если доступно)
+        const diskUsage = await getDiskUsage();
+        
+        // Получаем CPU usage с обработкой ошибок
+        let cpuUsage = 0;
+        try {
+            cpuUsage = await getCpuUsage();
+        } catch (cpuError) {
+            console.warn('Ошибка получения CPU usage, используем 0:', cpuError);
+            cpuUsage = 0;
+        }
+        
+        const metrics = {
+            cpu: {
+                usage: Math.round(cpuUsage),
+                cores: cpus.length,
+                loadAverage: loadAverage[0] // 1-минутная средняя загрузка
+            },
+            memory: {
+                total: totalMemory,
+                used: usedMemory,
+                free: freeMemory,
+                usagePercent: Math.round(memoryUsagePercent)
+            },
+            disk: diskUsage,
+            uptime: os.uptime(),
+            timestamp: new Date().toISOString()
+        };
+
+        res.json(metrics);
+    } catch (error) {
+        console.error('Ошибка при получении системных метрик:', error);
+        res.status(500).json({ 
+            message: 'Ошибка при получении системных метрик',
+            error: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
+        });
+    }
+};
+
+// Функция для получения использования CPU
+async function getCpuUsage(): Promise<number> {
+    return new Promise((resolve) => {
+        const startMeasure = cpuAverage();
+        
+        setTimeout(() => {
+            const endMeasure = cpuAverage();
+            const idleDifference = endMeasure.idle - startMeasure.idle;
+            const totalDifference = endMeasure.total - startMeasure.total;
+            const percentageCPU = 100 - ~~(100 * idleDifference / totalDifference);
+            resolve(percentageCPU);
+        }, 100);
+    });
+}
+
+// Функция для расчета средней загрузки CPU
+function cpuAverage() {
+    const cpus = os.cpus();
+    
+    let user = 0, nice = 0, sys = 0, idle = 0, irq = 0;
+    
+    for (let i = 0; i < cpus.length; i++) {
+        const cpu = cpus[i].times;
+        user += cpu.user;
+        nice += cpu.nice;
+        sys += cpu.sys;
+        idle += cpu.idle;
+        irq += cpu.irq;
+    }
+    
+    const total = user + nice + sys + idle + irq;
+    
+    return {
+        idle: idle,
+        total: total
+    };
+}
+
+// Функция для получения использования диска
+async function getDiskUsage(): Promise<{ used: number; free: number; total: number; usagePercent: number }> {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Получаем информацию о корневом диске
+        const stats = fs.statSync('.');
+        
+        // Для Windows используем другой подход
+        if (process.platform === 'win32') {
+            // Возвращаем приблизительные значения для Windows
+            return {
+                used: 0,
+                free: 0,
+                total: 0,
+                usagePercent: 0
+            };
+        }
+        
+        // Для Unix-систем можно использовать statvfs или аналогичные методы
+        // Здесь возвращаем базовые значения
+        return {
+            used: 0,
+            free: 0,
+            total: 0,
+            usagePercent: 0
+        };
+    } catch (error) {
+        console.error('Ошибка при получении информации о диске:', error);
+        return {
+            used: 0,
+            free: 0,
+            total: 0,
+            usagePercent: 0
+        };
+    }
+}
 
 // Получение активности пользователей
 export const getUserActivity = async (req: Request, res: Response): Promise<void> => {

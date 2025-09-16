@@ -9,11 +9,12 @@ import {
   ExclamationTriangleIcon,
   ClockIcon
 } from '@heroicons/react/24/outline';
-import { useGetAdminStatsQuery } from '@/store/api/admin.api';
+import { useGetAdminStatsQuery, useGetSystemMetricsQuery } from '@/store/api/admin.api';
 import Loader from '@/components/loader/Loader';
 
 export default function AdminStats() {
   const { data: stats, isLoading, error } = useGetAdminStatsQuery();
+  const { data: systemMetrics, isLoading: metricsLoading, error: metricsError } = useGetSystemMetricsQuery();
 
   if (isLoading) return <Loader />;
   if (error || !stats) {
@@ -139,33 +140,96 @@ export default function AdminStats() {
         </div>
       </div>
 
-      {/* Дополнительная информация */}
+      {/* Системные метрики */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-          Системная информация
+          Системные метрики
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Загрузка системы
-            </p>
-            <div className="mt-2 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-blue-600 h-2 rounded-full" 
-                style={{ width: '67%' }}
-              ></div>
+        {metricsLoading ? (
+          <div className="text-center py-4">
+            <Loader />
+          </div>
+        ) : metricsError ? (
+          <div className="text-center py-4">
+            <p className="text-red-500">Ошибка загрузки метрик</p>
+            {process.env.NODE_ENV === 'development' && (
+              <p className="text-xs text-gray-500 mt-2">
+                {JSON.stringify(metricsError)}
+              </p>
+            )}
+          </div>
+         ) : systemMetrics ? (
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* CPU */}
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Использование CPU
+              </p>
+              <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-2">
+                <div 
+                  className={`h-3 rounded-full transition-all duration-300 ${
+                    systemMetrics.cpu.usage > 80 ? 'bg-red-500' : 
+                    systemMetrics.cpu.usage > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                  }`}
+                  style={{ width: `${systemMetrics.cpu.usage}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {systemMetrics.cpu.usage}% ({systemMetrics.cpu.cores} ядер)
+              </p>
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">67% используется</p>
+
+            {/* Память */}
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Использование памяти
+              </p>
+              <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-2">
+                <div 
+                  className={`h-3 rounded-full transition-all duration-300 ${
+                    systemMetrics.memory.usagePercent > 85 ? 'bg-red-500' : 
+                    systemMetrics.memory.usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'
+                  }`}
+                  style={{ width: `${systemMetrics.memory.usagePercent}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {systemMetrics.memory.usagePercent}% ({Math.round(systemMetrics.memory.used / 1024 / 1024 / 1024 * 10) / 10} GB / {Math.round(systemMetrics.memory.total / 1024 / 1024 / 1024 * 10) / 10} GB)
+              </p>
+            </div>
+
+
+             {/* Время работы */}
+             <div>
+               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                 Время работы системы
+               </p>
+               <p className="text-sm font-medium text-gray-900 dark:text-white">
+                 {Math.floor(systemMetrics.uptime / 3600)}ч {Math.floor((systemMetrics.uptime % 3600) / 60)}м
+               </p>
+             </div>
+
+             {/* Последнее обновление */}
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Последнее обновление
+              </p>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {new Date(systemMetrics.timestamp).toLocaleTimeString('ru-RU')}
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Последнее обновление
-            </p>
-            <p className="text-sm font-medium text-gray-900 dark:text-white mt-1">
-              {new Date().toLocaleString('ru-RU')}
-            </p>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-gray-500">Метрики недоступны</p>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              Обновить
+            </button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

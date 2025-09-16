@@ -90,3 +90,26 @@ export interface SystemLog {
   action: string;
   details?: Record<string, any>;
 }
+
+// Системные метрики
+export interface SystemMetrics {
+  cpu: {
+    usage: number; // Процент использования CPU
+    cores: number; // Количество ядер
+    loadAverage: number; // Средняя загрузка системы
+  };
+  memory: {
+    total: number; // Общий объем памяти в байтах
+    used: number; // Используемая память в байтах
+    free: number; // Свободная память в байтах
+    usagePercent: number; // Процент использования памяти
+  };
+  disk: {
+    used: number; // Используемое место на диске в байтах
+    free: number; // Свободное место на диске в байтах
+    total: number; // Общий объем диска в байтах
+    usagePercent: number; // Процент использования диска
+  };
+  uptime: number; // Время работы системы в секундах
+  timestamp: string; // Время получения метрик
+}

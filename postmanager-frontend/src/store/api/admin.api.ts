@@ -6,6 +6,7 @@ import {
   DepartmentStats, 
   SystemSettings, 
   SystemLog,
+  SystemMetrics,
   CreateUserFormData,
   EditUserFormData,
   CreateDepartmentFormData
@@ -34,6 +35,11 @@ export const adminApi = api.injectEndpoints({
     getDepartmentStats: build.query<DepartmentStats[], void>({
       query: () => 'admin/department-stats',
       providesTags: ['DepartmentStats']
+    }),
+    
+    getSystemMetrics: build.query<SystemMetrics, void>({
+      query: () => 'admin/system-metrics',
+      providesTags: ['SystemMetrics']
     }),
     
     // Управление пользователями
@@ -145,6 +151,7 @@ export const adminApi = api.injectEndpoints({
 
 export const {
   useGetAdminStatsQuery,
+  useGetSystemMetricsQuery,
   useGetUserActivityQuery,
   useGetProjectAnalyticsQuery,
   useGetDepartmentStatsQuery,
