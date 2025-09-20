@@ -28,6 +28,7 @@ export const api = createApi({
         'DepartmentStats',
         'SystemSettings',
         'SystemLogs',
+        'CyclicTask'
     ],
     endpoints: () => ({}),
 }); 

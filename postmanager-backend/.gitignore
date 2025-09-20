@@ -6,7 +6,6 @@ node_modules
 
 # Backup files
 backups/
-*.sql
 *.dump
 
 # Logs

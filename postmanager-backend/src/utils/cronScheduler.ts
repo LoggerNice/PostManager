@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import prisma from './prisma.js';
+import { executeCyclicTasks } from '../services/cyclicTaskExecutor.js';
 
 // Функция для обновления приоритетов задач на основе дедлайнов
 async function updateTaskPriorities() {
@@ -194,9 +195,19 @@ export function startCronJobs() {
         timezone: "Europe/Moscow" // Используем московское время
     });
 
+    // Запускаем выполнение цикличных задач каждый день в 9:00
+    cron.schedule('0 9 * * *', async () => {
+        console.log('🔄 Проверяем цикличные задачи...');
+        await executeCyclicTasks();
+    }, {
+        scheduled: true,
+        timezone: "Europe/Moscow" // Используем московское время
+    });
+
     console.log('✅ Cron задачи настроены и запущены');
     console.log('📅 Задачи "Заполнение личного плана" будут создаваться каждую пятницу в 8:30 по московскому времени для каждого исполнителя проекта (исключая начальников отделов)');
     console.log('📅 Приоритеты задач будут обновляться каждый день в 9:00 по московскому времени');
+    console.log('📅 Цикличные задачи будут проверяться каждый день в 9:00 по московскому времени');
 }
 
 // Функция для остановки всех cron задач

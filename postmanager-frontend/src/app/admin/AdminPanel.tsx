@@ -9,16 +9,18 @@ import {
   BuildingOfficeIcon, 
   CogIcon, 
   DocumentTextIcon,
-  ShieldCheckIcon 
+  ShieldCheckIcon,
+  CalendarDaysIcon
 } from '@heroicons/react/24/outline';
 import AdminStats from '@/components/admin/AdminStats';
 import UserManagement from '@/components/admin/UserManagement';
 import DepartmentManagement from '@/components/admin/DepartmentManagement';
 import SystemSettings from '@/components/admin/SystemSettings';
 import SystemLogs from '@/components/admin/SystemLogs';
+import CyclicTasksManagement from '@/components/admin/CyclicTasksManagement';
 import Loader from '@/components/loader/Loader';
 
-type AdminTab = 'dashboard' | 'users' | 'departments' | 'settings' | 'logs';
+type AdminTab = 'dashboard' | 'users' | 'departments' | 'planning' | 'settings' | 'logs';
 
 export default function AdminPanel() {
   const { user } = useAuth();
@@ -60,6 +62,7 @@ export default function AdminPanel() {
     { id: 'dashboard', label: 'Дашборд', icon: ChartBarIcon },
     { id: 'users', label: 'Пользователи', icon: UsersIcon },
     { id: 'departments', label: 'Отделы', icon: BuildingOfficeIcon },
+    { id: 'planning', label: 'Планирование', icon: CalendarDaysIcon },
     { id: 'settings', label: 'Настройки', icon: CogIcon },
     { id: 'logs', label: 'Логи', icon: DocumentTextIcon },
   ] as const;
@@ -72,6 +75,8 @@ export default function AdminPanel() {
         return <UserManagement />;
       case 'departments':
         return <DepartmentManagement />;
+      case 'planning':
+        return <CyclicTasksManagement />;
       case 'settings':
         return <SystemSettings />;
       case 'logs':

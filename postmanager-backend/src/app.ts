@@ -11,6 +11,7 @@ import * as commentController from './controllers/commentController.js';
 import * as fileController from './controllers/fileController.js';
 import * as adminController from './controllers/adminController.js';
 import * as trainingController from './controllers/trainingController.js';
+import * as cyclicTaskController from './controllers/cyclicTaskController.js';
 import { WebSocketServer } from './websocket.js';
 import { setWebSocketServer } from './websocketServer.js';
 import { authenticateToken } from './middleware/auth.js';
@@ -137,6 +138,15 @@ app.get('/admin/logs', authenticateToken, adminController.requireAdminAccess, ad
 app.post('/admin/backup', authenticateToken, adminController.requireAdminAccess, adminController.createBackup);
 app.get('/admin/backup/:backupId/download', authenticateToken, adminController.requireAdminAccess, adminController.downloadBackup);
 app.post('/admin/cache/clear', authenticateToken, adminController.requireAdminAccess, adminController.clearCache);
+
+// Роуты для цикличных задач (требуют аутентификации и проверки прав)
+app.get('/cyclic-tasks', authenticateToken, adminController.requireAdminAccess, cyclicTaskController.getCyclicTasks);
+app.get('/cyclic-tasks/:id', authenticateToken, adminController.requireAdminAccess, cyclicTaskController.getCyclicTaskById);
+app.post('/cyclic-tasks', authenticateToken, adminController.requireAdminAccess, cyclicTaskController.createCyclicTask);
+app.put('/cyclic-tasks/:id', authenticateToken, adminController.requireAdminAccess, cyclicTaskController.updateCyclicTask);
+app.delete('/cyclic-tasks/:id', authenticateToken, adminController.requireAdminAccess, cyclicTaskController.deleteCyclicTask);
+app.patch('/cyclic-tasks/:id/toggle', authenticateToken, adminController.requireAdminAccess, cyclicTaskController.toggleCyclicTaskStatus);
+app.post('/cyclic-tasks/execute', authenticateToken, adminController.requireAdminAccess, cyclicTaskController.executeCyclicTasksManually);
 
 app.get('/', (req: Request, res: Response) => {
     res.json({ message: 'API работает' });

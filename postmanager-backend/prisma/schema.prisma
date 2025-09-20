@@ -51,6 +51,8 @@ model User {
   assignedTasks   TaskAssignee[] // Связь с задачами, которые назначены пользователю
   commentViews    CommentView[] // Связь с просмотрами комментариев
   trainingResults TrainingResult[] // Связь с результатами тренировок
+  cyclicTasksAssigned CyclicTaskAssignee[] @relation("CyclicTaskAssignee") // Цикличные задачи, назначенные пользователю
+  cyclicTasksCreated CyclicTask[] @relation("CyclicTaskCreator") // Цикличные задачи, созданные пользователем
 }
 
 model Task {
@@ -100,6 +102,7 @@ model Project {
   tasks       Task[]
   users       User[]
   department  Department[]
+  cyclicTasks CyclicTask[] // Цикличные задачи проекта
 }
 
 model Department {
@@ -119,6 +122,18 @@ model TaskAssignee {
   assignedAt DateTime @default(now())
 
   @@unique([taskId, userId])
+}
+
+// Модель для связи многие-ко-многим между циклическими задачами и исполнителями
+model CyclicTaskAssignee {
+  id         Int        @id @default(autoincrement())
+  cyclicTask CyclicTask @relation(fields: [cyclicTaskId], references: [id], onDelete: Cascade)
+  cyclicTaskId Int
+  user       User       @relation("CyclicTaskAssignee", fields: [userId], references: [id], onDelete: Cascade)
+  userId     Int
+  assignedAt DateTime   @default(now())
+
+  @@unique([cyclicTaskId, userId])
 }
 
 // Модель для отслеживания просмотров комментариев
@@ -177,4 +192,34 @@ enum TaskType {
   DEBUG_CHECK
   MEETING
   OTHER
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model CyclicTask {
+  id          Int         @id @default(autoincrement())
+  title       String
+  description String?
+  dayOfWeek   DayOfWeek
+  creationTime String     @default("09:00") // Время создания в формате HH:mm
+  deadline    String      // Время в формате HH:mm
+  project     Project     @relation(fields: [projectId], references: [id])
+  projectId   Int
+  assignees   CyclicTaskAssignee[] // Связь с исполнителями
+  creator     User        @relation("CyclicTaskCreator", fields: [creatorId], references: [id])
+  creatorId   Int
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([dayOfWeek])
+  @@index([isActive])
 }

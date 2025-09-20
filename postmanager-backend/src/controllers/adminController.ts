@@ -165,11 +165,8 @@ function cpuAverage() {
 // Функция для получения использования диска
 async function getDiskUsage(): Promise<{ used: number; free: number; total: number; usagePercent: number }> {
     try {
-        const fs = require('fs');
-        const path = require('path');
-        
         // Получаем информацию о корневом диске
-        const stats = fs.statSync('.');
+        const stats = fsSync.statSync('.');
         
         // Для Windows используем другой подход
         if (process.platform === 'win32') {
