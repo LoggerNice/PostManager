@@ -163,6 +163,9 @@ export default function CyclicTasksManagement() {
                                                         <strong>День недели:</strong> {getDayLabel(task.dayOfWeek)}
                                                     </span>
                                                     <span className="mr-4">
+                                                        <strong>День срока:</strong> {task.deadlineDay ? getDayLabel(task.deadlineDay) : 'Тот же день'}
+                                                    </span>
+                                                    <span className="mr-4">
                                                         <strong>Время выполнения:</strong> {formatTime(task.deadline)}
                                                     </span>
                                                     <span className="mr-4">

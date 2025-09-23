@@ -211,6 +211,7 @@ model CyclicTask {
   dayOfWeek   DayOfWeek
   creationTime String     @default("09:00") // Время создания в формате HH:mm
   deadline    String      // Время в формате HH:mm
+  deadlineDay DayOfWeek?  // День недели, на который ставится срок задачи (опционально)
   project     Project     @relation(fields: [projectId], references: [id])
   projectId   Int
   assignees   CyclicTaskAssignee[] // Связь с исполнителями

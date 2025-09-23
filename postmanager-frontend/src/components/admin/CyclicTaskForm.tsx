@@ -22,6 +22,7 @@ export default function CyclicTaskForm({ task, onClose, users, projects }: Cycli
         description: '',
         dayOfWeek: 'MONDAY',
         deadline: '09:00',
+        deadlineDay: undefined,
         projectId: 0,
         assigneeIds: [],
         isActive: true
@@ -39,6 +40,7 @@ export default function CyclicTaskForm({ task, onClose, users, projects }: Cycli
                 description: task.description || '',
                 dayOfWeek: task.dayOfWeek,
                 deadline: task.deadline.substring(0, 5), // HH:mm
+                deadlineDay: task.deadlineDay,
                 projectId: task.projectId,
                 assigneeIds: task.assignees.map(a => a.userId),
                 isActive: task.isActive
@@ -74,6 +76,7 @@ export default function CyclicTaskForm({ task, onClose, users, projects }: Cycli
                         description: formData.description || undefined,
                         dayOfWeek: formData.dayOfWeek,
                         deadline: formData.deadline,
+                        deadlineDay: formData.deadlineDay,
                         projectId: formData.projectId,
                         assigneeIds: formData.assigneeIds,
                         isActive: formData.isActive
@@ -87,6 +90,7 @@ export default function CyclicTaskForm({ task, onClose, users, projects }: Cycli
                     description: formData.description || undefined,
                     dayOfWeek: formData.dayOfWeek,
                     deadline: formData.deadline,
+                    deadlineDay: formData.deadlineDay,
                     projectId: formData.projectId,
                     assigneeIds: formData.assigneeIds
                 }).unwrap();
@@ -169,18 +173,37 @@ export default function CyclicTaskForm({ task, onClose, users, projects }: Cycli
                         </select>
                     </div>
 
-                    {/* Время выполнения */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Время выполнения *
-                        </label>
-                        <input
-                            type="time"
-                            value={formData.deadline}
-                            onChange={(e) => handleInputChange('deadline', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            required
-                        />
+                    {/* День срока задачи и время выполнения (в одну строку) */}
+                    <div className="flex flex-col sm:flex-row sm:space-x-4">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                День срока задачи
+                            </label>
+                            <select
+                                value={formData.deadlineDay || ''}
+                                onChange={(e) => handleInputChange('deadlineDay', e.target.value ? (e.target.value as DayOfWeek) : undefined)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                                <option value="">Тот же день</option>
+                                {DAYS_OF_WEEK.map((day) => (
+                                    <option key={day.value} value={day.value}>
+                                        {day.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex-1 mt-4 sm:mt-0">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Время выполнения *
+                            </label>
+                            <input
+                                type="time"
+                                value={formData.deadline}
+                                onChange={(e) => handleInputChange('deadline', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                required
+                            />
+                        </div>
                     </div>
 
                     {/* Проект */}

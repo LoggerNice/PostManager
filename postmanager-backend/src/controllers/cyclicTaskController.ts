@@ -75,7 +75,7 @@ export const getCyclicTaskById = async (req: Request, res: Response): Promise<vo
 // Создание новой цикличной задачи
 export const createCyclicTask = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { title, description, dayOfWeek, deadline, projectId, assigneeIds } = req.body;
+        const { title, description, dayOfWeek, deadline, deadlineDay, projectId, assigneeIds } = req.body;
 
         // Валидация обязательных полей
         if (!title || !dayOfWeek || !deadline || !projectId || !assigneeIds || !Array.isArray(assigneeIds) || assigneeIds.length === 0) {
@@ -122,6 +122,7 @@ export const createCyclicTask = async (req: Request, res: Response): Promise<voi
                 description,
                 dayOfWeek,
                 deadline,
+                deadlineDay: deadlineDay || null,
                 projectId,
                 creatorId: req.user!.id,
                 isActive: true,
@@ -161,7 +162,7 @@ export const createCyclicTask = async (req: Request, res: Response): Promise<voi
 export const updateCyclicTask = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
-        const { title, description, dayOfWeek, deadline, projectId, assigneeIds, isActive } = req.body;
+        const { title, description, dayOfWeek, deadline, deadlineDay, projectId, assigneeIds, isActive } = req.body;
 
         // Проверка существования задачи
         const existingTask = await prisma.cyclicTask.findUnique({
@@ -213,6 +214,7 @@ export const updateCyclicTask = async (req: Request, res: Response): Promise<voi
         if (description !== undefined) updateData.description = description;
         if (dayOfWeek !== undefined) updateData.dayOfWeek = dayOfWeek;
         if (deadline !== undefined) updateData.deadline = deadline;
+        if (deadlineDay !== undefined) updateData.deadlineDay = deadlineDay || null;
         if (projectId !== undefined) updateData.projectId = projectId;
         if (isActive !== undefined) updateData.isActive = isActive;
 
@@ -355,7 +357,7 @@ export const executeCyclicTasksManually = async (req: Request, res: Response): P
             timestamp: new Date().toISOString()
         });
     } catch (error) {
-        console.error('Ошибка при принудительном выполнении цикличных задач:', error);
+        console.error('Ошибка при принудительном выполнении циклических задач:', error);
         res.status(500).json({ message: 'Ошибка при выполнении цикличных задач' });
     }
 };

@@ -578,7 +578,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
               {task.description && (
                 <div>
                   <span className="text-gray-400 text-sm">Описание:</span>
-                  <p className="mt-2 text-gray-300 leading-relaxed">{task.description}</p>
+                  <p className="mt-2 text-gray-300 leading-relaxed whitespace-pre-wrap">{task.description}</p>
                 </div>
               )}
             </div>

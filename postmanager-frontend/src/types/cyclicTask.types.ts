@@ -3,16 +3,22 @@ import { IProject as Project } from './project.types';
 
 export type DayOfWeek = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
 
+export interface CyclicTaskAssignee {
+    userId: number;
+    user: IUser;
+}
+
 export interface CyclicTask {
     id: number;
     title: string;
     description?: string;
     dayOfWeek: DayOfWeek;
     deadline: string; // Время в формате HH:mm
+    deadlineDay?: DayOfWeek; // День недели, на который ставится срок задачи
     projectId: number;
     project: Project;
     assigneeIds: number[];
-    assignees: IUser[];
+    assignees: CyclicTaskAssignee[];
     isActive: boolean;
     createdAt: Date;
     updatedAt: Date;
@@ -25,6 +31,7 @@ export interface CyclicTaskForm {
     description?: string;
     dayOfWeek: DayOfWeek;
     deadline: string; // Время в формате HH:mm
+    deadlineDay?: DayOfWeek; // День недели срока задачи
     projectId: number;
     assigneeIds: number[];
     isActive?: boolean;
@@ -35,6 +42,7 @@ export interface CreateCyclicTaskRequest {
     description?: string;
     dayOfWeek: DayOfWeek;
     deadline: string;
+    deadlineDay?: DayOfWeek;
     projectId: number;
     assigneeIds: number[];
 }
@@ -44,6 +52,7 @@ export interface UpdateCyclicTaskRequest {
     description?: string;
     dayOfWeek?: DayOfWeek;
     deadline?: string;
+    deadlineDay?: DayOfWeek;
     projectId?: number;
     assigneeIds?: number[];
     isActive?: boolean;

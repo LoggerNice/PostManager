@@ -87,8 +87,8 @@ export async function executeCyclicTasks() {
 // Создание задачи на основе цикличной задачи
 async function createTaskFromCyclic(cyclicTask: any) {
     try {
-        // Вычисляем дедлайн на основе времени выполнения (на сегодняшний день)
-        const deadline = calculateDeadline(cyclicTask.deadline);
+        // Вычисляем дедлайн на основе настроек
+        const deadline = calculateDeadline(cyclicTask.deadline, cyclicTask.deadlineDay as DayOfWeek | null);
 
         // Получаем ID всех исполнителей
         const assigneeIds = cyclicTask.assignees.map((ar: any) => ar.user.id);
@@ -139,17 +139,42 @@ function isTimeToCreate(creationTime: string, currentTime: string): boolean {
     return currentTime >= creationTime;
 }
 
-// Вычисление дедлайна на основе времени выполнения
-function calculateDeadline(deadlineTime: string): Date {
-    const today = new Date();
+// Вычисление дедлайна на основе времени выполнения и опционального дня срока
+function calculateDeadline(deadlineTime: string, deadlineDay: DayOfWeek | null): Date {
+    const now = new Date();
     const [hours, minutes] = deadlineTime.split(':').map(Number);
-    
-    const deadline = new Date(today);
+
+    // Базовая дата — сегодня
+    const deadline = new Date(now);
     deadline.setHours(hours, minutes, 0, 0);
-    
-    // Для циклических задач всегда устанавливаем дедлайн на сегодняшний день
-    // независимо от того, прошло время или нет
-    return deadline;
+
+    if (!deadlineDay) {
+        // Если день срока не задан, используем тот же день
+        return deadline;
+    }
+
+    // Если задан конкретный день недели для срока — вычисляем ближайшую дату такого дня (включая сегодня)
+    const targetIndexMap: Record<DayOfWeek, number> = {
+        SUNDAY: 0,
+        MONDAY: 1,
+        TUESDAY: 2,
+        WEDNESDAY: 3,
+        THURSDAY: 4,
+        FRIDAY: 5,
+        SATURDAY: 6
+    };
+
+    const currentDayIndex = new Date().getDay(); // 0..6
+    const targetDayIndex = targetIndexMap[deadlineDay];
+
+    let diff = targetDayIndex - currentDayIndex;
+    if (diff < 0) diff += 7; // следующий такой день
+
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() + diff);
+    targetDate.setHours(hours, minutes, 0, 0);
+
+    return targetDate;
 }
 // Функция для однократного выполнения (для тестирования)
 export async function executeCyclicTasksOnce() {
