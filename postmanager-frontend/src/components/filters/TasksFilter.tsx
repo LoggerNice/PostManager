@@ -38,6 +38,7 @@ const SORT_ORDER_OPTIONS: FilterOption<string>[] = [
   { value: 'desc', label: 'По убыванию' }
 ];
 
+
 export default function TasksFilter({
   filters,
   onFiltersChange,
@@ -64,7 +65,7 @@ export default function TasksFilter({
       label: dept.name
     })), [availableDepartments]
   );
-
+  
   // Преобразуем пользователей в опции для MultiSelect
   // Если это проект - показываем только участников проекта
   // Если это "мои задачи" - показываем всех пользователей, но поле неактивно
@@ -212,7 +213,7 @@ export default function TasksFilter({
   }, [filters, isAssigneeFilterActive]);
 
   return (
-    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 overflow-hidden ${className}`} >
       {/* Заголовок и поиск */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
         {/* Поле поиска */}

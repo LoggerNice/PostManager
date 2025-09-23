@@ -40,7 +40,7 @@ export default function CyclicTaskForm({ task, onClose, users, projects }: Cycli
                 dayOfWeek: task.dayOfWeek,
                 deadline: task.deadline.substring(0, 5), // HH:mm
                 projectId: task.projectId,
-                assigneeIds: task.assigneeIds,
+                assigneeIds: task.assignees.map(a => a.userId),
                 isActive: task.isActive
             });
         }

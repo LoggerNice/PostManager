@@ -24,6 +24,7 @@ import { UserRole } from '@/types';
 import Loader from '@/components/loader/Loader';
 import CyclicTaskForm from './CyclicTaskForm';
 import { toast } from 'react-hot-toast';
+import { formatName } from '../charts/DepartmentTasksExcelExport';
 
 export default function CyclicTasksManagement() {
     const { user } = useAuth();
@@ -168,7 +169,7 @@ export default function CyclicTasksManagement() {
                                                         <strong>Проект:</strong> {task.project.title}
                                                     </span>
                                                     <span>
-                                                        <strong>Исполнители:</strong> {task.assignees.map(assignee => assignee.name).join(', ')}
+                                                        <strong>Исполнители:</strong> {task.assignees.map(assignee => formatName(assignee.user.name)).join(', ')}
                                                     </span>
                                                 </div>
                                                 {task.description && (

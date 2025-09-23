@@ -28,19 +28,19 @@ export function CustomMultiSelect({
 
     // Получаем выбранные опции
     const selectedOptions = useMemo(() => {
-        return options.filter(option => value.includes(option.value));
+        return options.filter(option => value?.includes(option.value));
     }, [options, value]);
 
     // Фильтруем опции по поисковому запросу и исключаем уже выбранные
     const filteredOptions = useMemo(() => {
         // Сначала исключаем уже выбранные опции
-        const unselectedOptions = options.filter(option => !value.includes(option.value));
+        const unselectedOptions = options.filter(option => !value?.includes(option.value));
         
         // Затем фильтруем по поисковому запросу
         if (!searchTerm.trim()) return unselectedOptions;
         
         return unselectedOptions.filter(option =>
-            option.label.toLowerCase().includes(searchTerm.toLowerCase())
+            option.label.toLowerCase()?.includes(searchTerm.toLowerCase())
         );
     }, [options, searchTerm, value]);
 
@@ -104,7 +104,7 @@ export function CustomMultiSelect({
 
     // Обработчик изменения значения
     const handleToggleOption = (optionValue: number) => {
-        const newValue = value.includes(optionValue)
+        const newValue = value?.includes(optionValue)
             ? value.filter(v => v !== optionValue)
             : [...value, optionValue];
         
@@ -237,7 +237,7 @@ export function CustomMultiSelect({
                     >
                         {filteredOptions.length > 0 ? (
                             filteredOptions.map((option) => {
-                                const isSelected = value.includes(option.value);
+                                const isSelected = value?.includes(option.value);
                                 
                                 return (
                                     <div

@@ -8,14 +8,14 @@ async function createConnectionCheckTask() {
 
         // Проверяем существование проекта "Прочее" с ID 3
         const project = await prisma.project.findUnique({
-            where: { id: 3 },
+            where: { id: 17 },
             include: {
                 users: true // Включаем пользователей проекта
             }
         });
 
         if (!project) {
-            console.error('❌ Проект с ID 3 не найден');
+            console.error('❌ Проект с ID 17 не найден');
             return;
         }
 
@@ -48,7 +48,7 @@ async function createConnectionCheckTask() {
                     priority: 'HIGH',
                     status: 'IN_PROGRESS',
                     taskType: 'OTHER',
-                    projectId: 3, // Проект "Прочее"
+                    projectId: 17, // Проект "Прочее"
                     creatorId: creator.id,
                     assigneeId: creator.id,
                     deadline: getNextFridayDeadline(), // Дедлайн на пятницу до 10:00
@@ -74,7 +74,7 @@ async function createConnectionCheckTask() {
                         priority: 'HIGH',
                         status: 'IN_PROGRESS',
                         taskType: 'OTHER',
-                        projectId: 3, // Проект "Прочее"
+                        projectId: 17, // Проект "Прочее"
                         creatorId: creator.id,
                         assigneeId: user.id,
                         deadline: getNextFridayDeadline(), // Дедлайн на пятницу до 10:00
@@ -115,7 +115,7 @@ function getNextFridayDeadline(): Date {
     
     const friday = new Date(now);
     friday.setDate(now.getDate() + daysUntilFriday);
-    friday.setHours(10, 0, 0, 0); // 10:00:00.000
+    friday.setHours(11, 0, 0, 0); // 10:00:00.000
     
     return friday;
 }
