@@ -38,9 +38,18 @@ export function getNetworkConfig(): NetworkConfig {
     apiUrl = process.env.NEXT_PUBLIC_API_URL;
     wsUrl = process.env.NEXT_PUBLIC_WS_URL;
   } else if (isLocal) {
-    // Локальная разработка
-    apiUrl = 'http://localhost:3045';
-    wsUrl = 'http://localhost:3045';
+    // Локальная разработка - используем прокси Next.js
+    const useProxy = process.env.NEXT_PUBLIC_USE_PROXY !== 'false'; // по умолчанию true
+    
+    if (useProxy) {
+      // Используем локальные пути через Next.js прокси
+      apiUrl = '/api';
+      wsUrl = 'ws://localhost:3045';
+    } else {
+      // Прямое подключение к backend
+      apiUrl = 'http://localhost:3045';
+      wsUrl = 'ws://localhost:3045';
+    }
   } else {
     // Сетевое развертывание
     apiUrl = `${protocol}//${hostname}:${backendPort}`;
@@ -75,14 +84,17 @@ export function getWebSocketUrl(): string {
  */
 export function logNetworkConfig(): void {
   const config = getNetworkConfig();
+  const useProxy = process.env.NEXT_PUBLIC_USE_PROXY !== 'false';
   console.group('🌐 Network Configuration');
   console.log('Environment:', process.env.NODE_ENV || 'development');
   console.log('Hostname:', config.hostname);
   console.log('Protocol:', config.protocol);
   console.log('Is Localhost:', config.isLocalhost);
+  console.log('Use Proxy:', useProxy);
   console.log('API URL:', config.apiUrl);
   console.log('WebSocket URL:', config.wsUrl);
   console.log('Backend Port:', process.env.NEXT_PUBLIC_BACKEND_PORT || '3045');
+  console.log('Proxy Environment Variable:', process.env.NEXT_PUBLIC_USE_PROXY || 'not set (default: true)');
   console.groupEnd();
 }
 

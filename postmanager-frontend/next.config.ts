@@ -1,7 +1,41 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    devIndicators: false
+    devIndicators: false,
+    
+    // Настройка проксирования для статических файлов
+    async rewrites() {
+        return [
+            {
+                // Проксирование загрузки файлов
+                source: '/uploads/:path*',
+                destination: 'http://localhost:3045/uploads/:path*'
+            }
+        ];
+    },
+    
+    // Настройка headers для CORS
+    async headers() {
+        return [
+            {
+                source: '/api/:path*',
+                headers: [
+                    {
+                        key: 'Access-Control-Allow-Origin',
+                        value: '*'
+                    },
+                    {
+                        key: 'Access-Control-Allow-Methods',
+                        value: 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+                    },
+                    {
+                        key: 'Access-Control-Allow-Headers',
+                        value: 'Content-Type, Authorization'
+                    }
+                ]
+            }
+        ];
+    }
 };
 
 export default nextConfig;

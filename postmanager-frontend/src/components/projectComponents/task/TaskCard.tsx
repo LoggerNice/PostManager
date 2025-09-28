@@ -57,7 +57,7 @@ export default function TaskCard({ item, columnId, handleDeleteTask, onTaskUpdat
     parseInt(item.id),
     {
       skip: !item.id,
-      pollingInterval: 10000, // Обновляем каждые 10 секунд
+      // Убираем polling для TaskCard - обновление не критично
       refetchOnMountOrArgChange: true
     }
   );

@@ -7,10 +7,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/app.js",
-    "dev": "nodemon",
-    "init:departments": "node dist/scripts/initDepartments.js",
-    "connection-check:once": "node dist/scripts/createConnectionCheckTask.js --once",
-    "connection-check:cron": "node dist/scripts/createConnectionCheckTask.js"
+    "dev": "nodemon"
   },
   "keywords": [],
   "author": "",
@@ -24,8 +21,10 @@
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "http-proxy-middleware": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
+    "node-cron": "^4.2.1",
     "prisma": "^6.7.0",
     "socket.io": "^4.8.1"
   },

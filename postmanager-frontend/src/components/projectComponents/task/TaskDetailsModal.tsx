@@ -81,7 +81,7 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
     task?.id ? parseInt(task.id) : 0,
     { 
       skip: !task?.id || !visible,
-      pollingInterval: visible ? 5000 : 0, // Уменьшаем интервал для более частого обновления
+      // Убираем polling - будем обновлять через WebSocket события
       refetchOnMountOrArgChange: true
     }
   );
@@ -101,12 +101,12 @@ export default function TaskDetailsModal({ task, visible, onClose, onTaskUpdate 
   const [uploadFile] = useUploadFileMutation();
 
   // Получаем статистику просмотров для всех комментариев одним запросом
-  // Статистика обновляется автоматически каждые 5 секунд через polling
+  // Статистика обновляется при изменении комментариев
   const { data: allViewStats = [] } = useGetCommentViewStatsQuery(
     { commentIds: comments.map(comment => comment.id) },
     { 
       skip: !comments.length || !visible,
-      pollingInterval: 5000, // Обновление каждые 5 секунд
+      // Убираем polling - обновляем только при изменении комментариев
       refetchOnMountOrArgChange: true
     }
   );

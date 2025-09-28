@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "dev:https": "next dev --turbopack --experimental-https",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next dev --experimental-https"
   },
   "dependencies": {
     "@fullcalendar/daygrid": "^6.1.18",

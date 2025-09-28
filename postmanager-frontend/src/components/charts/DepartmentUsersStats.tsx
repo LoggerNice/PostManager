@@ -82,7 +82,7 @@ export default function DepartmentUsersStats({ selectedWeek }: DepartmentUsersSt
                     if (!task.createdAt) return false;
                     
                     const taskDate = new Date(task.createdAt);
-                    return taskDate >= weekStart && taskDate <= weekEnd;
+                    return taskDate <= weekEnd;
                 });
             }
 

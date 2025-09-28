@@ -62,12 +62,10 @@ export class WebSocketServer {
     if (nodeEnv === 'development') {
       // В режиме разработки разрешаем localhost и сетевой IP
       return [
-        "http://localhost:3000",
-        "http://localhost:3001", 
+        "htts://localhost:3000",
+        "http://localhost:3045", 
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        `http://${serverIP}:${frontendPort}`,
-        `http://${serverIP}:3001`
+        "http://127.0.0.1:3045",
       ];
     } else {
       // В продакшене разрешаем только сетевой IP

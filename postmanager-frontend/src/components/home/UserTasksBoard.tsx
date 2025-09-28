@@ -300,14 +300,9 @@ export default function UserTasksBoard() {
   return (
     <div className="h-full flex flex-col">
       <div className="ml-6 mb-6 flex-shrink-0">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Мои задачи
-          </h2>
-        </div>
-        <p className="text-gray-600 dark:text-gray-400">
-          Задачи по всем проектам, где вы являетесь исполнителем
-        </p>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Мои задачи
+        </h2>
       </div>
 
       {/* Фильтры задач */}
