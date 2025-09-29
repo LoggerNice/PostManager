@@ -7,9 +7,13 @@ const nextConfig: NextConfig = {
     async rewrites() {
         return [
             {
+                source: '/api/:path*',
+                destination: 'http://172.17.118.38:3045/:path*'
+            },
+            {
                 // Проксирование загрузки файлов
                 source: '/uploads/:path*',
-                destination: 'http://localhost:3045/uploads/:path*'
+                destination: 'http://172.17.118.38:3045/uploads/:path*'
             }
         ];
     },

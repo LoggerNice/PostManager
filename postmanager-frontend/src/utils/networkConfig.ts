@@ -24,42 +24,42 @@ export function isLocalhost(): boolean {
  * Получает текущую конфигурацию сети
  */
 export function getNetworkConfig(): NetworkConfig {
-  const hostname = typeof window !== 'undefined' ? window.location.hostname : '172.17.118.38';
-  const protocol = typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'https:' : 'http:';
-  const isLocal = isLocalhost();
-  
+  // На сервере (SSR) — используем прямой URL (но это не влияет на клиентские fetch-запросы)
+  if (typeof window === 'undefined') {
+    const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || '3045';
+    return {
+      apiUrl: `http://172.17.118.38:${backendPort}`,
+      wsUrl: `ws://172.17.118.38:${backendPort}`,
+      isLocalhost: false,
+      hostname: '172.17.118.38',
+      protocol: 'http:'
+    };
+  }
+
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  const isDev = process.env.NODE_ENV === 'development';
   const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || '3045';
-  
+  const useProxy = isDev && process.env.NEXT_PUBLIC_USE_PROXY !== 'false';
+
   let apiUrl: string;
   let wsUrl: string;
 
   if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_WS_URL) {
-    // Используем переменные окружения если они заданы
     apiUrl = process.env.NEXT_PUBLIC_API_URL;
     wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-  } else if (isLocal) {
-    // Локальная разработка - используем прокси Next.js
-    const useProxy = process.env.NEXT_PUBLIC_USE_PROXY !== 'false'; // по умолчанию true
-    
-    if (useProxy) {
-      // Используем локальные пути через Next.js прокси
-      apiUrl = '/api';
-      wsUrl = 'ws://localhost:3045';
-    } else {
-      // Прямое подключение к backend
-      apiUrl = 'http://localhost:3045';
-      wsUrl = 'ws://localhost:3045';
-    }
+  } else if (useProxy) {
+    apiUrl = '/api';
+    wsUrl = `ws://${hostname}:${backendPort}`;
   } else {
-    // Сетевое развертывание
     apiUrl = `${protocol}//${hostname}:${backendPort}`;
-    wsUrl = `${protocol}//${hostname}:${backendPort}`;
+    wsUrl = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:${backendPort}`;
   }
 
   return {
     apiUrl,
     wsUrl,
-    isLocalhost: isLocal,
+    isLocalhost: hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1',
     hostname,
     protocol
   };

@@ -27,7 +27,7 @@ const wsServer = new WebSocketServer(server);
 setWebSocketServer(wsServer);
 
 app.use(cors({
-  origin: ["https://localhost:3000", "http://localhost:3001", "http://172.17.118.38:3000", "http://172.17.118.38:3001"],
+  origin: ["https://localhost:3000", "http://localhost:3001", "https://172.17.118.38:3000", "http://172.17.118.38:3001"],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
