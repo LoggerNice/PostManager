@@ -8,12 +8,12 @@ const nextConfig: NextConfig = {
         return [
             {
                 source: '/api/:path*',
-                destination: 'http://172.17.118.38:3045/:path*'
+                destination: 'http://127.0.0.1:3045/:path*'
             },
             {
                 // Проксирование загрузки файлов
                 source: '/uploads/:path*',
-                destination: 'http://172.17.118.38:3045/uploads/:path*'
+                destination: 'http://127.0.0.1:3045/uploads/:path*'
             }
         ];
     },

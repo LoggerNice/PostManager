@@ -24,37 +24,24 @@ export function isLocalhost(): boolean {
  * Получает текущую конфигурацию сети
  */
 export function getNetworkConfig(): NetworkConfig {
-  // На сервере (SSR) — используем прямой URL (но это не влияет на клиентские fetch-запросы)
   if (typeof window === 'undefined') {
-    const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || '3045';
+    const host = 'localhost';
+    const protocol = 'https:';
     return {
-      apiUrl: `http://172.17.118.38:${backendPort}`,
-      wsUrl: `ws://172.17.118.38:${backendPort}`,
-      isLocalhost: false,
-      hostname: '172.17.118.38',
-      protocol: 'http:'
+      apiUrl: `https://localhost:3045`,
+      wsUrl: `wss://localhost:3045`,
+      isLocalhost: true,
+      hostname: host,
+      protocol
     };
   }
 
   const hostname = window.location.hostname;
   const protocol = window.location.protocol;
-  const isDev = process.env.NODE_ENV === 'development';
-  const backendPort = process.env.NEXT_PUBLIC_BACKEND_PORT || '3045';
-  const useProxy = isDev && process.env.NEXT_PUBLIC_USE_PROXY !== 'false';
+  const backendPort = '3045';
 
-  let apiUrl: string;
-  let wsUrl: string;
-
-  if (process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_WS_URL) {
-    apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-  } else if (useProxy) {
-    apiUrl = '/api';
-    wsUrl = `ws://${hostname}:${backendPort}`;
-  } else {
-    apiUrl = `${protocol}//${hostname}:${backendPort}`;
-    wsUrl = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:${backendPort}`;
-  }
+  const apiUrl = `${protocol}//${hostname}:${backendPort}`;
+  const wsUrl = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:${backendPort}`;
 
   return {
     apiUrl,
@@ -84,17 +71,13 @@ export function getWebSocketUrl(): string {
  */
 export function logNetworkConfig(): void {
   const config = getNetworkConfig();
-  const useProxy = process.env.NEXT_PUBLIC_USE_PROXY !== 'false';
   console.group('🌐 Network Configuration');
   console.log('Environment:', process.env.NODE_ENV || 'development');
   console.log('Hostname:', config.hostname);
   console.log('Protocol:', config.protocol);
   console.log('Is Localhost:', config.isLocalhost);
-  console.log('Use Proxy:', useProxy);
   console.log('API URL:', config.apiUrl);
   console.log('WebSocket URL:', config.wsUrl);
-  console.log('Backend Port:', process.env.NEXT_PUBLIC_BACKEND_PORT || '3045');
-  console.log('Proxy Environment Variable:', process.env.NEXT_PUBLIC_USE_PROXY || 'not set (default: true)');
   console.groupEnd();
 }
 

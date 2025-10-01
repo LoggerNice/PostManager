@@ -56,18 +56,18 @@ export class WebSocketServer {
 
   private getAllowedOrigins(): string[] | boolean {
     const nodeEnv = process.env.NODE_ENV || 'development';
-    const serverIP = process.env.SERVER_IP || '172.17.118.38';
+    const serverIP = process.env.SERVER_IP || 'localhost';
     const frontendPort = process.env.FRONTEND_PORT || '3000';
     
     if (nodeEnv === 'development') {
       // В режиме разработки разрешаем localhost и сетевой IP
       return [
-        "https://localhost:3000",
-        "https://172.17.118.38:3000",
-        "http://172.17.118.38:3045",
-        "http://localhost:3045", 
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3045",
+        'http://localhost:3000',
+        'https://localhost:3000',
+        'http://localhost:3001',
+        'https://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001'
       ];
     } else {
       // В продакшене разрешаем только сетевой IP

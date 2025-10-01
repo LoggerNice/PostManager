@@ -1,7 +1,11 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { createServer } from 'http';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createServer as createHTTPServer } from 'http';
+import { createServer as createHTTPSServer } from 'https';
 
 import * as userController from './controllers/userController.js';
 import * as departmentController from './controllers/departmentController.js';
@@ -20,14 +24,44 @@ import { startCronJobs, stopCronJobs } from './utils/cronScheduler.js';
 dotenv.config();
 
 const app = express();
-const server = createServer(app);
+
+// Создаем HTTP или HTTPS сервер в зависимости от наличия сертификатов
+let server: any;
+
+// ESM-совместимое определение __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Пути к сертификатам по умолчанию: ../cert/localhost-key.pem и ../cert/localhost-cert.pem
+const defaultKeyPath = path.resolve(__dirname, '../cert/key.pem');
+const defaultCertPath = path.resolve(__dirname, '../cert/cert.pem');
+
+const sslKeyPath = process.env.SSL_KEY_PATH || defaultKeyPath;
+const sslCertPath = process.env.SSL_CERT_PATH || defaultCertPath;
+
+if (fs.existsSync(sslKeyPath) && fs.existsSync(sslCertPath)) {
+  const key = fs.readFileSync(sslKeyPath);
+  const cert = fs.readFileSync(sslCertPath);
+  server = createHTTPSServer({ key, cert }, app);
+  console.log(`HTTPS сервер включен`);
+} else {
+  server = createHTTPServer(app);
+  console.log('🌐 HTTPS сертификаты не найдены. Запуск в режиме HTTP');
+}
 
 // Инициализация WebSocket сервера
 const wsServer = new WebSocketServer(server);
 setWebSocketServer(wsServer);
 
 app.use(cors({
-  origin: ["https://localhost:3000", "http://localhost:3001", "https://172.17.118.38:3000", "http://172.17.118.38:3001"],
+  origin: [
+    'http://localhost:3000',
+    'https://localhost:3000',
+    'http://localhost:3001',
+    'https://localhost:3001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
