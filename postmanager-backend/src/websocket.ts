@@ -66,8 +66,12 @@ export class WebSocketServer {
         'https://localhost:3000',
         'http://localhost:3001',
         'https://localhost:3001',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:3001'
+        'http://172.17.118.38:3000',
+        'https://172.17.118.38:3000',
+        'http://172.17.118.38:3001',
+        'https://172.17.118.38:3001',
+        'https://task.stc:3000',
+        'https://task.stc:3001',
       ];
     } else {
       // В продакшене разрешаем только сетевой IP
