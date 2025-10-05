@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Droppable, Draggable, DroppableProvided, DroppableStateSnapshot, DraggableProvided, DraggableStateSnapshot } from '@hello-pangea/dnd';
 import TaskCard from './TaskCard';
+import VirtualizedTaskList from './VirtualizedTaskList';
 import TaskModal from './TaskModal';
 import { Column as ColumnType } from '../../../types';
 import { Task, TaskPriority, TaskType } from '@/types/task.types';
@@ -88,30 +89,16 @@ export default function Column({
       </div>
       <Droppable droppableId={columnId}>
         {(provided: DroppableProvided, snapshot: DroppableStateSnapshot) => (
-          <div
-            {...provided.droppableProps}
-            ref={provided.innerRef}
-            className={`space-y-2 flex-1 overflow-y-auto custom-scrollbar ${
-              snapshot.isDraggingOver ? 'bg-gray-700 bg-opacity-50 rounded-lg' : ''
-            }`}
-          >
-            {column.items.map((item, idx) => (
-              <Draggable key={`${columnId}-${item.id}-${idx}`} draggableId={String(item.id)} index={idx}>
-                {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
-                  <TaskCard
-                    item={item}
-                    columnId={columnId}
-                    handleDeleteTask={handleDeleteTask}
-                    onTaskUpdate={onTaskUpdate}
-                    provided={provided}
-                    snapshot={snapshot}
-                    showProjectTitle={showProjectTitle}
-                  />
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
-          </div>
+          <VirtualizedTaskList
+            columnId={columnId}
+            items={column.items as unknown as Task[]}
+            provided={provided}
+            snapshot={snapshot}
+            onDelete={handleDeleteTask}
+            onTaskUpdate={onTaskUpdate}
+            showProjectTitle={showProjectTitle}
+            itemSize={132}
+          />
         )}
       </Droppable>
 

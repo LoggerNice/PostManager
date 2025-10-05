@@ -7,8 +7,17 @@ import bcrypt from 'bcrypt';
 export const getUsers = async (req: Request, res: Response): Promise<void> => {
     try {
         const users = await prisma.user.findMany({
-            include: {
-                department: true
+            select: {
+                id: true,
+                login: true,
+                name: true,
+                role: true,
+                departmentId: true,
+                createdAt: true,
+                updatedAt: true,
+                department: {
+                    select: { id: true, name: true }
+                }
             }
         });
 
@@ -25,11 +34,20 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 
 export const getUserById = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { userId } = req.params;
+    const { userId } = req.params;
         const user = await prisma.user.findUnique({ 
             where: { id: parseInt(userId) },
-            include: {
-                department: true
+            select: {
+                id: true,
+                login: true,
+                name: true,
+                role: true,
+                departmentId: true,
+                createdAt: true,
+                updatedAt: true,
+                department: {
+                    select: { id: true, name: true }
+                }
             }
         });
         if (!user) {
@@ -174,8 +192,15 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
                     departmentId: departmentId ? parseInt(departmentId) : undefined,
                     password: hashedNewPassword
                 },
-                include: {
-                    department: true
+                select: {
+                    id: true,
+                    login: true,
+                    name: true,
+                    role: true,
+                    departmentId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    department: { select: { id: true, name: true } }
                 }
             });
 
@@ -188,8 +213,15 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
                     name, 
                     departmentId: departmentId ? parseInt(departmentId) : undefined
                 },
-                include: {
-                    department: true
+                select: {
+                    id: true,
+                    login: true,
+                    name: true,
+                    role: true,
+                    departmentId: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    department: { select: { id: true, name: true } }
                 }
             });
 

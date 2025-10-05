@@ -73,7 +73,19 @@ export const getDepartmentUsers = async (req: Request, res: Response): Promise<v
         const { departmentId } = req.params;
         const department = await prisma.department.findUnique({
             where: { id: parseInt(departmentId) },
-            include: { users: true },
+            include: { 
+                users: {
+                    select: {
+                        id: true,
+                        login: true,
+                        name: true,
+                        role: true,
+                        departmentId: true,
+                        createdAt: true,
+                        updatedAt: true
+                    }
+                } 
+            },
         });
         if (!department) {
             res.status(404).json({ message: 'Отдел не найден' });

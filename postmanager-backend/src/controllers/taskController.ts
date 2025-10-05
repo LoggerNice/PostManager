@@ -118,6 +118,56 @@ const STATUS_DISPLAY_TEXT: Record<TaskStatus, string> = {
     CANCELLED: 'Отменено'
 };
 
+// Узкий select для списков задач (минимально необходимые поля для UI)
+const TASK_LIST_SELECT = {
+    id: true,
+    title: true,
+    description: true,
+    priority: true,
+    status: true,
+    taskType: true,
+    projectId: true,
+    creatorId: true,
+    createdAt: true,
+    updatedAt: true,
+    deadline: true,
+    order: true,
+    project: {
+        select: {
+            id: true,
+            title: true
+        }
+    },
+    creator: {
+        select: {
+            id: true,
+            name: true,
+            department: {
+                select: {
+                    id: true,
+                    name: true
+                }
+            }
+        }
+    },
+    assignees: {
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    department: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    }
+                }
+            }
+        }
+    }
+} as const;
+
 // Утилиты валидации
 const validateTaskId = (taskId: string): number => {
     const id = parseInt(taskId);
@@ -424,11 +474,12 @@ export const getUserTasks = async (req: Request, res: Response): Promise<void> =
                     }
                 }
             },
-            include: TASK_INCLUDE_CONFIG,
+            select: TASK_LIST_SELECT,
             orderBy: getTaskOrderBy()
         });
 
         res.json(tasks);
+        console.log(tasks);
     } catch (error) {
         console.error('Ошибка при получении задач пользователя:', error);
         res.status(500).json({ message: 'Ошибка при получении задач пользователя' });
