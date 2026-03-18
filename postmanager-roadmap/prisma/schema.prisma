@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Roadmap {
+  id        String        @id @default(uuid())
+  key       String        @unique
+  title     String        @default("Roadmap")
+  nodes     RoadmapNode[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model RoadmapNode {
+  id          String        @id @default(uuid())
+  roadmapId   String
+  parentId    String?
+  title       String        @default("Введите текст")
+  description String?
+  x           Float         @default(0)
+  y           Float         @default(0)
+
+  roadmap     Roadmap       @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  parent      RoadmapNode?  @relation("RoadmapNodeToChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children    RoadmapNode[] @relation("RoadmapNodeToChildren")
+  files       RoadmapFile[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([roadmapId])
+  @@index([parentId])
+}
+
+model RoadmapFile {
+  id           String      @id @default(uuid())
+  nodeId       String
+  originalName String
+  storedName   String
+  mime         String
+  size         Int
+  url          String
+
+  node         RoadmapNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime    @default(now())
+
+  @@index([nodeId])
+}
+

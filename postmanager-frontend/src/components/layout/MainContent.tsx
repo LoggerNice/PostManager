@@ -1,6 +1,7 @@
 'use client';
 
 import { useSidebar } from '@/contexts/SidebarContext';
+import { usePathname } from 'next/navigation';
 
 interface MainContentProps {
   children: React.ReactNode;
@@ -8,6 +9,8 @@ interface MainContentProps {
 
 export default function MainContent({ children }: MainContentProps) {
   const { collapsed } = useSidebar();
+  const pathname = usePathname();
+  const isRoadmap = pathname === '/roadmap' || pathname.startsWith('/roadmap/');
 
   return (
     <main 
@@ -15,9 +18,11 @@ export default function MainContent({ children }: MainContentProps) {
         collapsed ? 'ml-16' : 'ml-64'
       }`}
     >
-      <div className="container mx-auto px-4 my-6">
-        {children}
-      </div>
+      {isRoadmap ? (
+        <div className="w-full h-[calc(100vh-0px)]">{children}</div>
+      ) : (
+        <div className="container mx-auto px-4 my-6">{children}</div>
+      )}
     </main>
   );
 } 

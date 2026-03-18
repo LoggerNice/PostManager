@@ -18,7 +18,8 @@ import {
     PlusIcon, 
     UsersIcon, 
     ChartBarIcon,
-    CogIcon
+    CogIcon,
+    QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 import { useGetUserProjectsQuery } from '@/store/api/project.api';
 import { getCookie } from '@/utils/cookie';
@@ -170,16 +171,6 @@ export default function Sidebar() {
 
                 {/* Профиль и выход */}
                 <div className="p-2 flex flex-col gap-2 mt-auto">
-                    <Link
-                        key={'Тренажер'}
-                        href={PAGE_URL.TRAINER}
-                        className={`flex items-center ${collapsed ? 'justify-center' : ''} p-2 rounded-lg transition-colors ${pathname === PAGE_URL.TRAINER ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
-                        title={collapsed ? 'Тренажер' : undefined}
-                    >
-                        <BeakerIcon className="h-6 w-6" />
-                        {!collapsed && <span className="ml-3">Тренажер</span>}
-                    </Link>
-
                     {/* Админ панель - для администраторов и начальников отделов */}
                     {(userRole === UserRole.ADMIN || userRole === UserRole.MANAGER) && (
                         <Link
@@ -209,6 +200,19 @@ export default function Sidebar() {
                                 <div className={`bg-red-500 rounded-full h-2 w-2 ${collapsed ? 'absolute top-1 right-2' : 'mr-3'}`}></div>
                             )}
                         </button>
+
+                        {/* Roadmap */}
+                        <Link
+                            key={'Roadmap'}
+                            href={PAGE_URL.ROADMAP}
+                            className={`flex items-center ${collapsed ? 'justify-center p-2' : 'justify-between w-full p-2'} rounded-lg transition-colors ${pathname === PAGE_URL.ROADMAP ? 'text-white bg-gray-800' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`}
+                            title={collapsed ? 'Roadmap' : undefined}
+                        >
+                            <div className="flex items-center space-x-3">
+                                <QuestionMarkCircleIcon className="h-6 w-6" />
+                                {!collapsed && <span className="font-medium">Roadmap</span>}
+                            </div>
+                        </Link>
 
                         {/* Профиль */}
                         <div

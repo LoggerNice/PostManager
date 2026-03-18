@@ -3,21 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
     devIndicators: false,
     
-    // Настройка проксирования для статических файлов
-    async rewrites() {
-        return [
-            {
-                source: '/api/:path*',
-                destination: 'http://127.0.0.1:3045/:path*'
-            },
-            {
-                // Проксирование загрузки файлов
-                source: '/uploads/:path*',
-                destination: 'http://127.0.0.1:3045/uploads/:path*'
-            }
-        ];
-    },
-    
     // Настройка headers для CORS
     async headers() {
         return [
