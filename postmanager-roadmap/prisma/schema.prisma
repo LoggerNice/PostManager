@@ -12,6 +12,7 @@ model Roadmap {
   key       String        @unique
   title     String        @default("Roadmap")
   nodes     RoadmapNode[]
+  linkedNodes RoadmapNode[] @relation("RoadmapNodeLinkedRoadmap")
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 }
@@ -29,12 +30,15 @@ model RoadmapNode {
   parent      RoadmapNode?  @relation("RoadmapNodeToChildren", fields: [parentId], references: [id], onDelete: Cascade)
   children    RoadmapNode[] @relation("RoadmapNodeToChildren")
   files       RoadmapFile[]
+  linkedRoadmapKey String?
+  linkedRoadmap Roadmap? @relation("RoadmapNodeLinkedRoadmap", fields: [linkedRoadmapKey], references: [key], onDelete: SetNull)
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@index([roadmapId])
   @@index([parentId])
+  @@index([linkedRoadmapKey])
 }
 
 model RoadmapFile {

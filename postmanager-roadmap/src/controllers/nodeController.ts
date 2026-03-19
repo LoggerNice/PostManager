@@ -106,6 +106,49 @@ export async function patchNode(req: Request, res: Response) {
   return res.json(node);
 }
 
+const linkedRoadmapKeySchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(80)
+  .regex(/^[a-z0-9][a-z0-9-_]*$/i, 'Key must be url-safe');
+
+const linkNodeToRoadmapBodySchema = z.object({
+  linkedRoadmapKey: linkedRoadmapKeySchema.nullable(),
+});
+
+export async function linkNodeToRoadmap(req: Request, res: Response) {
+  const { nodeId } = patchNodeParamsSchema.parse(req.params);
+  const body = linkNodeToRoadmapBodySchema.parse(req.body);
+
+  const existing = await prisma.roadmapNode.findUnique({
+    where: { id: nodeId },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    return res.status(404).json({ error: 'NotFound', message: 'Node not found' });
+  }
+
+  if (body.linkedRoadmapKey !== null) {
+    const roadmap = await prisma.roadmap.findUnique({
+      where: { key: body.linkedRoadmapKey },
+      select: { id: true },
+    });
+
+    if (!roadmap) {
+      return res.status(400).json({ error: 'InvalidRoadmapKey', message: 'Linked roadmap not found' });
+    }
+  }
+
+  const updated = await prisma.roadmapNode.update({
+    where: { id: nodeId },
+    data: { linkedRoadmapKey: body.linkedRoadmapKey },
+  });
+
+  return res.json(updated);
+}
+
 async function collectSubtreeNodeIds(rootId: string): Promise<string[]> {
   const ids: string[] = [];
   const queue: string[] = [rootId];

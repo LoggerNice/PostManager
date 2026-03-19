@@ -14,6 +14,7 @@ export type RoadmapNodeDto = {
   description: string | null;
   x: number;
   y: number;
+  linkedRoadmapKey: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -41,5 +42,13 @@ export type ListRoadmapsResponse = {
 
 export type CreateRoadmapResponse = {
   roadmap: RoadmapDto;
+};
+
+export type RoadmapVersionResponse = {
+  version: string;
+};
+
+export type RoadmapsListVersionResponse = {
+  version: string;
 };
 

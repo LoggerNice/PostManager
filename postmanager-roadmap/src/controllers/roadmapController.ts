@@ -56,6 +56,19 @@ export async function listRoadmaps(_req: Request, res: Response) {
   return res.json({ roadmaps });
 }
 
+export async function getRoadmapsListVersion(_req: Request, res: Response) {
+  const [count, maxUpdatedAt] = await Promise.all([
+    prisma.roadmap.count(),
+    prisma.roadmap.findFirst({
+      select: { updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+    }),
+  ]);
+
+  const version = `${count}|${maxUpdatedAt?.updatedAt.getTime() ?? 0}`;
+  return res.json({ version });
+}
+
 export async function createRoadmap(req: Request, res: Response) {
   const body = createRoadmapBodySchema.parse(req.body);
 
@@ -101,5 +114,45 @@ export async function deleteRoadmap(req: Request, res: Response) {
   });
 
   return res.status(204).send();
+}
+
+export async function getRoadmapVersion(req: Request, res: Response) {
+  const { roadmapId } = roadmapKeySchema.parse(req.params);
+
+  const roadmap = await prisma.roadmap.findUnique({
+    where: { key: roadmapId },
+    select: { id: true, updatedAt: true },
+  });
+
+  if (!roadmap) {
+    return res.status(404).json({ error: 'NotFound', message: 'Roadmap not found' });
+  }
+
+  const [nodesCount, nodesMaxUpdatedAt, filesCount, filesMaxCreatedAt] = await Promise.all([
+    prisma.roadmapNode.count({ where: { roadmapId: roadmap.id } }),
+    prisma.roadmapNode.findFirst({
+      where: { roadmapId: roadmap.id },
+      select: { updatedAt: true },
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.roadmapFile.count({ where: { node: { roadmapId: roadmap.id } } }),
+    prisma.roadmapFile.findFirst({
+      where: { node: { roadmapId: roadmap.id } },
+      select: { createdAt: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+
+  // Version only needs to change when server state changes.
+  // We avoid returning the full roadmap payload for cheap polling.
+  const version = [
+    roadmap.updatedAt.getTime(),
+    nodesCount,
+    nodesMaxUpdatedAt?.updatedAt ? nodesMaxUpdatedAt.updatedAt.getTime() : 0,
+    filesCount,
+    filesMaxCreatedAt?.createdAt ? filesMaxCreatedAt.createdAt.getTime() : 0,
+  ].join('|');
+
+  return res.json({ version });
 }
 

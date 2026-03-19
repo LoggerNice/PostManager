@@ -25,7 +25,10 @@ import {
   useDeleteNodeMutation,
   useDeleteRoadmapMutation,
   useGetRoadmapQuery,
+  useGetRoadmapsListVersionQuery,
+  useGetRoadmapVersionQuery,
   useListRoadmapsQuery,
+  useLinkNodeToRoadmapMutation,
   usePatchNodeMutation,
   usePatchRoadmapMutation,
   useUploadFileMutation,
@@ -102,11 +105,50 @@ export default function RoadmapView() {
     [persistEdgeHandleStore]
   );
 
-  const { data, isLoading, isFetching } = useGetRoadmapQuery({ roadmapId });
-  const { data: listData } = useListRoadmapsQuery();
+  // Fallback на случай, если endpoint "version" недоступен/не отдает изменения.
+  // Тогда делаем реже full polling, чтобы синхронизация между клиентами не ломалась.
+  const [roadmapVersionFailed, setRoadmapVersionFailed] = useState(false);
+  const [roadmapsListVersionFailed, setRoadmapsListVersionFailed] = useState(false);
+
+  const {
+    data,
+    isLoading,
+    isFetching,
+    refetch,
+  } = useGetRoadmapQuery(
+    { roadmapId },
+    {
+      pollingInterval: roadmapVersionFailed ? 30000 : undefined,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    }
+  );
+
+  const { data: versionData, isError: isRoadmapVersionError } = useGetRoadmapVersionQuery(
+    { roadmapId },
+    {
+      pollingInterval: 10000,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+      skip: !roadmapId,
+    }
+  );
+
+  const { data: listData, refetch: refetchRoadmaps } = useListRoadmapsQuery(undefined, {
+    pollingInterval: roadmapsListVersionFailed ? 30000 : undefined,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const { data: roadmapsListVersionData, isError: isRoadmapsListVersionError } = useGetRoadmapsListVersionQuery(undefined, {
+    pollingInterval: 30000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
   const [createNode] = useCreateNodeMutation();
   const [createRoadmap, { isLoading: creatingRoadmap }] = useCreateRoadmapMutation();
   const [patchNode] = usePatchNodeMutation();
+  const [linkNodeToRoadmap] = useLinkNodeToRoadmapMutation();
   const [deleteNode] = useDeleteNodeMutation();
   const [patchRoadmap] = usePatchRoadmapMutation();
   const [deleteRoadmap] = useDeleteRoadmapMutation();
@@ -114,24 +156,6 @@ export default function RoadmapView() {
   const [deleteFile] = useDeleteFileMutation();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const nodeLinksKey = useMemo(() => `roadmap:nodeLinks:${roadmapId}`, [roadmapId]);
-  const nodeLinksRef = useRef<Record<string, string>>({});
-
-  useEffect(() => {
-    try {
-      nodeLinksRef.current = JSON.parse(localStorage.getItem(nodeLinksKey) ?? '{}') as Record<string, string>;
-    } catch {
-      nodeLinksRef.current = {};
-    }
-  }, [nodeLinksKey]);
-
-  const persistNodeLinks = useCallback(() => {
-    try {
-      localStorage.setItem(nodeLinksKey, JSON.stringify(nodeLinksRef.current));
-    } catch {
-      // ignore
-    }
-  }, [nodeLinksKey]);
 
   const fileMap = useMemo(() => groupFilesByNodeId(data?.files ?? []), [data?.files]);
 
@@ -139,6 +163,72 @@ export default function RoadmapView() {
   const [edges, setEdges] = useState<RoadmapFlowEdge[]>([]);
   const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const descDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastRoadmapVersionRef = useRef<string | null>(null);
+  const lastFullRefetchAtRef = useRef<number>(0);
+  const lastRoadmapsListVersionRef = useRef<string | null>(null);
+  const lastRoadmapsListRefetchAtRef = useRef<number>(0);
+
+  useEffect(() => {
+    lastRoadmapVersionRef.current = null;
+    lastFullRefetchAtRef.current = 0;
+    lastRoadmapsListVersionRef.current = null;
+    lastRoadmapsListRefetchAtRef.current = 0;
+    setRoadmapVersionFailed(false);
+    setRoadmapsListVersionFailed(false);
+  }, [roadmapId]);
+
+  useEffect(() => {
+    if (isRoadmapVersionError) setRoadmapVersionFailed(true);
+  }, [isRoadmapVersionError]);
+
+  useEffect(() => {
+    if (isRoadmapsListVersionError) setRoadmapsListVersionFailed(true);
+  }, [isRoadmapsListVersionError]);
+
+  useEffect(() => {
+    const nextVersion = versionData?.version;
+    if (!nextVersion) return;
+
+    // Первая версия приходит после initial GET — не делаем лишний refetch.
+    if (lastRoadmapVersionRef.current === null) {
+      lastRoadmapVersionRef.current = nextVersion;
+      return;
+    }
+
+    if (nextVersion === lastRoadmapVersionRef.current) return;
+    lastRoadmapVersionRef.current = nextVersion;
+
+    // Если пользователь прямо сейчас дебаунсит изменения title/description,
+    // то мы не перетрем серверными данными его локальный ввод.
+    const isDebouncing = Boolean(titleDebounceRef.current || descDebounceRef.current);
+    if (isDebouncing) return;
+
+    // Порог, чтобы при серии быстрых изменений не дергать сервер слишком часто.
+    const now = Date.now();
+    if (now - lastFullRefetchAtRef.current < 3000) return;
+    lastFullRefetchAtRef.current = now;
+
+    refetch();
+  }, [refetch, versionData?.version]);
+
+  useEffect(() => {
+    const nextVersion = roadmapsListVersionData?.version;
+    if (!nextVersion) return;
+
+    if (lastRoadmapsListVersionRef.current === null) {
+      lastRoadmapsListVersionRef.current = nextVersion;
+      return;
+    }
+
+    if (nextVersion === lastRoadmapsListVersionRef.current) return;
+    lastRoadmapsListVersionRef.current = nextVersion;
+
+    const now = Date.now();
+    if (now - lastRoadmapsListRefetchAtRef.current < 5000) return;
+    lastRoadmapsListRefetchAtRef.current = now;
+
+    refetchRoadmaps();
+  }, [refetchRoadmaps, roadmapsListVersionData?.version]);
 
   useEffect(() => {
     const dtos = data?.nodes ?? [];
@@ -154,7 +244,7 @@ export default function RoadmapView() {
         data: {
           ...n.data,
           selected: n.id === selectedId,
-          linkRoadmapKey: nodeLinksRef.current[n.id],
+          linkRoadmapKey: n.data.dto.linkedRoadmapKey ?? undefined,
           onOpenLinkedRoadmap: (key: string) => setActiveRoadmapKey(key),
         },
       })),
@@ -187,10 +277,31 @@ export default function RoadmapView() {
 
     const resp = await createRoadmap({ title: selected.title }).unwrap();
     const key = resp.roadmap.key;
-    nodeLinksRef.current[selected.id] = key;
-    persistNodeLinks();
+
+    // Оптимистично показываем ссылку в этом клиенте
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === selected.id
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                dto: {
+                  ...n.data.dto,
+                  linkedRoadmapKey: key,
+                },
+              },
+            }
+          : n
+      )
+    );
+
+    // Для временных узлов (id вида `temp-*`) связь в БД выставить невозможно.
+    if (!selected.id.startsWith('temp-')) {
+      await linkNodeToRoadmap({ nodeId: selected.id, linkedRoadmapKey: key }).unwrap();
+    }
     setActiveRoadmapKey(key);
-  }, [createRoadmap, persistNodeLinks, selected]);
+  }, [createRoadmap, linkNodeToRoadmap, selected]);
 
   const onRenameActiveRoadmap = useCallback(async () => {
     if (!activeRoadmap) return;
@@ -241,6 +352,7 @@ export default function RoadmapView() {
             description: null,
             x: centerX,
             y: centerY,
+              linkedRoadmapKey: null,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           },
@@ -341,6 +453,7 @@ export default function RoadmapView() {
               description: null,
               x: flowPos.x,
               y: flowPos.y,
+              linkedRoadmapKey: null,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             },

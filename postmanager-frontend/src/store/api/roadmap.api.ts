@@ -3,6 +3,8 @@ import type {
   CreateRoadmapResponse,
   GetRoadmapResponse,
   ListRoadmapsResponse,
+  RoadmapVersionResponse,
+  RoadmapsListVersionResponse,
   RoadmapFileDto,
   RoadmapNodeDto,
 } from '@/types/roadmap';
@@ -16,7 +18,14 @@ export const roadmapApi = createApi({
   endpoints: (builder) => ({
     listRoadmaps: builder.query<ListRoadmapsResponse, void>({
       query: () => `/roadmaps`,
-      providesTags: ['Roadmap'],
+      providesTags: (res) =>
+        res
+          ? [
+              ...res.roadmaps.map((r) => ({ type: 'Roadmap' as const, id: r.key })),
+              // fallback tag to allow full refresh on create/delete
+              { type: 'Roadmap' as const, id: 'LIST' },
+            ]
+          : [{ type: 'Roadmap' as const, id: 'LIST' }],
     }),
     createRoadmap: builder.mutation<CreateRoadmapResponse, { key?: string; title?: string }>({
       query: (body) => ({
@@ -24,7 +33,7 @@ export const roadmapApi = createApi({
         method: 'POST',
         body,
       }),
-      invalidatesTags: ['Roadmap'],
+      invalidatesTags: [{ type: 'Roadmap', id: 'LIST' }],
     }),
     patchRoadmap: builder.mutation<CreateRoadmapResponse, { roadmapId: string; patch: { title?: string } }>({
       query: ({ roadmapId, patch }) => ({
@@ -32,18 +41,26 @@ export const roadmapApi = createApi({
         method: 'PATCH',
         body: patch,
       }),
-      invalidatesTags: ['Roadmap'],
+      invalidatesTags: (_res, _err, arg) => [{ type: 'Roadmap', id: arg.roadmapId }],
     }),
     deleteRoadmap: builder.mutation<void, { roadmapId: string }>({
       query: ({ roadmapId }) => ({
         url: `/roadmaps/${encodeURIComponent(roadmapId)}`,
         method: 'DELETE',
       }),
-      invalidatesTags: ['Roadmap'],
+      invalidatesTags: (_res, _err, arg) => [{ type: 'Roadmap', id: arg.roadmapId }],
     }),
     getRoadmap: builder.query<GetRoadmapResponse, { roadmapId: string }>({
       query: ({ roadmapId }) => `/roadmap/${encodeURIComponent(roadmapId)}`,
       providesTags: (_res, _err, arg) => [{ type: 'Roadmap', id: arg.roadmapId }],
+    }),
+    getRoadmapVersion: builder.query<RoadmapVersionResponse, { roadmapId: string }>({
+      query: ({ roadmapId }) => `/roadmap/${encodeURIComponent(roadmapId)}/version`,
+      providesTags: (_res, _err, arg) => [{ type: 'Roadmap', id: `v:${arg.roadmapId}` }],
+    }),
+    getRoadmapsListVersion: builder.query<RoadmapsListVersionResponse, void>({
+      query: () => `/roadmaps/version`,
+      providesTags: [{ type: 'Roadmap', id: 'LIST_VERSION' }],
     }),
     createNode: builder.mutation<RoadmapNodeDto, { roadmapId: string; parentId?: string | null; title?: string; x: number; y: number }>({
       query: ({ roadmapId, ...body }) => ({
@@ -58,6 +75,14 @@ export const roadmapApi = createApi({
         url: `/nodes/${encodeURIComponent(nodeId)}`,
         method: 'PATCH',
         body: patch,
+      }),
+      invalidatesTags: ['Roadmap'],
+    }),
+    linkNodeToRoadmap: builder.mutation<RoadmapNodeDto, { nodeId: string; linkedRoadmapKey: string | null }>({
+      query: ({ nodeId, linkedRoadmapKey }) => ({
+        url: `/nodes/${encodeURIComponent(nodeId)}/link`,
+        method: 'PATCH',
+        body: { linkedRoadmapKey },
       }),
       invalidatesTags: ['Roadmap'],
     }),
@@ -92,10 +117,13 @@ export const roadmapApi = createApi({
 
 export const {
   useListRoadmapsQuery,
+  useGetRoadmapsListVersionQuery,
   useCreateRoadmapMutation,
   usePatchRoadmapMutation,
   useDeleteRoadmapMutation,
   useGetRoadmapQuery,
+  useGetRoadmapVersionQuery,
+  useLinkNodeToRoadmapMutation,
   useCreateNodeMutation,
   usePatchNodeMutation,
   useDeleteNodeMutation,
