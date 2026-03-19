@@ -210,7 +210,7 @@ export default function Sidebar() {
                         >
                             <div className="flex items-center space-x-3">
                                 <QuestionMarkCircleIcon className="h-6 w-6" />
-                                {!collapsed && <span className="font-medium">Roadmap</span>}
+                                {!collapsed && <span className="font-medium">Библиотека знаний</span>}
                             </div>
                         </Link>
 
