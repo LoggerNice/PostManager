@@ -432,10 +432,15 @@ export default function RoadmapView() {
       const flowPos = rf.current.project(pos);
       const sourceNode = nodes.find((n) => n.id === start.nodeId);
 
-      const tempId = `temp-${Date.now()}`;
-
       const picked =
         sourceNode ? pickHandlesByGeometry({ x: sourceNode.position.x, y: sourceNode.position.y }, { x: flowPos.x, y: flowPos.y }) : null;
+
+      // Если найден handle для соединения с существующим блоком — не создаем новый блок
+      if (picked?.targetHandle) {
+        return;
+      }
+
+      const tempId = `temp-${Date.now()}`;
 
       // Оптимистично создаём новый блок и линию
       setNodes((prev) => [

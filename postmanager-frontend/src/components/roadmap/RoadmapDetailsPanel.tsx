@@ -42,7 +42,7 @@ export default function RoadmapDetailsPanel({
               <div className="space-y-3">
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Наименование блока</div>
-                  <Input value={node.title} onChange={(e) => onChangeTitle(e.target.value)} placeholder="Введите текст" />
+                  <Input value={node.title} onChange={(e) => onChangeTitle(e.target.value)} placeholder="Введите текст" maxLength={100}/>
                 </div>
 
                 <div>
